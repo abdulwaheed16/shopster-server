@@ -1,0 +1,10 @@
+{
+  "watch": ["src"],
+  "ext": "ts,jsonc, env, js, mjs, cjs, json, yml, yaml, toml, md, html, css, scss, sass, less",
+  "exec": "ts-node ./src/server.ts",
+  "delay": "1000",
+  "signal": "SIGTERM",
+  "env": {
+    "NODE_ENV": "development"
+  }
+}
