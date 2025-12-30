@@ -1,0 +1,438 @@
+import  crypto from "crypto";
+import { NextFunction, Request, Response } from "express";
+import {
+  sendCreated,
+  sendPaginated,
+  sendSuccess,
+} from "../../common/utils/response.util";
+import { prisma } from "../../config/database.config";
+import { config } from "../../config/env.config";
+import { productsService } from "../products/products.service";
+import { shopifyService } from "./shopify.service";
+import { storesService } from "./stores.service";
+import {
+  CreateStoreInput,
+  GetStoresQuery,
+  ShopifyAuthQuery,
+  ShopifyCallbackQuery,
+  UpdateStoreInput,
+} from "./stores.validation";
+
+export class StoresController {
+  // Initiate Shopify OAuth --- GET /stores/shopify/auth
+  async initiateShopifyAuth(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
+    try {
+      const { shop } = req.query as unknown as ShopifyAuthQuery;
+
+      // Generate stateless signed state
+      const stateData = {
+        userId: req.user!.id,
+        nonce: crypto.randomBytes(16).toString("hex"),
+        timestamp: Date.now(),
+      };
+
+      const state = this.signState(stateData);
+
+      // Still set cookies as fallback, but don't rely on them
+      const cookieOptions = {
+        signed: true,
+        httpOnly: true,
+        secure: true,
+        sameSite: "none" as const,
+        maxAge: 10 * 60 * 1000,
+      };
+
+      res.cookie("shopify_state", stateData.nonce, cookieOptions);
+      res.cookie("shopify_user_id", req.user!.id, cookieOptions);
+
+      const authUrl = shopifyService.generateAuthUrl(shop, state);
+      console.log("Shopify Auth URL:", authUrl);
+
+      sendSuccess(res, "Auth initiated", { url: authUrl });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // Shopify OAuth Callback --- GET /stores/shopify/callback
+  async shopifyAuthCallback(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
+    try {
+      const query = req.query as unknown as ShopifyCallbackQuery;
+      const { shop, code, state } = query;
+
+      // 1. Verify signed state (Stateless)
+      const decodedState = this.verifyState(state);
+
+      let userId: string | undefined;
+
+      if (decodedState) {
+        userId = decodedState.userId;
+        // Check if state is older than 10 minutes
+        if (Date.now() - decodedState.timestamp > 10 * 60 * 1000) {
+          throw new Error("OAuth state expired.");
+        }
+      } else {
+        // Fallback to cookies for backward compatibility or edge cases
+        const storedState = req.signedCookies.shopify_state;
+        const cookieUserId = req.signedCookies.shopify_user_id;
+
+        // If state is not signed, it might be the nonce from the cookie
+        if (storedState && state === storedState && cookieUserId) {
+          userId = cookieUserId;
+        }
+      }
+
+      if (!userId) {
+        throw new Error("Invalid OAuth state or session expired.");
+      }
+
+      res.clearCookie("shopify_state");
+      res.clearCookie("shopify_user_id");
+
+      // 2. Verify HMAC
+      if (!shopifyService.verifyHmac(query)) {
+        throw new Error("Invalid HMAC signature from Shopify.");
+      }
+
+      // 3. Exchange code for permanent access token
+      const accessToken = await shopifyService.exchangeCodeForToken(shop, code);
+
+      // 4. Upsert store in database
+      const store = await storesService.upsertStoreByShopifyDomain(userId, {
+        name: shop.split(".")[0],
+        storeUrl: `https://${shop}`,
+        shopifyDomain: shop,
+        accessToken,
+      });
+
+      // 5. Register webhooks for product updates
+      await shopifyService.registerWebhooks(shop, accessToken);
+
+      // 6. Trigger initial background sync
+      await storesService.syncStore(store.id, userId);
+
+      // Redirect back to frontend with success
+      const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
+      res.redirect(`${frontendUrl}/stores?status=success&storeId=${store.id}`);
+    } catch (error) {
+      console.error("Shopify callback error:", error);
+      const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
+      res.redirect(
+        `${frontendUrl}/stores?status=error&message=Authentication failed`
+      );
+    }
+  }
+
+  // Shopify Webhook Handler --- POST /stores/shopify/webhooks
+  async handleShopifyWebhook(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
+    try {
+      const topic = req.headers["x-shopify-topic"] as string;
+      const shop = req.headers["x-shopify-shop-domain"] as string;
+      const hmacHeader = req.headers["x-shopify-hmac-sha256"] as string;
+      const data = req.body;
+
+      // 1. Verify HMAC
+      const rawBody = (req as any).rawBody;
+      if (!shopifyService.verifyWebhookHmac(rawBody, hmacHeader)) {
+        console.warn(
+          `🛑 Invalid HMAC for Shopify webhook: ${topic} from ${shop}`
+        );
+        res.status(401).send("Invalid HMAC");
+        return;
+      }
+
+      console.log(`📦 Received Shopify webhook: ${topic} from ${shop}`);
+
+      // 2. Get store details
+      const store = await prisma.store.findFirst({
+        where: { shopifyDomain: shop },
+        include: { user: true },
+      });
+
+      if (!store) {
+        console.warn(`Webhook received for unknown shop: ${shop}`);
+        res.status(200).send(); // Always return 200 to Shopify
+        return;
+      }
+
+      // 2. Process based on topic
+      if (topic === "products/update" || topic === "products/create") {
+        // Trigger a specific sync for this product or re-trigger full sync
+        // For simplicity, we can just trigger a full sync background job
+        await storesService.syncStore(store.id, store.userId);
+      } else if (topic === "products/delete") {
+        const externalId = data.id.toString();
+        await prisma.product.deleteMany({
+          where: {
+            storeId: store.id,
+            externalId,
+          },
+        });
+        console.log(`🗑️ Deleted product ${externalId} from store ${store.id}`);
+      }
+
+      res.status(200).send();
+    } catch (error) {
+      console.error("Webhook processing error:", error);
+      res.status(200).send(); // Always return 200 to Shopify to avoid retries on our processing errors
+    }
+  }
+
+  // Get all stores --- GET /stores
+  async getStores(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
+    try {
+      const userId = req.user!.id;
+      const query: GetStoresQuery = req.query;
+
+      const result = await storesService.getStores(userId, query);
+
+      sendPaginated(res, "Stores fetched successfully", result);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // Get store by ID --- GET /stores/:id
+  async getStoreById(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
+    try {
+      const userId = req.user!.id;
+      const { id } = req.params;
+
+      const store = await storesService.getStoreById(id, userId);
+
+      sendSuccess(res, "Store fetched successfully", store);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // Create store --- POST /stores
+  async createStore(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
+    try {
+      const userId = req.user!.id;
+      const data: CreateStoreInput = req.body;
+
+      const store = await storesService.createStore(userId, data);
+
+      sendCreated(res, "Store created successfully", store);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // Update store --- PUT /stores/:id
+  async updateStore(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
+    try {
+      const userId = req.user!.id;
+      const { id } = req.params;
+      const data: UpdateStoreInput = req.body;
+
+      const store = await storesService.updateStore(id, userId, data);
+
+      sendSuccess(res, "Store updated successfully", store);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // Delete store --- DELETE /stores/:id
+  async deleteStore(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
+    try {
+      const userId = req.user!.id;
+      const { id } = req.params;
+
+      await storesService.deleteStore(id, userId);
+
+      sendSuccess(res, "Store deleted successfully");
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // Sync store --- POST /stores/:id/sync
+  async syncStore(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
+    try {
+      const userId = req.user!.id;
+      const { id } = req.params;
+
+      const result = await storesService.syncStore(id, userId);
+
+      sendSuccess(res, result.message);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // Sync products manually --- POST /stores/:id/sync-products
+  async syncProductsManually(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
+    try {
+      const userId = req.user!.id;
+      const { id } = req.params;
+
+      // 1. Get store and verify ownership
+      const store = await storesService.getStoreById(id, userId);
+
+      if (!store.shopifyDomain || !store.accessToken) {
+        throw new Error("Store is not properly configured for Shopify");
+      }
+
+      // 2. Update sync status
+      await prisma.store.update({
+        where: { id },
+        data: { syncStatus: "SYNCING", lastSyncAt: new Date() },
+      });
+
+      console.log(`🔄 Manually syncing products for store ${id}`);
+
+      // 3. Fetch products from Shopify
+      const shopifyProducts = await shopifyService.fetchProducts(
+        store.shopifyDomain,
+        store.accessToken
+      );
+
+      console.log(`📦 Fetched ${shopifyProducts.length} products from Shopify`);
+
+      // 4. Map and save products
+      const productsToSync = shopifyProducts.map((sp: any) => ({
+        storeId: id,
+        externalId: sp.id.toString(),
+        productSource: "STORE" as const,
+        sourceMetadata: {
+          shopifyProductId: sp.id,
+          shopifyVariantIds: sp.variants.map((v: any) => v.id),
+        },
+        sku: sp.variants[0]?.sku || null,
+        title: sp.title,
+        description: sp.body_html || null,
+        isActive: sp.status === "active",
+        inStock: sp.variants.some(
+          (v: any) =>
+            v.inventory_quantity > 0 || v.inventory_policy === "continue"
+        ),
+        images: sp.images.map((img: any) => ({
+          url: img.src,
+          alt: sp.title,
+          position: img.position,
+        })),
+        variants: sp.variants.map((v: any) => ({
+          id: v.id.toString(),
+          title: v.title,
+          sku: v.sku || null,
+          inStock:
+            v.inventory_quantity > 0 || v.inventory_policy === "continue",
+          options: {},
+        })),
+      }));
+
+      const result = await productsService.bulkCreateProducts(
+        userId,
+        productsToSync
+      );
+
+      // 5. Update sync status to COMPLETED
+      await prisma.store.update({
+        where: { id },
+        data: { syncStatus: "COMPLETED" },
+      });
+
+      console.log(`✅ Successfully synced ${result.count} new products`);
+
+      // 6. Fetch and return products from database
+      const products = await productsService.getProducts(userId, {
+        storeId: id,
+        page: "1",
+        limit: "100",
+      });
+
+      sendSuccess(res, `Synced ${result.count} new products`, {
+        syncResult: result,
+        products: products.data,
+        meta: products.meta,
+      });
+    } catch (error) {
+      console.error("Manual sync error:", error);
+      // Update sync status to FAILED
+      try {
+        await prisma.store.update({
+          where: { id: req.params.id },
+          data: { syncStatus: "FAILED" },
+        });
+      } catch (updateError) {
+        console.error("Failed to update sync status:", updateError);
+      }
+      next(error);
+    }
+  }
+  // Helper to sign state for stateless OAuth
+  private signState(data: any): string {
+    const payload = Buffer.from(JSON.stringify(data)).toString("base64");
+    const signature = crypto
+      .createHmac("sha256", config.server.cookieSecret)
+      .update(payload)
+      .digest("hex");
+    return `${payload}.${signature}`;
+  }
+
+  // Helper to verify signed state
+  private verifyState(state: string): any {
+    try {
+      if (!state || !state.includes(".")) return null;
+
+      const [payload, signature] = state.split(".");
+      if (!payload || !signature) return null;
+
+      const expectedSignature = crypto
+        .createHmac("sha256", config.server.cookieSecret)
+        .update(payload)
+        .digest("hex");
+
+      if (signature !== expectedSignature) return null;
+
+      return JSON.parse(Buffer.from(payload, "base64").toString());
+    } catch (error) {
+      return null;
+    }
+  }
+}
+
+export const storesController = new StoresController();
