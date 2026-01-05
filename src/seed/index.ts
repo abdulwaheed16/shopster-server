@@ -1,5 +1,6 @@
 import { PrismaClient, VariableType } from "@prisma/client";
 import { seedAds } from "./ads.seed";
+import { seedPlans } from "./plans.seed";
 import { seedProducts } from "./products.seed";
 
 const prisma = new PrismaClient();
@@ -442,6 +443,9 @@ async function main() {
     console.log("🚀 Starting database seeding...\n");
 
     // Seed in order of dependencies
+    await seedPlans(); // Creates standard subscription tiers
+    console.log("");
+
     await seedTemplates(); // Creates categories and templates
     console.log("");
 

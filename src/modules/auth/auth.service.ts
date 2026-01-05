@@ -1,3 +1,4 @@
+import { User } from "@prisma/client";
 import crypto from "crypto";
 import { MESSAGES } from "../../common/constants/messages.constant";
 import { UserRole } from "../../common/constants/roles.constant";
@@ -10,23 +11,20 @@ import {
   verifyRefreshToken,
 } from "../../common/utils/jwt.util";
 import { prisma } from "../../config/database.config";
-import { AuthResponse } from "./auth.types";
+import { IAuthService } from "./auth.types";
 import {
-  ChangePasswordInput,
-  LoginInput,
-  RefreshTokenInput,
-  RegisterInput,
-  RequestPasswordResetInput,
-  ResetPasswordInput,
-  VerifyEmailInput,
+  ChangePasswordBody,
+  LoginBody,
+  RefreshTokenBody,
+  RegisterBody,
+  RequestPasswordResetBody,
+  ResetPasswordBody,
+  VerifyEmailBody,
 } from "./auth.validation";
 
-export class AuthService {
+export class AuthService implements IAuthService {
   // Change password for logged-in users
-  async changePassword(
-    userId: string,
-    data: ChangePasswordInput
-  ): Promise<void> {
+  async changePassword(userId: string, data: ChangePasswordBody) {
     // Find user
     const user = await prisma.user.findUnique({
       where: { id: userId },
@@ -57,7 +55,7 @@ export class AuthService {
   }
 
   // Register new user
-  async register(data: RegisterInput): Promise<AuthResponse> {
+  async register(data: RegisterBody) {
     // Check if user already exists
     const existingUser = await prisma.user.findUnique({
       where: { email: data.email },
@@ -72,7 +70,7 @@ export class AuthService {
 
     // Hash password
     const hashedPassword = await hashPassword(data.password);
-    let user;
+    let user: User;
 
     if (existingUser) {
       // Update existing unverified user with new registration info
@@ -124,6 +122,13 @@ export class AuthService {
       user.name || "User"
     );
 
+    // Generate tokens
+    const tokens = generateTokens({
+      userId: user.id,
+      email: user.email,
+      role: user.role as UserRole,
+    });
+
     return {
       user: {
         id: user.id,
@@ -132,11 +137,12 @@ export class AuthService {
         role: user.role,
         emailVerified: user.emailVerified,
       },
+      tokens,
     };
   }
 
   // Login user
-  async login(data: LoginInput): Promise<AuthResponse> {
+  async login(data: LoginBody) {
     // Find user
     const user = await prisma.user.findUnique({
       where: { email: data.email },
@@ -181,9 +187,7 @@ export class AuthService {
   }
 
   // Refresh access token
-  async refreshToken(
-    data: RefreshTokenInput
-  ): Promise<{ accessToken: string }> {
+  async refreshToken(data: RefreshTokenBody) {
     // Verify refresh token
     const decoded = verifyRefreshToken(data.refreshToken);
 
@@ -193,7 +197,7 @@ export class AuthService {
 
     // Check if user still exists
     const user = await prisma.user.findUnique({
-      where: { id: decoded.userId },
+      where: { id: (decoded as any).userId },
     });
 
     if (!user) {
@@ -209,11 +213,12 @@ export class AuthService {
 
     return {
       accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
     };
   }
 
   // Verify email
-  async verifyEmail(data: VerifyEmailInput): Promise<void> {
+  async verifyEmail(data: VerifyEmailBody) {
     // Find verification token
     const verificationToken = await prisma.verificationToken.findUnique({
       where: { token: data.token },
@@ -244,7 +249,7 @@ export class AuthService {
   }
 
   // Request password reset
-  async requestPasswordReset(data: RequestPasswordResetInput): Promise<void> {
+  async requestPasswordReset(data: RequestPasswordResetBody) {
     // Find user
     const user = await prisma.user.findUnique({
       where: { email: data.email },
@@ -286,7 +291,7 @@ export class AuthService {
   }
 
   // Reset password
-  async resetPassword(data: ResetPasswordInput): Promise<void> {
+  async resetPassword(data: ResetPasswordBody) {
     // Find reset token
     const resetToken = await prisma.verificationToken.findUnique({
       where: { token: data.token },

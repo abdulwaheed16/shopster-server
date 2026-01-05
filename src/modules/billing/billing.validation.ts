@@ -1,8 +1,10 @@
 import { z } from "zod";
+import { objectIdSchema } from "../../common/validations/common.validation";
 
 export const createCheckoutSessionSchema = z.object({
   body: z.object({
-    planId: z.string().nonempty("Plan ID is required"),
+    planId: objectIdSchema,
+    interval: z.enum(["MONTHLY", "YEARLY"]).optional(),
     successUrl: z.string().url().optional(),
     cancelUrl: z.string().url().optional(),
   }),
@@ -16,7 +18,7 @@ export const createPortalSessionSchema = z.object({
 
 export const updateCustomPlanSchema = z.object({
   body: z.object({
-    userId: z.string().nonempty("User ID is required"),
+    userId: objectIdSchema,
     credits: z.number().int().min(0, "Credits must be a positive number"),
     storesLimit: z.number().int().min(1, "Stores limit must be at least 1"),
     adminPassword: z
@@ -27,12 +29,12 @@ export const updateCustomPlanSchema = z.object({
   }),
 });
 
-export type CreateCheckoutSessionInput = z.infer<
+export type CreateCheckoutSessionBody = z.infer<
   typeof createCheckoutSessionSchema
 >["body"];
-export type CreatePortalSessionInput = z.infer<
+export type CreatePortalSessionBody = z.infer<
   typeof createPortalSessionSchema
 >["body"];
-export type UpdateCustomPlanInput = z.infer<
+export type UpdateCustomPlanBody = z.infer<
   typeof updateCustomPlanSchema
 >["body"];

@@ -1,23 +1,23 @@
 import { ApiError } from "../../common/errors/api-error";
-import { PaginatedResult } from "../../common/types/pagination.types";
 import { prisma } from "../../config/database.config";
 import {
-  CreateProductInput,
+  CreateProductBody,
   GetProductsQuery,
-  UpdateProductInput,
+  UpdateProductBody,
 } from "./products.validation";
 
-export class ProductsService {
+import { IProductsService } from "./products.types";
+import { Prisma } from "@prisma/client";
+import { calculatePagination } from "../../common/utils/pagination.util";
+
+export class ProductsService implements IProductsService {
   // Get all products for user's stores
-  async getProducts(
-    userId: string,
-    query: GetProductsQuery
-  ): Promise<PaginatedResult<any>> {
+  async getProducts(userId: string, query: GetProductsQuery) {
     const page = parseInt(query.page || "1");
     const limit = parseInt(query.limit || "20");
     const skip = (page - 1) * limit;
 
-    const where: any = {
+    const where: Prisma.ProductWhereInput = {
       store: { userId }, // Only products from user's stores
     };
 
@@ -53,18 +53,10 @@ export class ProductsService {
         orderBy: { createdAt: "desc" },
         include: {
           store: {
-            select: {
-              id: true,
-              name: true,
-              platform: true,
-            },
+            select: { name: true },
           },
           category: {
-            select: {
-              id: true,
-              name: true,
-              slug: true,
-            },
+            select: { name: true },
           },
         },
       }),
@@ -73,14 +65,7 @@ export class ProductsService {
 
     return {
       data: products,
-      meta: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit),
-        hasNextPage: page < Math.ceil(total / limit),
-        hasPrevPage: page > 1,
-      },
+      meta: calculatePagination(total, page, limit),
     };
   }
 
@@ -98,59 +83,47 @@ export class ProductsService {
     });
 
     if (!product) {
-      throw ApiError.notFound("Product not found");
+      throw ApiError.notFound("Product not found or you don't have access");
     }
 
     return product;
   }
 
-  // Create product (for Shopify sync)
-  async createProduct(userId: string, data: CreateProductInput) {
-    // Verify store ownership
+  // Create single product
+  async createProduct(userId: string, data: CreateProductBody) {
+    // 1. Verify store exists and belongs to user
     const store = await prisma.store.findFirst({
-      where: {
-        id: data.storeId,
-        userId,
-      },
+      where: { id: data.storeId, userId },
     });
 
     if (!store) {
-      throw ApiError.notFound("Store not found or unauthorized");
+      throw ApiError.notFound("Store not found or you don't have access");
     }
 
-    // Check for duplicate externalId in this store
-    const existing = await prisma.product.findFirst({
-      where: {
-        storeId: data.storeId,
-        externalId: data.externalId,
-      },
-    });
-
-    if (existing) {
-      throw ApiError.badRequest(
-        `Product with external ID "${data.externalId}" already exists in this store`
-      );
-    }
-
-    const product = await prisma.product.create({
+    // 2. Create product
+    return await prisma.product.create({
       data: {
         ...data,
+        images: data.images as any,
+        variants: data.variants as any,
       },
     });
-
-    return product;
   }
 
   // Update product
-  async updateProduct(id: string, userId: string, data: UpdateProductInput) {
+  async updateProduct(id: string, userId: string, data: UpdateProductBody) {
+    // 1. Verify existence and ownership
     await this.getProductById(id, userId);
 
-    const updated = await prisma.product.update({
+    // 2. Update
+    return await prisma.product.update({
       where: { id },
-      data,
+      data: {
+        ...data,
+        images: data.images ? (data.images as any) : undefined,
+        variants: data.variants ? (data.variants as any) : undefined,
+      },
     });
-
-    return updated;
   }
 
   // Delete product
@@ -162,91 +135,75 @@ export class ProductsService {
     });
   }
 
-  // Bulk create products (for Shopify sync)
-  async bulkCreateProducts(userId: string, products: CreateProductInput[]) {
-    // Verify store ownership for all products
-    const storeIds = [...new Set(products.map((p) => p.storeId))];
-    const stores = await prisma.store.findMany({
-      where: {
-        id: { in: storeIds },
-        userId,
-      },
-    });
-
-    if (stores.length !== storeIds.length) {
-      throw ApiError.unauthorized(
-        "One or more stores not found or unauthorized"
-      );
+  // Bulk create products (e.g., from sync)
+  async bulkCreateProducts(userId: string, productsData: CreateProductBody[]) {
+    if (!productsData.length) {
+      return { count: 0, message: "No products to create" };
     }
 
-    // Get existing products for these stores to avoid duplicates
-    // Since MongoDB doesn't support skipDuplicates in createMany
-    const externalIds = products.map((p) => p.externalId);
-    const existingProducts = await prisma.product.findMany({
-      where: {
-        storeId: { in: storeIds },
-        externalId: { in: externalIds },
-      },
-      select: {
-        storeId: true,
-        externalId: true,
-      },
-    });
-
-    const existingKeys = new Set(
-      existingProducts.map((p) => `${p.storeId}-${p.externalId}`)
-    );
-
-    const productsToCreate = products.filter(
-      (p) => !existingKeys.has(`${p.storeId}-${p.externalId}`)
-    );
-
-    if (productsToCreate.length === 0) {
-      return {
-        count: 0,
-        message: "All products already exist, none created",
-      };
-    }
-
-    // Create products that don't exist
-    const created = await prisma.product.createMany({
-      data: productsToCreate,
+    // We use a transaction for safety if it's a small batch
+    // Or just createMany for performance
+    const count = await prisma.$transaction(async (tx) => {
+      let created = 0;
+      for (const p of productsData) {
+        await tx.product.upsert({
+          where: {
+            storeId_externalId: {
+              storeId: p.storeId,
+              externalId: p.externalId,
+            },
+          },
+          update: {
+            ...p,
+            images: p.images as any,
+            variants: p.variants as any,
+          },
+          create: {
+            ...p,
+            images: p.images as any,
+            variants: p.variants as any,
+          },
+        });
+        created++;
+      }
+      return created;
     });
 
     return {
-      count: created.count,
-      message: `Successfully created ${created.count} products`,
+      count,
+      message: `Successfully synced ${count} products`,
     };
   }
 
   // Bulk delete products
   async bulkDeleteProducts(userId: string, ids: string[]) {
-    // Verify ownership of all products
+    // Verify all products belong to the user's stores
     const products = await prisma.product.findMany({
       where: {
         id: { in: ids },
         store: { userId },
       },
+      select: { id: true },
     });
 
-    if (products.length !== ids.length) {
-      throw ApiError.unauthorized(
-        "One or more products not found or unauthorized"
-      );
+    const validatedIds = products.map((p) => p.id);
+
+    if (validatedIds.length === 0) {
+      return { count: 0, message: "No valid products found to delete" };
     }
 
-    // Delete all products
-    const result = await prisma.product.deleteMany({
+    const { count } = await prisma.product.deleteMany({
       where: {
-        id: { in: ids },
+        id: { in: validatedIds },
       },
     });
 
     return {
-      count: result.count,
-      message: `Successfully deleted ${result.count} products`,
+      count,
+      message: `Successfully deleted ${count} products`,
     };
   }
 }
 
 export const productsService = new ProductsService();
+

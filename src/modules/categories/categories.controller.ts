@@ -6,9 +6,9 @@ import {
 } from "../../common/utils/response.util";
 import { categoriesService } from "./categories.service";
 import {
-  CreateCategoryInput,
+  CreateCategoryBody,
   GetCategoriesQuery,
-  UpdateCategoryInput,
+  UpdateCategoryBody,
 } from "./categories.validation";
 
 export class CategoriesController {
@@ -20,7 +20,7 @@ export class CategoriesController {
   ): Promise<void> {
     try {
       const userId = req.user!.id;
-      const query: GetCategoriesQuery = req.query;
+      const query: GetCategoriesQuery = req.query as any;
 
       const result = await categoriesService.getCategories(userId, query);
 
@@ -56,7 +56,7 @@ export class CategoriesController {
   ): Promise<void> {
     try {
       const userId = req.user!.id;
-      const data: CreateCategoryInput = req.body;
+      const data: CreateCategoryBody = req.body;
 
       const category = await categoriesService.createCategory(userId, data);
 
@@ -75,7 +75,7 @@ export class CategoriesController {
     try {
       const userId = req.user!.id;
       const { id } = req.params;
-      const data: UpdateCategoryInput = req.body;
+      const data: UpdateCategoryBody = req.body;
 
       const category = await categoriesService.updateCategory(id, userId, data);
 

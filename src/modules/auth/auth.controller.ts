@@ -4,13 +4,13 @@ import { sendCreated, sendSuccess } from "../../common/utils/response.util";
 import { jwtConfig } from "../../config/jwt.config";
 import { authService } from "./auth.service";
 import {
-  ChangePasswordInput,
-  LoginInput,
-  RefreshTokenInput,
-  RegisterInput,
-  RequestPasswordResetInput,
-  ResetPasswordInput,
-  VerifyEmailInput,
+  ChangePasswordBody,
+  LoginBody,
+  RefreshTokenBody,
+  RegisterBody,
+  RequestPasswordResetBody,
+  ResetPasswordBody,
+  VerifyEmailBody,
 } from "./auth.validation";
 
 export class AuthController {
@@ -21,7 +21,7 @@ export class AuthController {
     next: NextFunction
   ): Promise<void> {
     try {
-      const data: ChangePasswordInput = req.body;
+      const data: ChangePasswordBody = req.body;
       const userId = req.user!.id;
 
       await authService.changePassword(userId, data);
@@ -39,11 +39,13 @@ export class AuthController {
     next: NextFunction
   ): Promise<void> {
     try {
-      const data: RegisterInput = req.body;
+      const data: RegisterBody = req.body;
       const result = await authService.register(data);
 
       sendCreated(res, MESSAGES.AUTH.REGISTER_SUCCESS, {
         user: result.user,
+        accessToken: result.tokens?.accessToken,
+        refreshToken: result.tokens?.refreshToken,
       });
     } catch (error) {
       next(error);
@@ -53,7 +55,7 @@ export class AuthController {
   // Login route --- POST /auth/login
   async login(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const data: LoginInput = req.body;
+      const data: LoginBody = req.body;
       const result = await authService.login(data);
 
       // Set refresh token in HTTP-only cookie
@@ -68,6 +70,7 @@ export class AuthController {
       sendSuccess(res, MESSAGES.AUTH.LOGIN_SUCCESS, {
         user: result.user,
         accessToken: result.tokens?.accessToken,
+        refreshToken: result.tokens?.refreshToken,
       });
     } catch (error) {
       next(error);
@@ -81,7 +84,7 @@ export class AuthController {
     next: NextFunction
   ): Promise<void> {
     try {
-      const data: RefreshTokenInput = req.body;
+      const data: RefreshTokenBody = req.body;
       const result = await authService.refreshToken(data);
 
       sendSuccess(res, MESSAGES.AUTH.TOKEN_REFRESHED, result);
@@ -110,7 +113,7 @@ export class AuthController {
     next: NextFunction
   ): Promise<void> {
     try {
-      const data: VerifyEmailInput = req.body;
+      const data: VerifyEmailBody = req.body;
       await authService.verifyEmail(data);
 
       sendSuccess(res, MESSAGES.AUTH.EMAIL_VERIFIED);
@@ -126,7 +129,7 @@ export class AuthController {
     next: NextFunction
   ): Promise<void> {
     try {
-      const data: RequestPasswordResetInput = req.body;
+      const data: RequestPasswordResetBody = req.body;
       await authService.requestPasswordReset(data);
 
       sendSuccess(res, MESSAGES.AUTH.PASSWORD_RESET_EMAIL_SENT);
@@ -142,7 +145,7 @@ export class AuthController {
     next: NextFunction
   ): Promise<void> {
     try {
-      const data: ResetPasswordInput = req.body;
+      const data: ResetPasswordBody = req.body;
       await authService.resetPassword(data);
 
       sendSuccess(res, MESSAGES.AUTH.PASSWORD_RESET_SUCCESS);

@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { authenticate } from "../../common/middlewares/auth.middleware";
 import { validate } from "../../common/middlewares/validate.middleware";
+import * as CommonValidators from "../../common/validations/common.validation";
 import { variablesController } from "./variables.controller";
 import {
   createVariableSchema,
@@ -79,6 +80,7 @@ router.get(
  */
 router.get(
   "/:id",
+  validate(CommonValidators.idSchema),
   variablesController.getVariableById.bind(variablesController)
 );
 
@@ -107,6 +109,7 @@ router.get(
  */
 router.get(
   "/:id/usage",
+  validate(CommonValidators.idSchema),
   variablesController.getVariableUsage.bind(variablesController)
 );
 
@@ -205,6 +208,7 @@ router.post(
  */
 router.put(
   "/:id",
+  validate(CommonValidators.idSchema),
   validate(updateVariableSchema),
   variablesController.updateVariable.bind(variablesController)
 );
@@ -234,6 +238,7 @@ router.put(
  */
 router.delete(
   "/:id",
+  validate(CommonValidators.idSchema),
   variablesController.deleteVariable.bind(variablesController)
 );
 

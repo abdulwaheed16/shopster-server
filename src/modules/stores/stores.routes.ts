@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { authenticate } from "../../common/middlewares/auth.middleware";
 import { validate } from "../../common/middlewares/validate.middleware";
+import * as CommonValidators from "../../common/validations/common.validation";
 import { storesController } from "./stores.controller";
 import {
   createStoreSchema,
@@ -78,7 +79,11 @@ router.get(
  *       404:
  *         description: Store not found
  */
-router.get("/:id", storesController.getStoreById.bind(storesController));
+router.get(
+  "/:id",
+  validate(CommonValidators.idSchema),
+  storesController.getStoreById.bind(storesController)
+);
 
 /**
  * @swagger
@@ -174,6 +179,7 @@ router.post(
  */
 router.put(
   "/:id",
+  validate(CommonValidators.idSchema),
   validate(updateStoreSchema),
   storesController.updateStore.bind(storesController)
 );
@@ -201,7 +207,11 @@ router.put(
  *       404:
  *         description: Store not found
  */
-router.delete("/:id", storesController.deleteStore.bind(storesController));
+router.delete(
+  "/:id",
+  validate(CommonValidators.idSchema),
+  storesController.deleteStore.bind(storesController)
+);
 
 /**
  * @swagger
@@ -226,7 +236,11 @@ router.delete("/:id", storesController.deleteStore.bind(storesController));
  *       404:
  *         description: Store not found
  */
-router.post("/:id/sync", storesController.syncStore.bind(storesController));
+router.post(
+  "/:id/sync",
+  validate(CommonValidators.idSchema),
+  storesController.syncStore.bind(storesController)
+);
 
 /**
  * @swagger

@@ -1,9 +1,14 @@
 import { z } from "zod";
 
+// MongoDB ObjectId validation
+export const objectIdSchema = z
+  .string()
+  .regex(/^[0-9a-fA-F]{24}$/, "Invalid ObjectId");
+
 // Common validation schemas
 export const idSchema = z.object({
   params: z.object({
-    id: z.string().min(1, "ID is required"),
+    id: objectIdSchema,
   }),
 });
 
@@ -27,11 +32,6 @@ export const nameSchema = z
 export const urlSchema = z.string().url("Invalid URL format");
 
 export const optionalUrlSchema = urlSchema.optional();
-
-// MongoDB ObjectId validation
-export const objectIdSchema = z
-  .string()
-  .regex(/^[0-9a-fA-F]{24}$/, "Invalid ObjectId");
 
 // Date validation
 export const dateSchema = z.coerce.date();

@@ -3,6 +3,7 @@ import { UserRole } from "../../common/constants/roles.constant";
 import {
   emailSchema,
   nameSchema,
+  objectIdSchema,
   optionalPasswordSchema,
 } from "../../common/validations/common.validation";
 import { paginationSchema } from "../../common/validations/pagination.validation";
@@ -13,14 +14,14 @@ export const getUsersSchema = paginationSchema;
 // Get user by ID validation
 export const getUserByIdSchema = z.object({
   params: z.object({
-    id: z.string().min(1, "User ID is required"),
+    id: objectIdSchema,
   }),
 });
 
 // Update user validation
 export const updateUserSchema = z.object({
   params: z.object({
-    id: z.string().min(1, "User ID is required"),
+    id: objectIdSchema,
   }),
   body: z
     .object({
@@ -37,30 +38,27 @@ export const updateUserSchema = z.object({
 // Delete user validation
 export const deleteUserSchema = z.object({
   params: z.object({
-    id: z.string().min(1, "User ID is required"),
+    id: objectIdSchema,
   }),
 });
 
-export type GetUsersInput = z.infer<typeof getUsersSchema>["query"];
-export type GetUserByIdInput = z.infer<typeof getUserByIdSchema>["params"];
-export type UpdateUserInput = {
-  params: z.infer<typeof updateUserSchema>["params"];
-  body: z.infer<typeof updateUserSchema>["body"];
-};
-export type DeleteUserInput = z.infer<typeof deleteUserSchema>["params"];
+export type GetUsersQuery = z.infer<typeof getUsersSchema>["query"];
+export type GetUserByIdParams = z.infer<typeof getUserByIdSchema>["params"];
+export type UpdateUserParams = z.infer<typeof updateUserSchema>["params"];
+export type UpdateUserBody = z.infer<typeof updateUserSchema>["body"];
+export type DeleteUserParams = z.infer<typeof deleteUserSchema>["params"];
 
 // Update user role validation
 export const updateUserRoleSchema = z.object({
   params: z.object({
-    id: z.string().min(1, "User ID is required"),
+    id: objectIdSchema,
   }),
   body: z.object({
     role: z.nativeEnum(UserRole),
   }),
 });
 
-export type UpdateUserRoleInput = {
-  params: z.infer<typeof updateUserRoleSchema>["params"];
-  body: z.infer<typeof updateUserRoleSchema>["body"];
-};
-
+export type UpdateUserRoleParams = z.infer<
+  typeof updateUserRoleSchema
+>["params"];
+export type UpdateUserRoleBody = z.infer<typeof updateUserRoleSchema>["body"];

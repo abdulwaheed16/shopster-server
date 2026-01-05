@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { authenticate } from "../../common/middlewares/auth.middleware";
 import { validate } from "../../common/middlewares/validate.middleware";
+import * as CommonValidators from "../../common/validations/common.validation";
 import { templatesController } from "./templates.controller";
 import {
   bulkDeleteTemplatesSchema,
@@ -14,6 +15,74 @@ const router = Router();
 
 // All routes require authentication
 router.use(authenticate);
+
+/**
+ * @swagger
+ * /templates/my:
+ *   get:
+ *     summary: Get user's templates
+ *     description: Returns templates assigned to the current user.
+ *     tags: [Templates]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 20
+ *       - in: query
+ *         name: categoryId
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: User templates retrieved successfully
+ */
+router.get(
+  "/my",
+  validate(getTemplatesSchema),
+  templatesController.getMyTemplates.bind(templatesController)
+);
+
+/**
+ * @swagger
+ * /templates/global:
+ *   get:
+ *     summary: Get global templates
+ *     description: Returns templates available to all users.
+ *     tags: [Templates]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 20
+ *       - in: query
+ *         name: categoryId
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Global templates retrieved successfully
+ */
+router.get(
+  "/general",
+  validate(getTemplatesSchema),
+  templatesController.getGeneralTemplates.bind(templatesController)
+);
 
 /**
  * @swagger
@@ -117,6 +186,7 @@ router.post(
  */
 router.get(
   "/:id",
+  validate(CommonValidators.idSchema),
   templatesController.getTemplateById.bind(templatesController)
 );
 
@@ -182,6 +252,7 @@ router.post(
  */
 router.put(
   "/:id",
+  validate(CommonValidators.idSchema),
   validate(updateTemplateSchema),
   templatesController.updateTemplate.bind(templatesController)
 );
@@ -211,11 +282,7 @@ router.put(
  */
 router.delete(
   "/:id",
-  templatesController.deleteTemplate.bind(templatesController)
-);
-
-router.delete(
-  "/:id",
+  validate(CommonValidators.idSchema),
   templatesController.deleteTemplate.bind(templatesController)
 );
 

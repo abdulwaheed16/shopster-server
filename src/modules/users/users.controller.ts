@@ -11,7 +11,8 @@ export class UsersController {
     next: NextFunction
   ): Promise<void> {
     try {
-      const result = await usersService.getUsers(req.query);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const result = await usersService.getUsers(req.query as any);
       sendPaginated(res, MESSAGES.USERS.FETCHED, result);
     } catch (error) {
       next(error);

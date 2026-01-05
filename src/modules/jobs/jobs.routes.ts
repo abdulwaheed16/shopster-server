@@ -3,6 +3,7 @@ import { UserRole } from "../../common/constants/roles.constant";
 import { authenticate } from "../../common/middlewares/auth.middleware";
 import { authorize } from "../../common/middlewares/role.middleware";
 import { validate } from "../../common/middlewares/validate.middleware";
+import * as CommonValidators from "../../common/validations/common.validation";
 import { jobsController } from "./jobs.controller";
 import { getJobsSchema } from "./jobs.validation";
 
@@ -76,6 +77,10 @@ router.get(
  *       404:
  *         description: Job not found
  */
-router.get("/:id", jobsController.getJobById.bind(jobsController));
+router.get(
+  "/:id",
+  validate(CommonValidators.idSchema),
+  jobsController.getJobById.bind(jobsController)
+);
 
 export default router;

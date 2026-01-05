@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { authenticate } from "../../common/middlewares/auth.middleware";
 import { validate } from "../../common/middlewares/validate.middleware";
+import * as CommonValidators from "../../common/validations/common.validation";
 import { adsController } from "./ads.controller";
 import {
   bulkDeleteAdsSchema,
@@ -127,7 +128,11 @@ router.post(
  *       404:
  *         description: Ad not found
  */
-router.get("/:id", adsController.getAdById.bind(adsController));
+router.get(
+  "/:id",
+  validate(CommonValidators.idSchema),
+  adsController.getAdById.bind(adsController)
+);
 
 /**
  * @swagger
@@ -152,7 +157,11 @@ router.get("/:id", adsController.getAdById.bind(adsController));
  *       404:
  *         description: Ad not found
  */
-router.delete("/:id", adsController.deleteAd.bind(adsController));
+router.delete(
+  "/:id",
+  validate(CommonValidators.idSchema),
+  adsController.deleteAd.bind(adsController)
+);
 
 /**
  * @swagger

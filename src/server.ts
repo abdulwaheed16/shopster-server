@@ -23,7 +23,7 @@ const startServer = async () => {
     const isDbConnected = await testDatabaseConnection();
 
     if (!isDbConnected) {
-      console.error(chalk.red("❌ Failed to connect to database. Exiting..."));
+      console.error(chalk.red("Failed to connect to database. Exiting..."));
       process.exit(1);
     }
 
@@ -35,17 +35,15 @@ const startServer = async () => {
 
     // Start server
     const server = app.listen(config.server.port, () => {
-      console.log(chalk.green.bold("\n🚀 Server is running!"));
-      console.log(chalk.cyan(`📍 Environment: ${config.server.env}`));
-      console.log(chalk.cyan(`📍 Port: ${config.server.port}`));
+      console.log(chalk.green.bold("Server is running!"));
+      console.log(chalk.cyan(`Environment: ${config.server.env}`));
+      console.log(chalk.cyan(`Port: ${config.server.port}`));
       console.log(
-        chalk.cyan(
-          `📍 API Docs: http://localhost:${config.server.port}/api-docs`
-        )
+        chalk.cyan(`API Docs: http://localhost:${config.server.port}/api-docs`)
       );
       console.log(
         chalk.cyan(
-          `📍 Health Check: http://localhost:${config.server.port}/health\n`
+          `Health Check: http://localhost:${config.server.port}/health\n`
         )
       );
     });
@@ -67,13 +65,13 @@ const startServer = async () => {
         await disconnectDatabase();
         console.log(chalk.yellow("Database disconnected"));
 
-        console.log(chalk.green("✅ Graceful shutdown completed"));
+        console.log(chalk.green("Graceful shutdown completed"));
         process.exit(0);
       });
 
       // Force shutdown after 10 seconds
       setTimeout(() => {
-        console.error(chalk.red("❌ Forced shutdown after timeout"));
+        console.error(chalk.red("Forced shutdown after timeout"));
         process.exit(1);
       }, 10000);
     };
@@ -82,7 +80,7 @@ const startServer = async () => {
     process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
     process.on("SIGINT", () => gracefulShutdown("SIGINT"));
   } catch (error) {
-    console.error(chalk.red("❌ Failed to start server:"), error);
+    console.error(chalk.red("Failed to start server:"), error);
     process.exit(1);
   }
 };

@@ -1,58 +1,128 @@
+import { BillingInterval, SubscriptionStatus, UsageType } from "@prisma/client";
 import Stripe from "stripe";
 import { ApiError } from "../../common/errors/api-error";
 import { comparePassword } from "../../common/utils/hash.util";
 import { prisma } from "../../config/database.config";
+
 import {
-  CreateCheckoutSessionInput,
-  CreatePortalSessionInput,
-  UpdateCustomPlanInput,
+  CreateCheckoutSessionBody,
+  CreatePortalSessionBody,
+  UpdateCustomPlanBody,
 } from "./billing.validation";
-
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2023-10-16" as any,
-});
-
-// Helper type for Stripe subscriptions with period fields (moved/renamed in latest SDK types)
-type StripeSubscriptionWithPeriod = any; // Using any for simplicity due to large structural changes in SDK types
+import { checkoutItemResolver } from "./checkout-item.strategy";
+import { creditsService } from "./credits.service";
+import { stripeService } from "./stripe.service";
+import { subscriptionService } from "./subscription.service";
 
 export class BillingService {
-  // Sync plans from database to Stripe (or vice versa) - Manual process or on startup
-  async syncPlans() {
-    // This could be used to ensure Stripe Prices exist for our DB plans
-    const plans = await prisma.plan.findMany({ where: { isActive: true } });
-    return plans;
+  /**
+   * Get all active subscription plans for the pricing page
+   */
+  async getActivePlans() {
+    return await prisma.plan.findMany({
+      where: { isActive: true },
+    });
   }
 
-  // Create Checkout Session
-  async createCheckoutSession(
-    userId: string,
-    data: CreateCheckoutSessionInput
-  ) {
+  /**
+   * Get a plan by its internal ID
+   */
+  async getPlanById(planId: string) {
+    const plan = await prisma.plan.findUnique({ where: { id: planId } });
+    if (!plan) throw ApiError.notFound("Plan not found");
+    return plan;
+  }
+
+  /**
+   * Create a Stripe Checkout Session for a specific Plan
+   * Fulfills the requirement: "package id will be sent to the backend"
+   */
+  async createCheckoutSession(userId: string, data: CreateCheckoutSessionBody) {
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      include: { subscription: true },
+      include: {
+        subscription: {
+          include: { plan: true },
+        },
+      },
     });
 
     if (!user) throw ApiError.notFound("User not found");
 
-    const plan = await prisma.plan.findUnique({
-      where: { id: data.planId },
-    });
+    const plan = await this.getPlanById(data.planId);
 
-    if (!plan || !plan.priceId) {
-      throw ApiError.badRequest(
-        "Invalid plan or plan not available for public checkout"
-      );
+    // 1. Upgrade/Downgrade Detection
+    const currentSub = user.subscription;
+    if (currentSub && currentSub.status === "ACTIVE") {
+      const isSamePlan = currentSub.planId === data.planId;
+      const isSameInterval =
+        (currentSub as any).interval ===
+        (data.interval || currentSub.plan.billingInterval);
+
+      if (isSamePlan && isSameInterval && !currentSub.cancelAtPeriodEnd) {
+        throw ApiError.badRequest("You are already subscribed to this plan.");
+      }
+
+      // Detect Downgrade
+      // Upgrade = Higher price OR Higher credits
+      const currentPrice =
+        currentSub.interval === "YEARLY"
+          ? (currentSub.plan.price || 0) * 12 * 0.8
+          : currentSub.plan.price || 0;
+      const requestedPrice =
+        (data.interval || plan.billingInterval) === "YEARLY"
+          ? Math.floor((plan.price || 0) * 12 * 0.8)
+          : plan.price || 0;
+
+      const isDowngrade = requestedPrice < currentPrice;
+
+      if (isDowngrade && currentSub.stripeSubscriptionId) {
+        // Schedule Downgrade for next cycle
+        const stripeSub = await stripeService.updateSubscription(
+          currentSub.stripeSubscriptionId,
+          {
+            items: [
+              {
+                id: (
+                  (await stripeService.retrieveSubscription(
+                    currentSub.stripeSubscriptionId
+                  )) as any
+                ).items.data[0].id,
+                price: plan.priceId || undefined, // Use priceId if exists, else we'd need to create one. For simplicity, assuming standard plans have priceIds or we use ad-hoc.
+                // If ad-hoc, we might need a different approach. But typically downgrades are between standard plans.
+              },
+            ],
+            proration_behavior: "none", // Do not charge or refund now
+            // Stripe automatically aligns this to the next period if scheduled via update with specific flags or just update.
+            // Actually, 'none' proration with change of price usually takes effect at the end of the current period if we use 'billing_cycle_anchor: uncharged'?
+            // No, 'none' means keep current until end, then switch.
+          } as any
+        );
+
+        await subscriptionService.updateSubscriptionPeriod(
+          currentSub.stripeSubscriptionId,
+          {
+            cancelAtPeriodEnd: false, // Ensure it's not canceled, just scheduled for change
+            pendingPlanId: plan.id, // Track what it will change to
+          } as any
+        );
+
+        return { url: `${process.env.FRONTEND_URL}/billing?scheduled=true` };
+      }
     }
 
-    // 1. Get or Create Stripe Customer
+    // 1. Resolve the line item strategy based on plan data (SOLID Principle)
+    const strategy = checkoutItemResolver.resolve(plan);
+    const lineItem = strategy.createLineItem(plan, data.interval);
+
+    // 2. Ensure Stripe Customer exists
     let stripeCustomerId = user.stripeCustomerId;
     if (!stripeCustomerId) {
-      const customer = await stripe.customers.create({
-        email: user.email,
-        name: user.name || undefined,
-        metadata: { userId: user.id },
-      });
+      const customer = await stripeService.createCustomer(
+        user.email,
+        user.name || undefined,
+        { userId: user.id }
+      );
       stripeCustomerId = customer.id;
       await prisma.user.update({
         where: { id: user.id },
@@ -60,30 +130,26 @@ export class BillingService {
       });
     }
 
-    // 2. Create Checkout Session
-    const session = await stripe.checkout.sessions.create({
+    // 3. Create Checkout Session
+    const session = await stripeService.createCheckoutSession({
       customer: stripeCustomerId,
-      line_items: [
-        {
-          price: plan.priceId,
-          quantity: 1,
-        },
-      ],
+      line_items: [lineItem],
       mode: "subscription",
+      allow_promotion_codes: true, // Allow discounts/coupons
       success_url:
-        data.successUrl ||
-        `${process.env.FRONTEND_URL}/dashboard/billing?success=true`,
+        data.successUrl || `${process.env.FRONTEND_URL}/billing?success=true`,
       cancel_url:
-        data.cancelUrl ||
-        `${process.env.FRONTEND_URL}/dashboard/billing?canceled=true`,
+        data.cancelUrl || `${process.env.FRONTEND_URL}/billing?canceled=true`,
       metadata: {
         userId: user.id,
         planId: plan.id,
+        interval: data.interval || plan.billingInterval,
       },
       subscription_data: {
         metadata: {
           userId: user.id,
           planId: plan.id,
+          interval: data.interval || plan.billingInterval,
         },
       },
     });
@@ -91,11 +157,118 @@ export class BillingService {
     return { url: session.url };
   }
 
-  // Create Portal Session
-  async createPortalSession(userId: string, data: CreatePortalSessionInput) {
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
+  /**
+   * Get historical invoices for a user with pagination and filtering
+   */
+  async getInvoices(
+    userId: string,
+    options: { page?: number; limit?: number; status?: string } = {}
+  ) {
+    const { page = 1, limit = 10, status } = options;
+    const skip = (page - 1) * (limit > 50 ? 50 : limit);
+
+    const where: any = { userId };
+    if (status) where.status = status;
+
+    let total = await prisma.invoice.count({ where });
+
+    // Sync from Stripe if no invoices found in local DB (Bootstrap existing history)
+    // or if skip is 0 (first page) to ensure fresh data
+    if (total === 0 || (skip === 0 && !status)) {
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        include: { subscription: true },
+      });
+      if (user?.stripeCustomerId) {
+        const stripeInvoices = await stripeService.listInvoices(
+          user.stripeCustomerId
+        );
+        console.log(
+          `Syncing ${stripeInvoices.data.length} invoices for user ${userId}`
+        );
+        if (stripeInvoices.data.length > 0) {
+          await Promise.all(
+            stripeInvoices.data.map((inv) =>
+              prisma.invoice.upsert({
+                where: { stripeId: inv.id },
+                update: {
+                  status: inv.status || "void",
+                  pdfUrl: inv.invoice_pdf || inv.hosted_invoice_url,
+                },
+                create: {
+                  userId,
+                  stripeId: inv.id,
+                  subscriptionId: user.subscription?.id,
+                  planId: user.subscription?.planId,
+                  amount: inv.amount_paid / 100,
+                  currency: inv.currency,
+                  status: inv.status || "void",
+                  date: new Date(inv.created * 1000),
+                  pdfUrl: inv.invoice_pdf || inv.hosted_invoice_url,
+                  number: inv.number,
+                },
+              } as any)
+            )
+          );
+          total = await prisma.invoice.count({ where });
+        }
+      }
+    }
+
+    const invoices = await prisma.invoice.findMany({
+      where,
+      orderBy: { date: "desc" },
+      skip,
+      take: limit,
+      include: {
+        plan: true,
+        subscription: {
+          select: {
+            currentPeriodStart: true,
+            currentPeriodEnd: true,
+            interval: true,
+          },
+        },
+      },
     });
+
+    return {
+      data: invoices,
+      meta: {
+        total,
+        page,
+        limit,
+        pages: Math.ceil(total / limit),
+      },
+    };
+  }
+
+  /**
+   * Get saved payment methods for a user
+   */
+  async getPaymentMethods(userId: string) {
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user || !user.stripeCustomerId) return [];
+
+    const methods = await stripeService.listPaymentMethods(
+      user.stripeCustomerId
+    );
+
+    return methods.data.map((pm) => ({
+      id: pm.id,
+      brand: pm.card?.brand,
+      last4: pm.card?.last4,
+      expMonth: pm.card?.exp_month,
+      expYear: pm.card?.exp_year,
+      isDefault: false, // Stripe doesn't directly return 'isDefault' in this list easily without customer check
+    }));
+  }
+
+  /**
+   * Create a Stripe Billing Portal session for subscription management
+   */
+  async createPortalSession(userId: string, data: CreatePortalSessionBody) {
+    const user = await prisma.user.findUnique({ where: { id: userId } });
 
     if (!user || !user.stripeCustomerId) {
       throw ApiError.badRequest(
@@ -103,24 +276,25 @@ export class BillingService {
       );
     }
 
-    const session = await stripe.billingPortal.sessions.create({
-      customer: user.stripeCustomerId,
-      return_url:
-        data.returnUrl || `${process.env.FRONTEND_URL}/dashboard/settings`,
-    });
+    const { url } = await stripeService.createPortalSession(
+      user.stripeCustomerId,
+      data.returnUrl || `${process.env.FRONTEND_URL}/dashboard/settings`
+    );
 
-    return { url: session.url };
+    return { url };
   }
 
-  // Handle Stripe Webhooks
+  /**
+   * Handle incoming Stripe Webhook events
+   */
   async handleWebhook(signature: string, payload: Buffer) {
     let event: Stripe.Event;
 
     try {
-      event = stripe.webhooks.constructEvent(
+      event = stripeService.constructEvent(
         payload,
         signature,
-        process.env.STRIPE_WEBHOOK_SECRET!
+        process.env.STRIPE_WEBHOOK_SECRET as string
       );
     } catch (err: any) {
       throw ApiError.badRequest(
@@ -143,245 +317,291 @@ export class BillingService {
           event.data.object as Stripe.Subscription
         );
         break;
-      // Add more events as needed
     }
 
     return { received: true };
   }
 
-  // Provisioning after checkout
+  /**
+   * Logic for when a checkout is completed
+   */
   private async handleCheckoutComplete(session: Stripe.Checkout.Session) {
     const userId = session.metadata?.userId;
     const planId = session.metadata?.planId;
+    const interval = session.metadata?.interval as BillingInterval;
     const stripeSubscriptionId = session.subscription as string;
 
     if (!userId || !planId) return;
 
-    const plan = await prisma.plan.findUnique({ where: { id: planId } });
-    if (!plan) return;
+    // 1. Fetch user to check for existing subscription and carry over credits
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: { subscription: true },
+    });
 
-    const stripeSub = (await stripe.subscriptions.retrieve(
+    if (!user) return;
+
+    // 2. Cancel existing subscription in Stripe if different (ensure ONLY ONE active)
+    if (
+      user.subscription &&
+      user.subscription.stripeSubscriptionId &&
+      user.subscription.stripeSubscriptionId !== stripeSubscriptionId
+    ) {
+      try {
+        console.log(
+          `Cancelling previous subscription ${user.subscription.stripeSubscriptionId} for user ${userId}`
+        );
+        await stripeService.cancelSubscription(
+          user.subscription.stripeSubscriptionId,
+          true // Immediate cancellation
+        );
+      } catch (e) {
+        console.error(
+          `Failed to cancel old subscription ${user.subscription.stripeSubscriptionId}:`,
+          e
+        );
+      }
+    }
+
+    const plan = await this.getPlanById(planId);
+    const stripeSub = (await stripeService.retrieveSubscription(
       stripeSubscriptionId
-    )) as StripeSubscriptionWithPeriod;
+    )) as any;
 
-    await prisma.$transaction([
-      prisma.subscription.upsert({
-        where: { userId },
-        create: {
-          userId,
-          planId,
-          stripeSubscriptionId,
-          status: stripeSub.status.toUpperCase() as any,
-          currentPeriodStart: new Date(stripeSub.current_period_start * 1000),
-          currentPeriodEnd: new Date(stripeSub.current_period_end * 1000),
-        },
-        update: {
-          planId,
-          stripeSubscriptionId,
-          status: stripeSub.status.toUpperCase() as any,
-          currentPeriodStart: new Date(stripeSub.current_period_start * 1000),
-          currentPeriodEnd: new Date(stripeSub.current_period_end * 1000),
-        },
-      }),
-      // Initial credit grant
-      prisma.user.update({
-        where: { id: userId },
-        data: {
-          credits: { increment: plan.creditsPerMonth },
-        },
-      }),
-      prisma.usageRecord.create({
-        data: {
-          userId,
-          type: "MONTHLY_REFILL",
-          creditAmount: plan.creditsPerMonth,
-          description: `Initial credits for ${plan.name} plan`,
-        },
-      }),
-    ]);
+    // Update or create subscription in DB
+    await subscriptionService.upsertSubscription({
+      userId,
+      planId,
+      stripeSubscriptionId,
+      status: stripeSub.status.toUpperCase() as SubscriptionStatus,
+      interval: interval || plan.billingInterval,
+      currentPeriodStart: new Date(stripeSub.current_period_start * 1000),
+      currentPeriodEnd: new Date(stripeSub.current_period_end * 1000),
+      cancelAtPeriodEnd: stripeSub.cancel_at_period_end,
+    });
+
+    // 4. Grant credits (carryover is handled by increment)
+    // If they upgrade, they keep current + new plan credits
+    await creditsService.addCredits(
+      userId,
+      plan.creditsPerMonth,
+      UsageType.MONTHLY_REFILL,
+      `Credits for ${plan.name} plan (Sync)`
+    );
   }
 
+  /**
+   * Logic for when an invoice is paid (recurring billing)
+   */
   private async handleInvoicePaid(invoice: Stripe.Invoice) {
     const inv = invoice as any;
-    if (inv.billing_reason === "subscription_cycle") {
-      let stripeSubscriptionId: string | undefined;
+    if (inv.billing_reason !== "subscription_cycle") return;
 
-      if (typeof inv.subscription === "string") {
-        stripeSubscriptionId = inv.subscription;
-      } else if (inv.subscription && typeof inv.subscription === "object") {
-        stripeSubscriptionId = (inv.subscription as any).id;
-      }
+    const stripeSubscriptionId =
+      typeof inv.subscription === "string"
+        ? inv.subscription
+        : (inv.subscription as any)?.id;
 
-      if (!stripeSubscriptionId) return;
+    if (!stripeSubscriptionId) return;
 
-      const sub = await prisma.subscription.findUnique({
-        where: { stripeSubscriptionId },
-        include: { plan: true },
-      });
+    const sub = await subscriptionService.getSubscriptionByStripeId(
+      stripeSubscriptionId
+    );
+    if (!sub) return;
 
-      if (sub) {
-        const stripeSub = (await stripe.subscriptions.retrieve(
-          stripeSubscriptionId
-        )) as any;
+    const stripeSub = (await stripeService.retrieveSubscription(
+      stripeSubscriptionId
+    )) as any;
 
-        // Refill credits and update period on recurring payment
-        await prisma.$transaction([
-          prisma.subscription.update({
-            where: { stripeSubscriptionId },
-            data: {
-              status: stripeSub.status.toUpperCase() as any,
-              currentPeriodStart: new Date(
-                stripeSub.current_period_start * 1000
-              ),
-              currentPeriodEnd: new Date(stripeSub.current_period_end * 1000),
-            },
-          }),
-          prisma.user.update({
-            where: { id: sub.userId },
-            data: { credits: { increment: sub.plan.creditsPerMonth } },
-          }),
-          prisma.usageRecord.create({
-            data: {
-              userId: sub.userId,
-              type: "MONTHLY_REFILL",
-              creditAmount: sub.plan.creditsPerMonth,
-              description: `Monthly credit refill for ${sub.plan.name}`,
-            },
-          }),
-        ]);
-      }
-    }
-  }
+    // Update period in DB
+    await subscriptionService.updateSubscriptionPeriod(stripeSubscriptionId, {
+      status: stripeSub.status.toUpperCase() as SubscriptionStatus,
+      currentPeriodStart: new Date(stripeSub.current_period_start * 1000),
+      currentPeriodEnd: new Date(stripeSub.current_period_end * 1000),
+      cancelAtPeriodEnd: stripeSub.cancel_at_period_end,
+    });
 
-  private async handleSubscriptionChange(stripeSub: any) {
-    const stripeSubscriptionId = stripeSub.id;
+    // Refill monthly credits (Priority: Custom > Plan)
+    const refillAmount =
+      (sub as any).customCreditsPerMonth ?? sub.plan.creditsPerMonth;
+    await creditsService.addCredits(
+      sub.userId,
+      refillAmount,
+      UsageType.MONTHLY_REFILL,
+      `Monthly credit refill for ${sub.plan.name}`
+    );
 
-    // If subscription is deleted or canceled via status
-    if (
-      stripeSub.status === "canceled" ||
-      ("deleted" in stripeSub && stripeSub.deleted)
-    ) {
-      await prisma.subscription.update({
-        where: { stripeSubscriptionId },
-        data: { status: "CANCELED" },
-      });
-      return;
-    }
-
-    const sub = stripeSub as StripeSubscriptionWithPeriod;
-
-    await prisma.subscription.update({
-      where: { stripeSubscriptionId },
-      data: {
-        status: sub.status.toUpperCase() as any,
-        currentPeriodStart: sub.current_period_start
-          ? new Date(sub.current_period_start * 1000)
-          : undefined,
-        currentPeriodEnd: sub.current_period_end
-          ? new Date(sub.current_period_end * 1000)
-          : undefined,
-        cancelAtPeriodEnd: sub.cancel_at_period_end,
+    // Persist invoice in DB for history (SOLID: Persistent storage)
+    await prisma.invoice.upsert({
+      where: { stripeId: inv.id },
+      update: {
+        status: inv.status,
+        pdfUrl: inv.invoice_pdf || inv.hosted_invoice_url,
+      },
+      create: {
+        userId: sub.userId,
+        stripeId: inv.id,
+        subscriptionId: sub.id,
+        planId: sub.planId,
+        amount: inv.amount_paid / 100,
+        currency: inv.currency,
+        status: inv.status,
+        date: new Date(inv.created * 1000),
+        pdfUrl: inv.invoice_pdf || inv.hosted_invoice_url,
+        number: inv.number,
       },
     });
   }
 
-  // Admin: Update Custom Plan
-  async updateCustomPlan(adminId: string, data: UpdateCustomPlanInput) {
-    // 1. Verify Admin Password (Secondary Layer)
+  /**
+   * Handle general subscription changes or cancellations
+   */
+  private async handleSubscriptionChange(
+    stripeSubscription: Stripe.Subscription
+  ) {
+    const stripeSub = stripeSubscription as any;
+    const stripeSubscriptionId = stripeSub.id;
+
+    if (stripeSub.status === "canceled") {
+      await subscriptionService.updateSubscriptionStatus(
+        stripeSubscriptionId,
+        SubscriptionStatus.CANCELED
+      );
+      return;
+    }
+
+    await subscriptionService.updateSubscriptionPeriod(stripeSubscriptionId, {
+      status: stripeSub.status.toUpperCase() as SubscriptionStatus,
+      currentPeriodStart: new Date(stripeSub.current_period_start * 1000),
+      currentPeriodEnd: new Date(stripeSub.current_period_end * 1000),
+      cancelAtPeriodEnd: stripeSub.cancel_at_period_end,
+    });
+  }
+
+  /**
+   * Cancel a user's subscription at the end of the current period
+   */
+  async cancelSubscription(userId: string) {
+    const sub = await subscriptionService.getSubscriptionByUserId(userId);
+    if (!sub || !sub.stripeSubscriptionId) {
+      throw ApiError.badRequest("No active subscription found to cancel");
+    }
+
+    if (sub.status === "CANCELED") {
+      throw ApiError.badRequest("Subscription is already canceled");
+    }
+
+    const stripeSub = (await stripeService.cancelSubscription(
+      sub.stripeSubscriptionId
+    )) as any;
+
+    // Update DB status immediately to reflect it will cancel at period end
+    await subscriptionService.updateSubscriptionPeriod(
+      sub.stripeSubscriptionId,
+      {
+        status: sub.status, // Keep current status until Stripe actually cancels it
+        currentPeriodStart: sub.currentPeriodStart!,
+        currentPeriodEnd: sub.currentPeriodEnd!,
+        cancelAtPeriodEnd: true,
+      }
+    );
+
+    return {
+      message: "Subscription will be canceled at the end of the current period",
+      cancelAt: new Date(stripeSub.current_period_end * 1000),
+    };
+  }
+
+  /**
+   * Admin: Assign a custom deal to a user
+   * Fulfills: "if package is custom deal it accordingly using best practices"
+   */
+  async updateCustomPlan(adminId: string, data: UpdateCustomPlanBody) {
+    // 1. Security Check: Verify Admin
     const admin = await prisma.user.findUnique({ where: { id: adminId } });
-    if (!admin || !admin.password)
+    if (!admin || admin.role !== "ADMIN" || !admin.password) {
       throw ApiError.unauthorized("Admin authorization required");
+    }
 
     const isPasswordValid = await comparePassword(
       data.adminPassword,
       admin.password
     );
     if (!isPasswordValid)
-      throw ApiError.unauthorized(
-        "Invalid admin password. Authorization failed."
-      );
+      throw ApiError.unauthorized("Invalid admin credentials");
 
-    // 2. Find or Create "Custom" Plan Entry
-    let customPlan = await prisma.plan.findUnique({
+    // 2. Find "Custom" Plan
+    const customPlan = await prisma.plan.findUnique({
       where: { name: "Custom" },
     });
-    if (!customPlan) {
-      customPlan = await prisma.plan.create({
-        data: {
-          name: "Custom",
-          creditsPerMonth: 0, // Base
-          storesLimit: 0, // Base
-          isActive: false, // Not for public selection
-        },
-      });
+    if (!customPlan)
+      throw ApiError.notFound(
+        "Custom plan definition not found. Please run seeds."
+      );
+
+    // 3. Create or update user's subscription with custom plan
+    const subscription = await subscriptionService.upsertSubscription({
+      userId: data.userId,
+      planId: customPlan.id,
+      status: SubscriptionStatus.ACTIVE,
+    });
+
+    // 4. Store custom limits on the subscription
+    if (subscription.stripeSubscriptionId) {
+      await subscriptionService.updateSubscriptionPeriod(
+        subscription.stripeSubscriptionId,
+        {
+          currentPeriodStart: subscription.currentPeriodStart || new Date(),
+          currentPeriodEnd:
+            subscription.currentPeriodEnd ||
+            new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+          customCreditsPerMonth: data.credits,
+          customStoresLimit: data.storesLimit,
+        } as any
+      );
     }
 
-    // 3. Upsert Subscription for user with custom overrides
-    // Note: In a real system, we might want a "CustomSubscription" or flags.
-    // Here we'll just update the user's current subscription or create one.
+    // 5. Set initial credits
+    await creditsService.setCredits(
+      data.userId,
+      data.credits,
+      `Custom plan assigned: ${data.credits} credits/month, ${data.storesLimit} stores limit`
+    );
 
-    await prisma.$transaction([
-      prisma.subscription.upsert({
-        where: { userId: data.userId },
-        create: {
-          userId: data.userId,
-          planId: customPlan.id,
-          status: "ACTIVE",
-        },
-        update: {
-          planId: customPlan.id,
-          status: "ACTIVE",
-        },
-      }),
-      prisma.user.update({
-        where: { id: data.userId },
-        data: {
-          credits: data.credits,
-        },
-      }),
-      prisma.usageRecord.create({
-        data: {
-          userId: data.userId,
-          type: "ADMIN_ADJUSTMENT",
-          creditAmount: data.credits,
-          description: `Admin manual adjustment for custom plan`,
-        },
-      }),
-    ]);
-
-    return { message: "Custom plan updated successfully" };
+    return {
+      message: "Custom plan assigned successfully",
+      details: {
+        creditsPerMonth: data.credits,
+        storesLimit: data.storesLimit,
+      },
+    };
   }
 
-  // Usage Tracking: Check and deduct credits
+  /**
+   * High-level check and deduct credits for other services (Ads, Templates)
+   */
   async checkAndDeductCredits(
     userId: string,
     amount: number,
-    type: any,
+    type: UsageType,
     description?: string
   ) {
-    const user = await prisma.user.findUnique({ where: { id: userId } });
-    if (!user) throw ApiError.notFound("User not found");
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { role: true },
+    });
 
-    if (user.credits < amount) {
-      throw ApiError.badRequest(
-        "Insufficient credits for this operation. Please upgrade your plan."
-      );
+    if (user?.role === "ADMIN") {
+      console.log(`Skipping credit deduction for admin user: ${userId}`);
+      return;
     }
 
-    return await prisma.$transaction([
-      prisma.user.update({
-        where: { id: userId },
-        data: { credits: { decrement: amount } },
-      }),
-      prisma.usageRecord.create({
-        data: {
-          userId,
-          type,
-          creditAmount: -amount,
-          description,
-        },
-      }),
-    ]);
+    return await creditsService.deductCredits(
+      userId,
+      amount,
+      type,
+      description
+    );
   }
 }
 

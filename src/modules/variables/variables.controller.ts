@@ -6,9 +6,9 @@ import {
 } from "../../common/utils/response.util";
 import { variablesService } from "./variables.service";
 import {
-  CreateVariableInput,
+  CreateVariableBody,
   GetVariablesQuery,
-  UpdateVariableInput,
+  UpdateVariableBody,
 } from "./variables.validation";
 
 export class VariablesController {
@@ -20,7 +20,7 @@ export class VariablesController {
   ): Promise<void> {
     try {
       const userId = req.user!.id;
-      const query: GetVariablesQuery = req.query;
+      const query: GetVariablesQuery = req.query as any;
 
       const result = await variablesService.getVariables(userId, query);
 
@@ -60,7 +60,7 @@ export class VariablesController {
 
       const usage = await variablesService.getVariableUsage(id, userId);
 
-      sendSuccess(res, "Variable usage fetched successfully", usage);
+      sendSuccess(res, "Variable usage details fetched", usage);
     } catch (error) {
       next(error);
     }
@@ -74,7 +74,7 @@ export class VariablesController {
   ): Promise<void> {
     try {
       const userId = req.user!.id;
-      const data: CreateVariableInput = req.body;
+      const data: CreateVariableBody = req.body;
 
       const variable = await variablesService.createVariable(userId, data);
 
@@ -93,7 +93,7 @@ export class VariablesController {
     try {
       const userId = req.user!.id;
       const { id } = req.params;
-      const data: UpdateVariableInput = req.body;
+      const data: UpdateVariableBody = req.body;
 
       const variable = await variablesService.updateVariable(id, userId, data);
 

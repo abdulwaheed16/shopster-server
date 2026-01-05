@@ -6,9 +6,9 @@ import {
 } from "../../common/utils/response.util";
 import { productsService } from "./products.service";
 import {
-  CreateProductInput,
+  CreateProductBody,
   GetProductsQuery,
-  UpdateProductInput,
+  UpdateProductBody,
 } from "./products.validation";
 
 export class ProductsController {
@@ -20,7 +20,7 @@ export class ProductsController {
   ): Promise<void> {
     try {
       const userId = req.user!.id;
-      const query: GetProductsQuery = req.query;
+      const query: GetProductsQuery = req.query as any;
 
       const result = await productsService.getProducts(userId, query);
 
@@ -56,7 +56,7 @@ export class ProductsController {
   ): Promise<void> {
     try {
       const userId = req.user!.id;
-      const data: CreateProductInput = req.body;
+      const data: CreateProductBody = req.body;
 
       const product = await productsService.createProduct(userId, data);
 
@@ -75,7 +75,7 @@ export class ProductsController {
     try {
       const userId = req.user!.id;
       const { id } = req.params;
-      const data: UpdateProductInput = req.body;
+      const data: UpdateProductBody = req.body;
 
       const product = await productsService.updateProduct(id, userId, data);
 
@@ -111,7 +111,7 @@ export class ProductsController {
   ): Promise<void> {
     try {
       const userId = req.user!.id;
-      const products: CreateProductInput[] = req.body.products;
+      const products: CreateProductBody[] = req.body.products;
 
       const result = await productsService.bulkCreateProducts(userId, products);
 

@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { UserRole } from "../../common/constants/roles.constant";
 import { authenticate } from "../../common/middlewares/auth.middleware";
+import { authorize } from "../../common/middlewares/role.middleware";
 import { validate } from "../../common/middlewares/validate.middleware";
 import { billingController } from "./billing.controller";
 import {
@@ -8,30 +9,45 @@ import {
   createPortalSessionSchema,
   updateCustomPlanSchema,
 } from "./billing.validation";
-import { authorize } from "../../common/middlewares/role.middleware";
 
 const router = Router();
 
 // Publicly available (but protected by auth)
 router.get("/plans", authenticate, billingController.getPlans);
 
+router.get(
+  "/subscription",
+  authenticate,
+  billingController.getCurrentSubscription.bind(billingController)
+);
+
+router.get("/invoices", authenticate, billingController.getInvoices.bind(billingController));
+router.get("/payment-methods", authenticate, billingController.getPaymentMethods.bind(billingController));
+
 // Checkout & Portal
 router.post(
   "/create-checkout-session",
   authenticate,
   validate(createCheckoutSessionSchema),
-  billingController.createCheckoutSession
+  billingController.createCheckoutSession.bind(billingController)
 );
 
 router.post(
   "/create-portal-session",
   authenticate,
   validate(createPortalSessionSchema),
-  billingController.createPortalSession
+  billingController.createPortalSession.bind(billingController)
 );
 
 // Stripe Webhook (No auth, handled by signature verification in controller)
-router.post("/webhooks", billingController.handleWebhook);
+router.post("/webhooks", billingController.handleWebhook.bind(billingController));
+
+router.get("/plans/:id", authenticate, billingController.getPlan.bind(billingController));
+router.post(
+  "/cancel-subscription",
+  authenticate,
+  billingController.cancelSubscription.bind(billingController)
+);
 
 // Admin: Custom Plan Management
 router.post(
@@ -39,7 +55,7 @@ router.post(
   authenticate,
   authorize(UserRole.ADMIN),
   validate(updateCustomPlanSchema),
-  billingController.updateCustomPlan
+  billingController.updateCustomPlan.bind(billingController)
 );
 
 export default router;

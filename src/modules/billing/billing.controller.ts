@@ -2,6 +2,12 @@ import { NextFunction, Request, Response } from "express";
 import { ApiError } from "../../common/errors/api-error";
 import { sendSuccess } from "../../common/utils/response.util";
 import { billingService } from "./billing.service";
+import {
+  CreateCheckoutSessionBody,
+  CreatePortalSessionBody,
+  UpdateCustomPlanBody,
+} from "./billing.validation";
+import { subscriptionService } from "./subscription.service";
 
 export class BillingController {
   // Create Checkout Session
@@ -12,10 +18,10 @@ export class BillingController {
   ): Promise<void> {
     try {
       const userId = req.user!.id;
-      const result = await billingService.createCheckoutSession(
-        userId,
-        req.body
-      );
+      const data: CreateCheckoutSessionBody = req.body;
+
+      const result = await billingService.createCheckoutSession(userId, data);
+      
       sendSuccess(res, "Checkout session created", result);
     } catch (error) {
       next(error);
@@ -30,22 +36,41 @@ export class BillingController {
   ): Promise<void> {
     try {
       const userId = req.user!.id;
-      const result = await billingService.createPortalSession(userId, req.body);
+      const data: CreatePortalSessionBody = req.body;
+      const result = await billingService.createPortalSession(userId, data);
       sendSuccess(res, "Portal session created", result);
     } catch (error) {
       next(error);
     }
   }
 
-  // Get Plans
+  // Get Active Plans
   async getPlans(
     req: Request,
     res: Response,
     next: NextFunction
   ): Promise<void> {
     try {
-      const result = await billingService.syncPlans();
+      const result = await billingService.getActivePlans();
+
+      console.log("Plans: server ", result);
+
       sendSuccess(res, "Plans retrieved successfully", result);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // Get Current Subscription
+  async getCurrentSubscription(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
+    try {
+      const userId = req.user!.id;
+      const result = await subscriptionService.getSubscriptionByUserId(userId);
+      sendSuccess(res, "Current subscription retrieved", result);
     } catch (error) {
       next(error);
     }
@@ -80,8 +105,75 @@ export class BillingController {
   ): Promise<void> {
     try {
       const adminId = req.user!.id;
-      const result = await billingService.updateCustomPlan(adminId, req.body);
+      const data: UpdateCustomPlanBody = req.body;
+      const result = await billingService.updateCustomPlan(adminId, data);
       sendSuccess(res, "Custom plan updated successfully", result);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // Get Single Plan
+  async getPlan(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
+    try {
+      const result = await billingService.getPlanById(req.params.id);
+      sendSuccess(res, "Plan retrieved successfully", result);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // Cancel Subscription
+  async cancelSubscription(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
+    try {
+      const userId = req.user!.id;
+      const result = await billingService.cancelSubscription(userId);
+      sendSuccess(res, result.message, result);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // Get Invoices
+  async getInvoices(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
+    try {
+      const userId = req.user!.id;
+      const { page, limit, status } = req.query;
+
+      const result = await billingService.getInvoices(userId, {
+        page: page ? parseInt(page as string) : undefined,
+        limit: limit ? parseInt(limit as string) : undefined,
+        status: status as string,
+      });
+
+      sendSuccess(res, "Invoices retrieved successfully", result);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // Get Payment Methods
+  async getPaymentMethods(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
+    try {
+      const userId = req.user!.id;
+      const result = await billingService.getPaymentMethods(userId);
+      sendSuccess(res, "Payment methods retrieved successfully", result);
     } catch (error) {
       next(error);
     }

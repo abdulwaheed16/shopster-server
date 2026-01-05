@@ -1,27 +1,32 @@
 import { ApiError } from "../../common/errors/api-error";
-import { PaginatedResult } from "../../common/types/pagination.types";
 import { prisma } from "../../config/database.config";
-import {
-  CreateStoreInput,
-  GetStoresQuery,
-  UpdateStoreInput,
-} from "./stores.validation";
 import { shopifySyncQueue } from "../../config/queue.config";
+import {
+  CreateStoreBody,
+  GetStoresQuery,
+  UpdateStoreBody,
+} from "./stores.validation";
 
-export class StoresService {
-  // Get all stores for a user
-  async getStores(
-    userId: string,
-    query: GetStoresQuery
-  ): Promise<PaginatedResult<any>> {
+import { Prisma, StorePlatform } from "@prisma/client";
+import { calculatePagination } from "../../common/utils/pagination.util";
+import { IStoresService } from "./stores.types";
+
+export class StoresService implements IStoresService {
+  // Get user's stores
+  async getStores(userId: string, query: GetStoresQuery) {
     const page = parseInt(query.page || "1");
-    const limit = parseInt(query.limit || "10");
+    const limit = parseInt(query.limit || "20");
     const skip = (page - 1) * limit;
 
-    const where: any = { userId };
+    const where: Prisma.StoreWhereInput = { userId };
+
+    // TODO: Add search functionality
+    // if (query.search) {
+    //   where.name = { contains: query.search, mode: "insensitive" };
+    // }
 
     if (query.platform) {
-      where.platform = query.platform;
+      where.platform = query.platform as StorePlatform;
     }
 
     if (query.isActive !== undefined) {
@@ -45,14 +50,7 @@ export class StoresService {
 
     return {
       data: stores,
-      meta: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit),
-        hasNextPage: page < Math.ceil(total / limit),
-        hasPrevPage: page > 1,
-      },
+      meta: calculatePagination(total, page, limit),
     };
   }
 
@@ -68,45 +66,39 @@ export class StoresService {
     });
 
     if (!store) {
-      throw ApiError.notFound("Store not found");
+      throw ApiError.notFound("Store not found or you don't have access");
     }
 
     return store;
   }
 
-  // Helper: Check if user has reached their store limit
-  private async checkStoreLimit(userId: string) {
+  // Create store manually
+  async createStore(userId: string, data: CreateStoreBody) {
+    // Check stores limit
     const user = await prisma.user.findUnique({
       where: { id: userId },
       include: {
         subscription: {
           include: { plan: true },
         },
+        _count: { select: { stores: true } },
       },
     });
 
     if (!user) throw ApiError.notFound("User not found");
-    if (!user.subscription || !user.subscription.plan) {
-      throw ApiError.forbidden("No active subscription found. Please subscribe to add a store.");
-    }
 
-    const storeCount = await prisma.store.count({ where: { userId } });
-    if (storeCount >= user.subscription.plan.storesLimit) {
-      throw ApiError.forbidden(
-        `Store limit reached (${user.subscription.plan.storesLimit}). Please upgrade your plan to add more stores.`
+    const storesLimit = user.subscription?.plan?.storesLimit || 1; // Default to 1 if no plan
+
+    if (user._count.stores >= storesLimit) {
+      throw ApiError.badRequest(
+        `Store limit reached (${storesLimit}). Please upgrade your plan.`
       );
     }
-  }
-
-  // Create store
-  async createStore(userId: string, data: CreateStoreInput) {
-    // await this.checkStoreLimit(userId);
 
     const store = await prisma.store.create({
       data: {
         ...data,
         userId,
-        syncStatus: "PENDING",
       },
     });
 
@@ -114,90 +106,131 @@ export class StoresService {
   }
 
   // Update store
-  async updateStore(id: string, userId: string, data: UpdateStoreInput) {
-    await this.getStoreById(id, userId); // Check ownership
+  async updateStore(id: string, userId: string, data: UpdateStoreBody) {
+    await this.getStoreById(id, userId);
 
-    const store = await prisma.store.update({
+    return await prisma.store.update({
       where: { id },
       data,
     });
-
-    return store;
   }
 
   // Delete store
   async deleteStore(id: string, userId: string) {
-    const store = await this.getStoreById(id, userId);
+    await this.getStoreById(id, userId);
 
-    // Delete all products first (cascade)
     await prisma.store.delete({
       where: { id },
     });
   }
 
-  // Upsert store by Shopify domain and userId
-  async upsertStoreByShopifyDomain(userId: string, data: { 
-    name: string; 
-    storeUrl: string; 
-    shopifyDomain: string; 
-    accessToken: string; 
-  }) {
-    const store = await prisma.store.findFirst({
-      where: {
-        userId,
-        shopifyDomain: data.shopifyDomain,
+  // For internal use
+  async findByShopifyDomain(shopifyDomain: string) {
+    return await prisma.store.findFirst({
+      where: { shopifyDomain },
+    });
+  }
+
+  async upsertStoreByShopifyDomain(
+    userId: string,
+    data: {
+      name: string;
+      storeUrl: string;
+      shopifyDomain: string;
+      accessToken: string;
+    }
+  ) {
+    // Check if store already connected
+    const existing = await this.findByShopifyDomain(data.shopifyDomain);
+
+    if (existing) {
+      // Update existing store tokens if it belongs to user
+      if (existing.userId === userId) {
+        return await prisma.store.update({
+          where: { id: existing.id },
+          data: {
+            accessToken: data.accessToken,
+            isActive: true,
+          },
+        });
+      }
+      throw ApiError.badRequest("Store already connected by another user");
+    }
+
+    // Check limits
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        subscription: {
+          include: { plan: true },
+        },
+        _count: { select: { stores: true } },
       },
     });
 
-    if (store) {
-      // Update existing store
-      return prisma.store.update({
-        where: { id: store.id },
-        data: {
-          accessToken: data.accessToken,
-          isActive: true,
-        },
-      });
+    if (!user) throw ApiError.notFound("User not found");
+
+    const storesLimit =
+      user.subscription?.customStoresLimit ??
+      (user.subscription?.plan?.storesLimit || 1);
+
+    if (user._count.stores >= storesLimit) {
+      throw ApiError.badRequest(
+        `Store limit reached (${storesLimit}). Please upgrade your plan.`
+      );
     }
 
-    // Checking limit before creation
-    // await this.checkStoreLimit(userId);
-
-    // Create new store
-    return prisma.store.create({
+    return await prisma.store.create({
       data: {
+        ...data,
         userId,
-        name: data.name,
-        storeUrl: data.storeUrl,
-        platform: "SHOPIFY",
-        shopifyDomain: data.shopifyDomain,
-        accessToken: data.accessToken,
+        platform: StorePlatform.SHOPIFY,
         isActive: true,
         syncStatus: "PENDING",
       },
     });
   }
 
-  // Sync store (trigger product sync)
+  async updateSyncStatus(
+    id: string,
+    status: "PENDING" | "SYNCING" | "COMPLETED" | "FAILED",
+    lastSyncAt?: Date
+  ) {
+    return await prisma.store.update({
+      where: { id },
+      data: {
+        syncStatus: status,
+        ...(lastSyncAt && { lastSyncAt }),
+      },
+    });
+  }
+
+  // Sync store products in background
   async syncStore(id: string, userId: string) {
     const store = await this.getStoreById(id, userId);
 
     // Update sync status
     await prisma.store.update({
       where: { id },
-      data: {
-        syncStatus: "SYNCING",
-        lastSyncAt: new Date(),
+      data: { syncStatus: "PENDING" },
+    });
+
+    // Add to Redis Queue
+    await shopifySyncQueue.add(
+      "sync-products",
+      {
+        storeId: id,
+        userId,
+        shop: store.shopifyDomain,
+        accessToken: store.accessToken,
       },
-    });
+      {
+        attempts: 3,
+        backoff: { type: "exponential", delay: 1000 },
+      }
+    );
 
-    // Add job to BullMQ queue
-    await shopifySyncQueue.add(`sync-${id}`, {
-      storeId: id,
-      userId,
-    });
-
-    return { message: "Store sync initiated successfully in the background" };
+    return { message: "Sync job successfully queued" };
   }
 }
 

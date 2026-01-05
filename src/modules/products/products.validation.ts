@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { objectIdSchema } from "../../common/validations/common.validation";
 
 // Product image schema
 const productImageSchema = z.object({
@@ -19,8 +20,8 @@ const productVariantSchema = z.object({
 // Create product schema
 export const createProductSchema = z.object({
   body: z.object({
-    storeId: z.string().min(1, "Store ID is required"),
-    categoryId: z.string().optional(),
+    storeId: objectIdSchema,
+    categoryId: objectIdSchema.optional(),
     externalId: z.string().min(1, "External ID is required"),
     sku: z.string().optional(),
     title: z.string().min(1, "Title is required"),
@@ -35,7 +36,7 @@ export const createProductSchema = z.object({
 // Update product schema
 export const updateProductSchema = z.object({
   body: z.object({
-    categoryId: z.string().optional(),
+    categoryId: objectIdSchema.optional(),
     title: z.string().min(1).optional(),
     description: z.string().optional(),
     images: z.array(productImageSchema).optional(),
@@ -50,25 +51,25 @@ export const getProductsSchema = z.object({
   query: z.object({
     page: z.string().optional(),
     limit: z.string().optional(),
-    storeId: z.string().optional(),
-    categoryId: z.string().optional(),
+    storeId: objectIdSchema.optional(),
+    categoryId: objectIdSchema.optional(),
     search: z.string().optional(),
     isActive: z.string().optional(),
     inStock: z.string().optional(),
   }),
 });
 
-export type CreateProductInput = z.infer<typeof createProductSchema>["body"];
-export type UpdateProductInput = z.infer<typeof updateProductSchema>["body"];
+export type CreateProductBody = z.infer<typeof createProductSchema>["body"];
+export type UpdateProductBody = z.infer<typeof updateProductSchema>["body"];
 
 // Bulk delete products schema
 export const bulkDeleteProductsSchema = z.object({
   body: z.object({
-    ids: z.array(z.string()).min(1, "At least one product ID is required"),
+    ids: z.array(objectIdSchema).min(1, "At least one product ID is required"),
   }),
 });
 
-export type BulkDeleteProductsInput = z.infer<
+export type BulkDeleteProductsBody = z.infer<
   typeof bulkDeleteProductsSchema
 >["body"];
 

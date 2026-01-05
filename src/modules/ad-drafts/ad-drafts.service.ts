@@ -2,7 +2,9 @@ import { ApiError } from "../../common/errors/api-error";
 import { prisma } from "../../config/database.config";
 import { UpsertAdDraftInput } from "./ad-drafts.validation";
 
-export class AdDraftsService {
+import { IAdDraftsService } from "./ad-drafts.types";
+
+export class AdDraftsService implements IAdDraftsService {
   // Get current draft for user
   async getCurrentDraft(userId: string) {
     const draft = await prisma.adDraft.findFirst({

@@ -1,27 +1,27 @@
 import { ApiError } from "../../common/errors/api-error";
-import { PaginatedResult } from "../../common/types/pagination.types";
 import { prisma } from "../../config/database.config";
 import {
-  CreateVariableInput,
+  CreateVariableBody,
   GetVariablesQuery,
-  UpdateVariableInput,
+  UpdateVariableBody,
 } from "./variables.validation";
 
-export class VariablesService {
+import { Prisma, VariableType } from "@prisma/client";
+import { calculatePagination } from "../../common/utils/pagination.util";
+import { IVariablesService } from "./variables.types";
+
+export class VariablesService implements IVariablesService {
   // Get all variables for a user
-  async getVariables(
-    userId: string,
-    query: GetVariablesQuery
-  ): Promise<PaginatedResult<any>> {
+  async getVariables(userId: string, query: GetVariablesQuery) {
     const page = parseInt(query.page || "1");
     const limit = parseInt(query.limit || "10");
     const skip = (page - 1) * limit;
 
-    const where: any = { userId };
+    const where: Prisma.VariableWhereInput = { userId };
 
     // Filter by type
     if (query.type) {
-      where.type = query.type;
+      where.type = query.type as VariableType;
     }
 
     // Search by name or label
@@ -44,14 +44,7 @@ export class VariablesService {
 
     return {
       data: variables,
-      meta: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit),
-        hasNextPage: page < Math.ceil(total / limit),
-        hasPrevPage: page > 1,
-      },
+      meta: calculatePagination(total, page, limit),
     };
   }
 
@@ -83,7 +76,7 @@ export class VariablesService {
   }
 
   // Create new variable
-  async createVariable(userId: string, data: CreateVariableInput) {
+  async createVariable(userId: string, data: CreateVariableBody) {
     // Check if variable with same name already exists for this user
     const existing = await prisma.variable.findFirst({
       where: { userId, name: data.name },
@@ -95,18 +88,16 @@ export class VariablesService {
       );
     }
 
-    const variable = await prisma.variable.create({
+    return await prisma.variable.create({
       data: {
         ...data,
         userId,
       },
     });
-
-    return variable;
   }
 
   // Update variable
-  async updateVariable(id: string, userId: string, data: UpdateVariableInput) {
+  async updateVariable(id: string, userId: string, data: UpdateVariableBody) {
     await this.getVariableById(id, userId); // Check ownership
 
     // If updating name, check for duplicates
@@ -126,16 +117,14 @@ export class VariablesService {
       }
     }
 
-    const variable = await prisma.variable.update({
+    return await prisma.variable.update({
       where: { id },
       data,
     });
-
-    return variable;
   }
 
   // Delete variable
-  async deleteVariable(id: string, userId: string) {
+  async deleteVariable(id: string, userId: string): Promise<void> {
     const variable = await this.getVariableById(id, userId);
 
     // Check if variable is being used
@@ -167,14 +156,14 @@ export class VariablesService {
     }
 
     // Check if this template is already in the usage list
-    const existingUsage = variable.usedInTemplates.find(
-      (usage: any) => usage.templateId === templateId
+    const existingUsage = (variable.usedInTemplates as any[]).find(
+      (usage) => usage.templateId === templateId
     );
 
     let updatedUsages;
     if (existingUsage) {
       // Update existing usage
-      updatedUsages = variable.usedInTemplates.map((usage: any) =>
+      updatedUsages = (variable.usedInTemplates as any[]).map((usage) =>
         usage.templateId === templateId
           ? { templateId, templateName, prompt, previewUrl }
           : usage
@@ -182,7 +171,7 @@ export class VariablesService {
     } else {
       // Add new usage
       updatedUsages = [
-        ...variable.usedInTemplates,
+        ...(variable.usedInTemplates as any[]),
         { templateId, templateName, prompt, previewUrl },
       ];
     }
@@ -206,8 +195,8 @@ export class VariablesService {
       return; // Variable doesn't exist, skip
     }
 
-    const updatedUsages = variable.usedInTemplates.filter(
-      (usage: any) => usage.templateId !== templateId
+    const updatedUsages = (variable.usedInTemplates as any[]).filter(
+      (usage) => usage.templateId !== templateId
     );
 
     await prisma.variable.update({

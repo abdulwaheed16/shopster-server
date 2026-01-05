@@ -3,7 +3,9 @@ import { PaginatedResult } from "../../common/types/pagination.types";
 import { prisma } from "../../config/database.config";
 import { GetJobsQuery } from "./jobs.validation";
 
-export class JobsService {
+import { IJobsService } from "./jobs.types";
+
+export class JobsService implements IJobsService {
   // Get all jobs
   async getJobs(query: GetJobsQuery): Promise<PaginatedResult<any>> {
     const page = parseInt(query.page || "1");

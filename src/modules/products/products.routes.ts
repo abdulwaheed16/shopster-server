@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { authenticate } from "../../common/middlewares/auth.middleware";
 import { validate } from "../../common/middlewares/validate.middleware";
+import * as CommonValidators from "../../common/validations/common.validation";
 import { productsController } from "./products.controller";
 import {
   bulkDeleteProductsSchema,
@@ -145,7 +146,11 @@ router.post(
  *       404:
  *         description: Product not found
  */
-router.get("/:id", productsController.getProductById.bind(productsController));
+router.get(
+  "/:id",
+  validate(CommonValidators.idSchema),
+  productsController.getProductById.bind(productsController)
+);
 
 /**
  * @swagger
@@ -196,7 +201,21 @@ router.post(
  *       content:
  *         application/json:
  *           schema:
- *             $ref: '#/components/schemas/ProductUpdateInput'
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *               storeUrl:
+ *                 type: string
+ *                 format: uri
+ *               apiKey:
+ *                 type: string
+ *               apiSecret:
+ *                 type: string
+ *               accessToken:
+ *                 type: string
+ *               isActive:
+ *                 type: boolean
  *     responses:
  *       200:
  *         description: Product updated successfully
@@ -209,6 +228,7 @@ router.post(
  */
 router.put(
   "/:id",
+  validate(CommonValidators.idSchema),
   validate(updateProductSchema),
   productsController.updateProduct.bind(productsController)
 );
@@ -238,6 +258,7 @@ router.put(
  */
 router.delete(
   "/:id",
+  validate(CommonValidators.idSchema),
   productsController.deleteProduct.bind(productsController)
 );
 

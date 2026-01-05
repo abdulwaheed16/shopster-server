@@ -1,4 +1,4 @@
-import  crypto from "crypto";
+import crypto from "crypto";
 import { NextFunction, Request, Response } from "express";
 import {
   sendCreated,
@@ -11,11 +11,11 @@ import { productsService } from "../products/products.service";
 import { shopifyService } from "./shopify.service";
 import { storesService } from "./stores.service";
 import {
-  CreateStoreInput,
+  CreateStoreBody,
   GetStoresQuery,
   ShopifyAuthQuery,
   ShopifyCallbackQuery,
-  UpdateStoreInput,
+  UpdateStoreBody,
 } from "./stores.validation";
 
 export class StoresController {
@@ -74,9 +74,9 @@ export class StoresController {
       let userId: string | undefined;
 
       if (decodedState) {
-        userId = decodedState.userId;
+        userId = (decodedState as any).userId;
         // Check if state is older than 10 minutes
-        if (Date.now() - decodedState.timestamp > 10 * 60 * 1000) {
+        if (Date.now() - (decodedState as any).timestamp > 10 * 60 * 1000) {
           throw new Error("OAuth state expired.");
         }
       } else {
@@ -98,7 +98,7 @@ export class StoresController {
       res.clearCookie("shopify_user_id");
 
       // 2. Verify HMAC
-      if (!shopifyService.verifyHmac(query)) {
+      if (!shopifyService.verifyHmac(query as any)) {
         throw new Error("Invalid HMAC signature from Shopify.");
       }
 
@@ -198,7 +198,7 @@ export class StoresController {
   ): Promise<void> {
     try {
       const userId = req.user!.id;
-      const query: GetStoresQuery = req.query;
+      const query: GetStoresQuery = req.query as any;
 
       const result = await storesService.getStores(userId, query);
 
@@ -234,7 +234,7 @@ export class StoresController {
   ): Promise<void> {
     try {
       const userId = req.user!.id;
-      const data: CreateStoreInput = req.body;
+      const data: CreateStoreBody = req.body;
 
       const store = await storesService.createStore(userId, data);
 
@@ -253,7 +253,7 @@ export class StoresController {
     try {
       const userId = req.user!.id;
       const { id } = req.params;
-      const data: UpdateStoreInput = req.body;
+      const data: UpdateStoreBody = req.body;
 
       const store = await storesService.updateStore(id, userId, data);
 
@@ -404,7 +404,7 @@ export class StoresController {
     }
   }
   // Helper to sign state for stateless OAuth
-  private signState(data: any): string {
+  private signState(data: unknown): string {
     const payload = Buffer.from(JSON.stringify(data)).toString("base64");
     const signature = crypto
       .createHmac("sha256", config.server.cookieSecret)
@@ -414,7 +414,7 @@ export class StoresController {
   }
 
   // Helper to verify signed state
-  private verifyState(state: string): any {
+  private verifyState(state: string): unknown {
     try {
       if (!state || !state.includes(".")) return null;
 
@@ -436,3 +436,4 @@ export class StoresController {
 }
 
 export const storesController = new StoresController();
+

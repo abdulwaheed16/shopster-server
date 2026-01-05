@@ -17,9 +17,7 @@ export const shopifySyncWorker = new Worker(
   async (job: Job<ShopifySyncJobData>) => {
     const { storeId, userId } = job.data;
 
-    console.log(
-      `🔄 Processing Shopify sync job ${job.id} for store ${storeId}`
-    );
+    console.log(`Processing Shopify sync job ${job.id} for store ${storeId}`);
 
     try {
       // 1. Get store details
@@ -89,13 +87,11 @@ export const shopifySyncWorker = new Worker(
         data: { syncStatus: "COMPLETED" },
       });
 
-      console.log(
-        `✅ Shopify sync completed for store ${storeId}: ${result.message}`
-      );
+      console.log(`Shopify sync completed for store ${storeId}: ${result.message}`);
       return { success: true, storeId, ...result };
     } catch (error: any) {
       console.error(
-        `❌ Shopify sync failed for store ${storeId}:`,
+        `Shopify sync failed for store ${storeId}:`,
         error.message
       );
 
@@ -122,9 +118,9 @@ export const shopifySyncWorker = new Worker(
 
 // Worker event listeners
 shopifySyncWorker.on("completed", (job) => {
-  console.log(`✅ Shopify Sync Job ${job.id} completed successfully`);
+  console.log(`Shopify Sync Job ${job.id} completed successfully`);
 });
 
 shopifySyncWorker.on("failed", (job, err) => {
-  console.error(`❌ Shopify Sync Job ${job?.id} failed:`, err.message);
+  console.error(`Shopify Sync Job ${job?.id} failed:`, err.message);
 });

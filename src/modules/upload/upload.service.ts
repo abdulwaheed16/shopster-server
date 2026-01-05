@@ -8,7 +8,9 @@ cloudinary.config({
   api_secret: config.cloudinary.apiSecret,
 });
 
-export class UploadService {
+import { IUploadService } from "./upload.types";
+
+export class UploadService implements IUploadService {
   /**
    * Upload single image to Cloudinary
    * @param file - Multer file object (in memory)

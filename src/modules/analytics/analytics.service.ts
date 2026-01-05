@@ -1,7 +1,9 @@
 import { prisma } from "../../config/database.config";
 import { AnalyticsQuery } from "./analytics.validation";
 
-export class AnalyticsService {
+import { IAnalyticsService } from "./analytics.types";
+
+export class AnalyticsService implements IAnalyticsService {
   // Get ad analytics
   async getAdAnalytics(userId: string, query: AnalyticsQuery) {
     const where: any = { userId };

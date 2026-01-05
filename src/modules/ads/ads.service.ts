@@ -1,24 +1,24 @@
 import { ApiError } from "../../common/errors/api-error";
-import { PaginatedResult } from "../../common/types/pagination.types";
 import { prisma } from "../../config/database.config";
 import { adGenerationQueue } from "../../config/queue.config";
 import { billingService } from "../billing/billing.service";
-import { GenerateAdInput, GetAdsQuery } from "./ads.validation";
+import { GenerateAdBody, GetAdsQuery } from "./ads.validation";
 
-export class AdsService {
+import { AdStatus, Prisma, UsageType } from "@prisma/client";
+import { calculatePagination } from "../../common/utils/pagination.util";
+import { IAdsService } from "./ads.types";
+
+export class AdsService implements IAdsService {
   // Get all ads for a user
-  async getAds(
-    userId: string,
-    query: GetAdsQuery
-  ): Promise<PaginatedResult<any>> {
+  async getAds(userId: string, query: GetAdsQuery) {
     const page = parseInt(query.page || "1");
     const limit = parseInt(query.limit || "20");
     const skip = (page - 1) * limit;
 
-    const where: any = { userId };
+    const where: Prisma.AdWhereInput = { userId };
 
     if (query.status) {
-      where.status = query.status;
+      where.status = query.status as AdStatus;
     }
 
     if (query.productId) {
@@ -41,6 +41,11 @@ export class AdsService {
               id: true,
               title: true,
               images: true,
+              store: {
+                select: {
+                  name: true,
+                },
+              },
             },
           },
           template: {
@@ -56,21 +61,17 @@ export class AdsService {
 
     return {
       data: ads,
-      meta: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit),
-        hasNextPage: page < Math.ceil(total / limit),
-        hasPrevPage: page > 1,
-      },
+      meta: calculatePagination(total, page, limit),
     };
   }
 
   // Get ad by ID
   async getAdById(id: string, userId: string) {
     const ad = await prisma.ad.findFirst({
-      where: { id, userId },
+      where: {
+        id,
+        userId,
+      },
       include: {
         product: true,
         template: true,
@@ -78,89 +79,95 @@ export class AdsService {
     });
 
     if (!ad) {
-      throw ApiError.notFound("Ad not found");
+      throw ApiError.notFound("Ad not found or you don't have access");
     }
 
     return ad;
   }
 
-  // Generate ad (add to queue)
-  async generateAd(userId: string, data: GenerateAdInput) {
-    // Verify product ownership
-    const product = await prisma.product.findFirst({
-      where: {
-        id: data.productId,
-        store: { userId },
-      },
+  // Generate ad (Step 3: Submit)
+  async generateAd(userId: string, data: GenerateAdBody) {
+    // 1. Check user credits
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { credits: true },
     });
 
-    if (!product) {
-      throw ApiError.notFound("Product not found");
+    if (!user) {
+      throw ApiError.notFound("User not found");
     }
 
-    // Verify template ownership
-    const template = await prisma.template.findFirst({
-      where: {
-        id: data.templateId,
-        userId,
-      },
-    });
-
-    if (!template) {
-      throw ApiError.notFound("Template not found");
-    }
-
-    // Deduct credits (1 credit per ad generation)
-    await billingService.checkAndDeductCredits(
-      userId,
-      1,
-      "AD_GENERATION",
-      `Generation of ${data.variantsCount || 1} variants for: ${
-        data.title || "Ad"
-      }`
-    );
-
-    // Assemble prompt by replacing variables
-    let assembledPrompt = template.promptTemplate;
-    for (const [key, value] of Object.entries(data.variableValues)) {
-      assembledPrompt = assembledPrompt.replace(
-        new RegExp(`{{${key}}}`, "g"),
-        String(value)
+    // Each generation costs 1 credit
+    if (user.credits < 1) {
+      throw ApiError.badRequest(
+        "Insufficient credits. Please top up to generate ads."
       );
     }
 
-    // Create ad with PENDING status
+    // 2. Verify product and template exist and belong to user
+    const [product, template] = await Promise.all([
+      prisma.product.findFirst({
+        where: { id: data.productId, store: { userId } },
+      }),
+      prisma.template.findFirst({
+        where: { id: data.templateId, userId },
+      }),
+    ]);
+
+    if (!product) throw ApiError.notFound("Product not found");
+    if (!template) throw ApiError.notFound("Template not found");
+
+    // 3. Create Ad record in PENDING status
+    // Assemble the prompt using template and variable values
+    let assembledPrompt = template.promptTemplate;
+    const variableValues = data.variableValues;
+
+    // Replace placeholders e.g. {{product_name}}
+    Object.entries(variableValues).forEach(([key, value]) => {
+      const regex = new RegExp(`{{${key}}}`, "g");
+      assembledPrompt = assembledPrompt.replace(regex, String(value));
+    });
+
     const ad = await prisma.ad.create({
       data: {
         userId,
         productId: data.productId,
         templateId: data.templateId,
-        title: data.title,
+        title: data.title || `Ad for ${product.title}`,
         assembledPrompt,
-        variableValues: data.variableValues,
-        aspectRatio: data.aspectRatio,
-        variantsCount: data.variantsCount,
-        status: "PENDING",
+        variableValues,
+        aspectRatio: data.aspectRatio || "1:1",
+        variantsCount: data.variantsCount || 1,
+        status: AdStatus.PENDING,
       },
     });
 
-    // Add job to queue
-    await adGenerationQueue.add("generate-ad", {
+    // 4. Deduct credit
+    await billingService.checkAndDeductCredits(
+      userId,
+      1,
+      UsageType.AD_GENERATION,
+      `Ad Generation: ${ad.id}`
+    );
+
+    // 5. Add to queue for background processing (n8n webhook)
+    await adGenerationQueue.add("generate", {
       adId: ad.id,
       userId,
-      assembledPrompt,
-      aspectRatio: data.aspectRatio,
-      variantsCount: data.variantsCount,
-      productImage: product.images[0]?.url,
+      prompt: assembledPrompt,
+      aspectRatio: ad.aspectRatio,
+      variantsCount: ad.variantsCount,
     });
 
     return ad;
   }
 
   // Delete ad
-  async deleteAd(id: string, userId: string) {
+  async deleteAd(id: string, userId: string): Promise<void> {
     const ad = await this.getAdById(id, userId);
 
+    // Only allow deleting completed or failed ads?
+    // Or just delete anyway if the user wants
     await prisma.ad.delete({
       where: { id },
     });
@@ -168,28 +175,30 @@ export class AdsService {
 
   // Bulk delete ads
   async bulkDeleteAds(userId: string, ids: string[]) {
-    // Verify ownership of all ads
-    const adsCount = await prisma.ad.count({
+    // Verify all ads belong to the user
+    const ads = await prisma.ad.findMany({
       where: {
         id: { in: ids },
         userId,
       },
+      select: { id: true },
     });
 
-    if (adsCount !== ids.length) {
-      throw ApiError.unauthorized("One or more ads not found or unauthorized");
+    const validatedIds = ads.map((a) => a.id);
+
+    if (validatedIds.length === 0) {
+      return { count: 0, message: "No valid ads found to delete" };
     }
 
-    // Delete all ads
-    const result = await prisma.ad.deleteMany({
+    const { count } = await prisma.ad.deleteMany({
       where: {
-        id: { in: ids },
+        id: { in: validatedIds },
       },
     });
 
     return {
-      count: result.count,
-      message: `Successfully deleted ${result.count} ads`,
+      count,
+      message: `Successfully deleted ${count} ads`,
     };
   }
 }

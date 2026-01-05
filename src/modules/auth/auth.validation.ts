@@ -59,13 +59,13 @@ export const changePasswordSchema = z.object({
   }),
 });
 
-export type RegisterInput = z.infer<typeof registerSchema>["body"];
-export type LoginInput = z.infer<typeof loginSchema>["body"];
-export type RefreshTokenInput = z.infer<typeof refreshTokenSchema>["body"];
-export type VerifyEmailInput = z.infer<typeof verifyEmailSchema>["body"];
-export type RequestPasswordResetInput = z.infer<
+export type RegisterBody = z.infer<typeof registerSchema>["body"];
+export type LoginBody = z.infer<typeof loginSchema>["body"];
+export type RefreshTokenBody = z.infer<typeof refreshTokenSchema>["body"];
+export type VerifyEmailBody = z.infer<typeof verifyEmailSchema>["body"];
+export type RequestPasswordResetBody = z.infer<
   typeof requestPasswordResetSchema
 >["body"];
-export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>["body"];
-export type ChangePasswordInput = z.infer<typeof changePasswordSchema>["body"];
+export type ResetPasswordBody = z.infer<typeof resetPasswordSchema>["body"];
+export type ChangePasswordBody = z.infer<typeof changePasswordSchema>["body"];
 

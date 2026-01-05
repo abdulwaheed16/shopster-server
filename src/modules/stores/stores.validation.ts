@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { objectIdSchema } from "../../common/validations/common.validation";
 
 // Store platform enum
 export const storePlatformSchema = z.enum(["SHOPIFY"]);
@@ -57,13 +58,13 @@ export const shopifyCallbackSchema = z.object({
   }),
 });
 
-export type CreateStoreInput = z.infer<typeof createStoreSchema>["body"];
-export type UpdateStoreInput = z.infer<typeof updateStoreSchema>["body"];
+export type CreateStoreBody = z.infer<typeof createStoreSchema>["body"];
+export type UpdateStoreBody = z.infer<typeof updateStoreSchema>["body"];
 
 // Sync products schema
 export const syncProductsSchema = z.object({
   params: z.object({
-    id: z.string().min(1),
+    id: objectIdSchema,
   }),
 });
 

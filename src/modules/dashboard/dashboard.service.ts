@@ -1,6 +1,8 @@
 import { prisma } from "../../config/database.config";
 
-export class DashboardService {
+import { IDashboardService } from "./dashboard.types";
+
+export class DashboardService implements IDashboardService {
   // Get user dashboard stats
   async getUserStats(userId: string) {
     const [
@@ -10,6 +12,7 @@ export class DashboardService {
       variablesCount,
       adsStats,
       recentAds,
+      user,
     ] = await Promise.all([
       // Total stores
       prisma.store.count({ where: { userId } }),
@@ -51,6 +54,11 @@ export class DashboardService {
           },
         },
       }),
+      // User credits
+      prisma.user.findUnique({
+        where: { id: userId },
+        select: { credits: true },
+      }),
     ]);
 
     // Transform ads stats
@@ -76,6 +84,7 @@ export class DashboardService {
       variables: variablesCount,
       ads: adsStatusCounts,
       recentAds,
+      credits: user?.credits || 0,
     };
   }
 

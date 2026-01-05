@@ -20,9 +20,7 @@ export const templatePreviewWorker = new Worker(
     const { templateId, promptTemplate, referenceAdImage, productImage } =
       job.data;
 
-    console.log(
-      `🎨 Processing template preview job ${job.id} for template ${templateId}`
-    );
+    console.log(`Processing template preview job ${job.id} for template ${templateId}`);
 
     try {
       // Call n8n webhook for preview generation
@@ -55,11 +53,11 @@ export const templatePreviewWorker = new Worker(
         },
       });
 
-      console.log(`✅ Template preview completed for template ${templateId}`);
+      console.log(`Template preview completed for template ${templateId}`);
       return { success: true, templateId };
     } catch (error: any) {
       console.error(
-        `❌ Template preview failed for template ${templateId}:`,
+        `Template preview failed for template ${templateId}:`,
         error.message
       );
       throw error; // Re-throw to mark job as failed
@@ -73,13 +71,13 @@ export const templatePreviewWorker = new Worker(
 
 // Worker event listeners
 templatePreviewWorker.on("completed", (job) => {
-  console.log(`✅ Preview job ${job.id} completed successfully`);
+  console.log(`Preview job ${job.id} completed successfully`);
 });
 
 templatePreviewWorker.on("failed", (job, err) => {
-  console.error(`❌ Preview job ${job?.id} failed:`, err.message);
+  console.error(`Preview job ${job?.id} failed:`, err.message);
 });
 
 templatePreviewWorker.on("error", (err) => {
-  console.error("❌ Preview worker error:", err);
+  console.error("Preview worker error:", err);
 });

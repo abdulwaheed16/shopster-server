@@ -3,7 +3,9 @@ import crypto from "crypto";
 import { ApiError } from "../../common/errors/api-error";
 import { config } from "../../config/env.config";
 
-export class ShopifyService {
+import { IShopifyService } from "./stores.types";
+
+export class ShopifyService implements IShopifyService {
   private readonly apiKey: string;
   private readonly apiSecret: string;
   private readonly scopes: string;
@@ -23,7 +25,7 @@ export class ShopifyService {
   }
 
   // Generate the Shopify OAuth URL
-  generateAuthUrl(shop: string, state: string): string {
+  generateAuthUrl(shop: string, state: string) {
     // Sanitize shop domain
     const sanitizedShop = this.sanitizeShopDomain(shop);
 
@@ -31,7 +33,7 @@ export class ShopifyService {
   }
 
   // Verify HMAC from Shopify callback
-  verifyHmac(query: any): boolean {
+  verifyHmac(query: Record<string, unknown>): boolean {
     const { hmac, ...params } = query;
     if (!hmac) return false;
 
@@ -50,7 +52,7 @@ export class ShopifyService {
   }
 
   // Exchange authorization code for permanent access token
-  async exchangeCodeForToken(shop: string, code: string): Promise<string> {
+  async exchangeCodeForToken(shop: string, code: string) {
     const sanitizedShop = this.sanitizeShopDomain(shop);
     const url = `https://${sanitizedShop}/admin/oauth/access_token`;
 
@@ -62,6 +64,7 @@ export class ShopifyService {
       });
 
       return response.data.access_token;
+      // @ts-ignore
     } catch (error: any) {
       console.error(
         "Shopify token exchange error:",
@@ -85,7 +88,8 @@ export class ShopifyService {
         },
       });
 
-      return response.data.products;
+      return response.data.products as unknown[];
+      // @ts-ignore
     } catch (error: any) {
       console.error(
         "Shopify fetch products error:",
@@ -121,6 +125,7 @@ export class ShopifyService {
           }
         );
         console.log(`Registered Shopify webhook: ${webhook.topic}`);
+        // @ts-ignore
       } catch (error: any) {
         // Shopify returns 422 if webhook already exists
         if (error.response?.status === 422) {
@@ -136,7 +141,7 @@ export class ShopifyService {
   }
 
   // Verify Shopify Webhook HMAC
-  verifyWebhookHmac(rawBody: string, hmacHeader: string): boolean {
+  verifyWebhookHmac(rawBody: string, hmacHeader: string) {
     if (!hmacHeader || !rawBody) return false;
 
     const generatedHmac = crypto

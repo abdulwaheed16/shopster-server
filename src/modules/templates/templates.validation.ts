@@ -5,11 +5,14 @@ export const createTemplateSchema = z.object({
   body: z.object({
     name: z.string().min(1, "Name is required"),
     description: z.string().optional(),
-    promptTemplate: z.string().min(1, "Prompt template is required"),
+    promptTemplate: z.string(),
     variableIds: z.array(z.string()).default([]),
+    category: z.string().optional(),
     categoryIds: z.array(z.string()).default([]),
-    referenceAdImage: z.string().url().optional(),
-    productImage: z.string().url().optional(),
+    referenceAdImage: z.string().optional(),
+    productImage: z.string().optional(),
+    isPublic: z.boolean().default(true),
+    assignedUserId: z.string().optional(), // Optional assignment to a user
   }),
 });
 
@@ -18,12 +21,15 @@ export const updateTemplateSchema = z.object({
   body: z.object({
     name: z.string().min(1).optional(),
     description: z.string().optional(),
-    promptTemplate: z.string().min(1).optional(),
+    promptTemplate: z.string().optional(),
     variableIds: z.array(z.string()).optional(),
+    category: z.string().optional(),
     categoryIds: z.array(z.string()).optional(),
-    referenceAdImage: z.string().url().optional(),
-    productImage: z.string().url().optional(),
+    referenceAdImage: z.string().optional(),
+    productImage: z.string().optional(),
     isActive: z.boolean().optional(),
+    isPublic: z.boolean().optional(),
+    assignedUserId: z.string().optional(),
   }),
 });
 
@@ -42,14 +48,13 @@ export const getTemplatesSchema = z.object({
     search: z.string().optional(),
     categoryId: z.string().optional(),
     isActive: z.string().optional(),
+    filterType: z.enum(["mine", "others", "all"]).default("all"),
   }),
 });
 
-export type CreateTemplateInput = z.infer<typeof createTemplateSchema>["body"];
-export type UpdateTemplateInput = z.infer<typeof updateTemplateSchema>["body"];
-export type GeneratePreviewInput = z.infer<
-  typeof generatePreviewSchema
->["body"];
+export type CreateTemplateBody = z.infer<typeof createTemplateSchema>["body"];
+export type UpdateTemplateBody = z.infer<typeof updateTemplateSchema>["body"];
+export type GeneratePreviewBody = z.infer<typeof generatePreviewSchema>["body"];
 export type GetTemplatesQuery = z.infer<typeof getTemplatesSchema>["query"];
 
 // Bulk delete templates schema
@@ -59,6 +64,6 @@ export const bulkDeleteTemplatesSchema = z.object({
   }),
 });
 
-export type BulkDeleteTemplatesInput = z.infer<
+export type BulkDeleteTemplatesBody = z.infer<
   typeof bulkDeleteTemplatesSchema
 >["body"];

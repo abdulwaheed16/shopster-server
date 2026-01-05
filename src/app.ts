@@ -10,7 +10,6 @@ import {
   errorHandler,
   notFoundHandler,
 } from "./common/middlewares/error.middleware";
-import { apiLimiter } from "./common/middlewares/rate-limit.middleware";
 import { config } from "./config/env.config";
 import { swaggerSpec } from "./config/swagger.config";
 import routes from "./routes/index";
@@ -33,14 +32,20 @@ export const createApp = (): Application => {
     cors({
       origin: (origin, callback) => {
         const allowedOrigins = config.cors.origin;
+        // In development, be more permissive or log clearly
         if (!origin || allowedOrigins.includes(origin)) {
           callback(null, true);
         } else {
-          if (config.server.isDevelopment) {
-            console.log(`CORS blocked for origin: ${origin}`);
-            console.log(`Allowed origins:`, allowedOrigins);
+          // If it's a localhost origin but with a different port, allow in dev
+          if (config.server.isDevelopment && origin.includes("localhost")) {
+            callback(null, true);
+          } else {
+            if (config.server.isDevelopment) {
+              console.log(`[CORS] Rejected: ${origin}`);
+              console.log(`[CORS] Allowed: ${allowedOrigins}`);
+            }
+            callback(null, false);
           }
-          callback(null, false);
         }
       },
       credentials: true,
@@ -58,10 +63,12 @@ export const createApp = (): Application => {
   app.use(
     express.json({
       limit: "10mb",
+      // @ts-ignore
       verify: (req: any, res: any, buf: Buffer) => {
         if (
           req.originalUrl.includes("/shopify/webhooks") ||
-          req.originalUrl.includes("/billing/webhooks")
+          req.originalUrl.includes("/billing/webhooks") ||
+          req.originalUrl.includes("/stripe/webhooks")
         ) {
           req.rawBody = buf;
         }
@@ -81,7 +88,7 @@ export const createApp = (): Application => {
   }
 
   // Rate limiting (apply to all routes)
-  app.use(apiLimiter);
+  // app.use(apiLimiter);
 
   // Swagger documentation
   app.use(

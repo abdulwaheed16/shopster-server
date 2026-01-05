@@ -4,7 +4,9 @@ import { prisma } from "../../config/database.config";
 import { usersService } from "../users/users.service";
 import { UpdateProfileInput, UpdateSecurityInput } from "./settings.validation";
 
-export class SettingsService {
+import { ISettingsService } from "./settings.types";
+
+export class SettingsService implements ISettingsService {
   /**
    * Get user profile settings
    */

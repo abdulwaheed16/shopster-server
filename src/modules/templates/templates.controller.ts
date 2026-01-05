@@ -1,4 +1,5 @@
 import { NextFunction, Request, Response } from "express";
+import { ApiError } from "../../common/errors/api-error";
 import {
   sendCreated,
   sendPaginated,
@@ -6,10 +7,10 @@ import {
 } from "../../common/utils/response.util";
 import { templatesService } from "./templates.service";
 import {
-  CreateTemplateInput,
-  GeneratePreviewInput,
+  CreateTemplateBody,
+  GeneratePreviewBody,
   GetTemplatesQuery,
-  UpdateTemplateInput,
+  UpdateTemplateBody,
 } from "./templates.validation";
 
 export class TemplatesController {
@@ -21,11 +22,53 @@ export class TemplatesController {
   ): Promise<void> {
     try {
       const userId = req.user!.id;
-      const query: GetTemplatesQuery = req.query;
+      const query: GetTemplatesQuery = req.query as any;
 
       const result = await templatesService.getTemplates(userId, query);
 
       sendPaginated(res, "Templates fetched successfully", result);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // Get user's templates --- GET /templates/my
+  async getMyTemplates(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
+    try {
+      const userId = req.user!.id;
+      const query: GetTemplatesQuery = {
+        ...req.query,
+        filterType: "mine",
+      } as any;
+
+      const result = await templatesService.getTemplates(userId, query);
+
+      sendPaginated(res, "User templates fetched successfully", result);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // Get global templates --- GET /templates/general
+  async getGeneralTemplates(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
+    try {
+      const userId = req.user!.id;
+      const query: GetTemplatesQuery = {
+        ...req.query,
+        filterType: "others",
+      } as any;
+
+      const result = await templatesService.getTemplates(userId, query);
+
+      sendPaginated(res, "Global templates fetched successfully", result);
     } catch (error) {
       next(error);
     }
@@ -56,8 +99,11 @@ export class TemplatesController {
     next: NextFunction
   ): Promise<void> {
     try {
-      const userId = req.user!.id;
-      const data: CreateTemplateInput = req.body;
+      const { id: userId, role } = req.user!;
+      if (role !== "ADMIN") {
+        throw ApiError.unauthorized("Only admins can create templates");
+      }
+      const data: CreateTemplateBody = req.body;
 
       const template = await templatesService.createTemplate(userId, data);
 
@@ -74,9 +120,12 @@ export class TemplatesController {
     next: NextFunction
   ): Promise<void> {
     try {
-      const userId = req.user!.id;
+      const { id: userId, role } = req.user!;
+      if (role !== "ADMIN") {
+        throw ApiError.unauthorized("Only admins can update templates");
+      }
       const { id } = req.params;
-      const data: UpdateTemplateInput = req.body;
+      const data: UpdateTemplateBody = req.body;
 
       const template = await templatesService.updateTemplate(id, userId, data);
 
@@ -93,7 +142,10 @@ export class TemplatesController {
     next: NextFunction
   ): Promise<void> {
     try {
-      const userId = req.user!.id;
+      const { id: userId, role } = req.user!;
+      if (role !== "ADMIN") {
+        throw ApiError.unauthorized("Only admins can delete templates");
+      }
       const { id } = req.params;
 
       await templatesService.deleteTemplate(id, userId);
@@ -112,7 +164,7 @@ export class TemplatesController {
   ): Promise<void> {
     try {
       const userId = req.user!.id;
-      const data: GeneratePreviewInput = req.body;
+      const data: GeneratePreviewBody = req.body;
 
       const result = await templatesService.generatePreview(userId, data);
 
@@ -129,7 +181,10 @@ export class TemplatesController {
     next: NextFunction
   ): Promise<void> {
     try {
-      const userId = req.user!.id;
+      const { id: userId, role } = req.user!;
+      if (role !== "ADMIN") {
+        throw ApiError.unauthorized("Only admins can perform bulk delete");
+      }
       const { ids } = req.body;
 
       const result = await templatesService.bulkDeleteTemplates(userId, ids);

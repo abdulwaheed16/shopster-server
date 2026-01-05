@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { objectIdSchema } from "../../common/validations/common.validation";
 
 // Create category schema
 export const createCategorySchema = z.object({
@@ -12,7 +13,7 @@ export const createCategorySchema = z.object({
         "Slug must be lowercase alphanumeric with hyphens"
       ),
     description: z.string().optional(),
-    parentId: z.string().optional(),
+    parentId: objectIdSchema.optional(),
     icon: z.string().url().optional(),
   }),
 });
@@ -27,7 +28,7 @@ export const updateCategorySchema = z.object({
       .regex(/^[a-z0-9-]+$/)
       .optional(),
     description: z.string().optional(),
-    parentId: z.string().optional(),
+    parentId: objectIdSchema.optional(),
     icon: z.string().url().optional(),
   }),
 });
@@ -38,10 +39,10 @@ export const getCategoriesSchema = z.object({
     page: z.string().optional(),
     limit: z.string().optional(),
     search: z.string().optional(),
-    parentId: z.string().optional(),
+    parentId: objectIdSchema.optional(),
   }),
 });
 
-export type CreateCategoryInput = z.infer<typeof createCategorySchema>["body"];
-export type UpdateCategoryInput = z.infer<typeof updateCategorySchema>["body"];
+export type CreateCategoryBody = z.infer<typeof createCategorySchema>["body"];
+export type UpdateCategoryBody = z.infer<typeof updateCategorySchema>["body"];
 export type GetCategoriesQuery = z.infer<typeof getCategoriesSchema>["query"];

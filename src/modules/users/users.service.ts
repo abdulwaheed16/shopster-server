@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import { MESSAGES } from "../../common/constants/messages.constant";
 import { ApiError } from "../../common/errors/api-error";
 import { ERROR_CODES } from "../../common/errors/error-codes";
@@ -5,22 +6,32 @@ import { hashPassword } from "../../common/utils/hash.util";
 import {
   createPaginatedResponse,
   getPrismaSkip,
-  PaginatedResponse,
   parsePaginationParams,
 } from "../../common/utils/pagination.util";
 import { prisma } from "../../config/database.config";
-import { UpdateUserInput } from "./users.validation";
+import { IUsersService } from "./users.types";
+import { GetUsersQuery, UpdateUserBody } from "./users.validation";
 
-export class UsersService {
+export class UsersService implements IUsersService {
   // Get all users (paginated)
-  async getUsers(query: any): Promise<PaginatedResponse<any>> {
+  async getUsers(query: GetUsersQuery) {
     const { page, limit, sortBy, sortOrder } = parsePaginationParams(query);
+
+    const where: Prisma.UserWhereInput = {};
+
+    if ((query as any).search) {
+      where.OR = [
+        { name: { contains: (query as any).search, mode: "insensitive" } },
+        { email: { contains: (query as any).search, mode: "insensitive" } },
+      ];
+    }
 
     const [users, total] = await Promise.all([
       prisma.user.findMany({
+        where,
         skip: getPrismaSkip(page, limit),
         take: limit,
-        orderBy: { [sortBy]: sortOrder },
+        orderBy: { [sortBy as string]: sortOrder },
         select: {
           id: true,
           email: true,
@@ -32,7 +43,7 @@ export class UsersService {
           updatedAt: true,
         },
       }),
-      prisma.user.count(),
+      prisma.user.count({ where }),
     ]);
 
     return createPaginatedResponse(users, total, page, limit);
@@ -71,7 +82,7 @@ export class UsersService {
   }
 
   // Update user
-  async updateUser(id: string, data: UpdateUserInput["body"]) {
+  async updateUser(id: string, data: UpdateUserBody) {
     // Check if user exists
     const existingUser = await prisma.user.findUnique({ where: { id } });
 
@@ -97,14 +108,14 @@ export class UsersService {
     }
 
     // Hash password if provided
-    const updateData: any = { ...data };
+    const updateData: Record<string, unknown> = { ...data };
     if (data.password) {
       updateData.password = await hashPassword(data.password);
     }
 
     const user = await prisma.user.update({
       where: { id },
-      data: updateData,
+      data: updateData as any,
       select: {
         id: true,
         email: true,
@@ -121,7 +132,7 @@ export class UsersService {
   }
 
   // Delete user
-  async deleteUser(id: string): Promise<void> {
+  async deleteUser(id: string) {
     const user = await prisma.user.findUnique({ where: { id } });
 
     if (!user) {
@@ -140,9 +151,9 @@ export class UsersService {
   }
 
   // Update current user profile
-  async updateProfile(userId: string, data: Partial<UpdateUserInput["body"]>) {
+  async updateProfile(userId: string, data: Partial<UpdateUserBody>) {
     // Users can't update their own role
-    const { role, ...profileData } = data;
+    const { role, ...profileData } = data as any;
     return this.updateUser(userId, profileData);
   }
 

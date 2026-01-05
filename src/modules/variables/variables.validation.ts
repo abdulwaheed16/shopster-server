@@ -54,6 +54,6 @@ export const getVariablesSchema = z.object({
 });
 
 // Export types
-export type CreateVariableInput = z.infer<typeof createVariableSchema>["body"];
-export type UpdateVariableInput = z.infer<typeof updateVariableSchema>["body"];
+export type CreateVariableBody = z.infer<typeof createVariableSchema>["body"];
+export type UpdateVariableBody = z.infer<typeof updateVariableSchema>["body"];
 export type GetVariablesQuery = z.infer<typeof getVariablesSchema>["query"];

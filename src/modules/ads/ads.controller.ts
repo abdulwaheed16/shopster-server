@@ -5,14 +5,14 @@ import {
   sendSuccess,
 } from "../../common/utils/response.util";
 import { adsService } from "./ads.service";
-import { GenerateAdInput, GetAdsQuery } from "./ads.validation";
+import { GenerateAdBody, GetAdsQuery } from "./ads.validation";
 
 export class AdsController {
   // Get all ads --- GET /ads
   async getAds(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const userId = req.user!.id;
-      const query: GetAdsQuery = req.query;
+      const query: GetAdsQuery = req.query as any;
 
       const result = await adsService.getAds(userId, query);
 
@@ -48,7 +48,7 @@ export class AdsController {
   ): Promise<void> {
     try {
       const userId = req.user!.id;
-      const data: GenerateAdInput = req.body;
+      const data: GenerateAdBody = req.body;
 
       const ad = await adsService.generateAd(userId, data);
 

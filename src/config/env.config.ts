@@ -60,7 +60,9 @@ const envSchema = z.object({
   N8N_WEBHOOK_URL: z.string().url().optional(),
 
   // CORS
-  CORS_ORIGIN: z.string().default("http://localhost:5173"),
+  CORS_ORIGIN: z
+    .string()
+    .default("http://localhost:5173,http://localhost:3000"),
 
   // Rate Limiting
   RATE_LIMIT_WINDOW_MS: z.string().default("900000"), // 15 minutes
@@ -132,7 +134,9 @@ export const config = {
     callbackUrl: env.SHOPIFY_CALLBACK_URL,
   },
   cors: {
-    origin: env.CORS_ORIGIN.split(",").map((origin) => origin.trim()),
+    origin: env.CORS_ORIGIN.split(",")
+      .map((origin) => origin.trim().replace(/^["']|["']$/g, ""))
+      .filter(Boolean),
   },
   rateLimit: {
     windowMs: parseInt(env.RATE_LIMIT_WINDOW_MS, 10),
