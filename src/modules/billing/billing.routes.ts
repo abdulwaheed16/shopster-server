@@ -58,4 +58,11 @@ router.post(
   billingController.updateCustomPlan.bind(billingController)
 );
 
+router.get(
+  "/admin/usage/:userId",
+  authenticate,
+  authorize(UserRole.ADMIN),
+  billingController.getUserUsage.bind(billingController)
+);
+
 export default router;

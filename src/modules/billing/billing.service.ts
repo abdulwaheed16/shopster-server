@@ -603,6 +603,16 @@ export class BillingService {
       description
     );
   }
+
+  /**
+   * Admin: Get all usage records for a specific user
+   */
+  async getUserUsage(userId: string) {
+    return await prisma.usageRecord.findMany({
+      where: { userId },
+      orderBy: { createdAt: "desc" },
+    });
+  }
 }
 
 export const billingService = new BillingService();

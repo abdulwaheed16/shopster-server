@@ -1,4 +1,3 @@
-import { UsageType } from "@prisma/client";
 import { ApiError } from "../../common/errors/api-error";
 import { prisma } from "../../config/database.config";
 import { ICreditManager } from "./billing.types";
@@ -10,7 +9,7 @@ export class CreditsService implements ICreditManager {
   async addCredits(
     userId: string,
     amount: number,
-    type: UsageType,
+    type: any,
     description?: string
   ) {
     return await prisma.$transaction([
@@ -37,7 +36,7 @@ export class CreditsService implements ICreditManager {
   async deductCredits(
     userId: string,
     amount: number,
-    type: UsageType,
+    type: any,
     description?: string
   ) {
     const user = await prisma.user.findUnique({ where: { id: userId } });
@@ -82,7 +81,7 @@ export class CreditsService implements ICreditManager {
       prisma.usageRecord.create({
         data: {
           userId,
-          type: UsageType.ADMIN_ADJUSTMENT,
+          type: "ADMIN_ADJUSTMENT",
           creditAmount: amount,
           description,
         },

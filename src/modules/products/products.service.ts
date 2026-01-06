@@ -6,9 +6,9 @@ import {
   UpdateProductBody,
 } from "./products.validation";
 
-import { IProductsService } from "./products.types";
 import { Prisma } from "@prisma/client";
 import { calculatePagination } from "../../common/utils/pagination.util";
+import { IProductsService } from "./products.types";
 
 export class ProductsService implements IProductsService {
   // Get all products for user's stores
@@ -100,13 +100,19 @@ export class ProductsService implements IProductsService {
       throw ApiError.notFound("Store not found or you don't have access");
     }
 
-    // 2. Create product
+    // 2. Prepare data
+    const productData = {
+      ...data,
+      externalId:
+        data.externalId ||
+        `manual-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      images: data.images as any,
+      variants: data.variants as any,
+    };
+
+    // 3. Create product
     return await prisma.product.create({
-      data: {
-        ...data,
-        images: data.images as any,
-        variants: data.variants as any,
-      },
+      data: productData,
     });
   }
 
@@ -150,16 +156,22 @@ export class ProductsService implements IProductsService {
           where: {
             storeId_externalId: {
               storeId: p.storeId,
-              externalId: p.externalId,
+              externalId: p.externalId as string,
             },
           },
           update: {
             ...p,
+            externalId:
+              p.externalId ||
+              `manual-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
             images: p.images as any,
             variants: p.variants as any,
           },
           create: {
             ...p,
+            externalId:
+              p.externalId ||
+              `manual-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
             images: p.images as any,
             variants: p.variants as any,
           },
@@ -206,4 +218,3 @@ export class ProductsService implements IProductsService {
 }
 
 export const productsService = new ProductsService();
-

@@ -10,7 +10,6 @@ import {
   UpdateTemplateBody,
 } from "./templates.validation";
 
-import { Prisma, UsageType } from "@prisma/client";
 import { calculatePagination } from "../../common/utils/pagination.util";
 import { ITemplatesService } from "./templates.types";
 
@@ -21,7 +20,7 @@ export class TemplatesService implements ITemplatesService {
     const limit = parseInt(query.limit || "20");
     const skip = (page - 1) * limit;
 
-    const where: Prisma.TemplateWhereInput = { isActive: true };
+    const where: any = { isActive: true };
 
     // Filtering logic
     if (query.filterType === "mine") {
@@ -50,13 +49,13 @@ export class TemplatesService implements ITemplatesService {
           {
             name: {
               contains: query.search,
-              mode: "insensitive" as Prisma.QueryMode,
+              mode: "insensitive" as any,
             },
           },
           {
             description: {
               contains: query.search,
-              mode: "insensitive" as Prisma.QueryMode,
+              mode: "insensitive" as any,
             },
           },
         ],
@@ -80,7 +79,7 @@ export class TemplatesService implements ITemplatesService {
           {
             category: {
               contains: query.categoryId,
-              mode: "insensitive" as Prisma.QueryMode,
+              mode: "insensitive" as any,
             },
           },
         ],
@@ -248,7 +247,7 @@ export class TemplatesService implements ITemplatesService {
       select: { id: true, variableIds: true },
     });
 
-    const validatedIds = templates.map((t) => t.id);
+    const validatedIds = (templates as any[]).map((t: any) => t.id);
 
     if (validatedIds.length === 0) {
       return { count: 0, message: "No valid templates found to delete" };
@@ -285,7 +284,7 @@ export class TemplatesService implements ITemplatesService {
     await billingService.checkAndDeductCredits(
       userId,
       0.5,
-      UsageType.TEMPLATE_PREVIEW,
+      "TEMPLATE_PREVIEW",
       `Preview generation for template: ${template.name}`
     );
 
@@ -316,7 +315,7 @@ export class TemplatesService implements ITemplatesService {
       await variablesService.updateVariableUsage(
         variableId,
         templateId,
-        templateName,
+        templateName as any,
         prompt,
         previewUrl
       );

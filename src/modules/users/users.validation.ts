@@ -9,7 +9,13 @@ import {
 import { paginationSchema } from "../../common/validations/pagination.validation";
 
 // Get users validation (with pagination)
-export const getUsersSchema = paginationSchema;
+export const getUsersSchema = z.object({
+  query: paginationSchema.shape.query.extend({
+    search: z.string().optional(),
+    role: z.nativeEnum(UserRole).optional(),
+    isActive: z.preprocess((val) => val === "true", z.boolean()).optional(),
+  }),
+});
 
 // Get user by ID validation
 export const getUserByIdSchema = z.object({
@@ -28,6 +34,7 @@ export const updateUserSchema = z.object({
       name: nameSchema,
       email: emailSchema.optional(),
       password: optionalPasswordSchema,
+      image: z.string().url().optional(),
       role: z.nativeEnum(UserRole).optional(),
     })
     .refine((data) => Object.keys(data).length > 0, {

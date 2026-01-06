@@ -22,10 +22,11 @@ export const createProductSchema = z.object({
   body: z.object({
     storeId: objectIdSchema,
     categoryId: objectIdSchema.optional(),
-    externalId: z.string().min(1, "External ID is required"),
+    externalId: z.string().optional(),
     sku: z.string().optional(),
     title: z.string().min(1, "Title is required"),
     description: z.string().optional(),
+    productSource: z.enum(["STORE", "UPLOADED"]).default("STORE"),
     images: z.array(productImageSchema).default([]),
     variants: z.array(productVariantSchema).default([]),
     isActive: z.boolean().default(true),

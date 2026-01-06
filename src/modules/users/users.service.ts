@@ -1,4 +1,3 @@
-import { Prisma } from "@prisma/client";
 import { MESSAGES } from "../../common/constants/messages.constant";
 import { ApiError } from "../../common/errors/api-error";
 import { ERROR_CODES } from "../../common/errors/error-codes";
@@ -17,13 +16,21 @@ export class UsersService implements IUsersService {
   async getUsers(query: GetUsersQuery) {
     const { page, limit, sortBy, sortOrder } = parsePaginationParams(query);
 
-    const where: Prisma.UserWhereInput = {};
+    const where: any = {};
 
     if ((query as any).search) {
       where.OR = [
         { name: { contains: (query as any).search, mode: "insensitive" } },
         { email: { contains: (query as any).search, mode: "insensitive" } },
       ];
+    }
+
+    if (query.role) {
+      where.role = query.role;
+    }
+
+    if (query.isActive !== undefined) {
+      where.isActive = query.isActive;
     }
 
     const [users, total] = await Promise.all([
@@ -39,8 +46,14 @@ export class UsersService implements IUsersService {
           role: true,
           emailVerified: true,
           image: true,
+          isActive: true,
           createdAt: true,
           updatedAt: true,
+          subscription: {
+            include: {
+              plan: true,
+            },
+          },
         },
       }),
       prisma.user.count({ where }),
@@ -60,12 +73,20 @@ export class UsersService implements IUsersService {
         role: true,
         emailVerified: true,
         image: true,
+        isActive: true,
+        credits: true,
         createdAt: true,
         updatedAt: true,
+        subscription: {
+          include: {
+            plan: true,
+          },
+        },
         _count: {
           select: {
             stores: true,
             ads: true,
+            templates: true,
           },
         },
       },
@@ -154,6 +175,13 @@ export class UsersService implements IUsersService {
   async updateProfile(userId: string, data: Partial<UpdateUserBody>) {
     // Users can't update their own role
     const { role, ...profileData } = data as any;
+
+    // Map frontend 'avatar' to backend 'image' if present
+    if (profileData.avatar !== undefined) {
+      profileData.image = profileData.avatar;
+      delete profileData.avatar;
+    }
+
     return this.updateUser(userId, profileData);
   }
 

@@ -1,6 +1,7 @@
-import { BillingInterval, Plan } from "@prisma/client";
 import Stripe from "stripe";
 import { ApiError } from "../../common/errors/api-error";
+type Plan = any;
+type BillingInterval = any;
 
 /**
  * Interface for checkout line item strategies (SOLID: Dependency Inversion & Strategy Pattern)

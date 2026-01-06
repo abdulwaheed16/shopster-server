@@ -21,7 +21,7 @@ export class BillingController {
       const data: CreateCheckoutSessionBody = req.body;
 
       const result = await billingService.createCheckoutSession(userId, data);
-      
+
       sendSuccess(res, "Checkout session created", result);
     } catch (error) {
       next(error);
@@ -149,10 +149,15 @@ export class BillingController {
     next: NextFunction
   ): Promise<void> {
     try {
-      const userId = req.user!.id;
-      const { page, limit, status } = req.query;
+      const { page, limit, status, userId: queryUserId } = req.query;
 
-      const result = await billingService.getInvoices(userId, {
+      // Only admins can view other people's invoices
+      const targetUserId =
+        req.user!.role === "ADMIN" && queryUserId
+          ? (queryUserId as string)
+          : req.user!.id;
+
+      const result = await billingService.getInvoices(targetUserId, {
         page: page ? parseInt(page as string) : undefined,
         limit: limit ? parseInt(limit as string) : undefined,
         status: status as string,
@@ -174,6 +179,21 @@ export class BillingController {
       const userId = req.user!.id;
       const result = await billingService.getPaymentMethods(userId);
       sendSuccess(res, "Payment methods retrieved successfully", result);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // Admin: Get User Usage Records
+  async getUserUsage(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
+    try {
+      const { userId } = req.params;
+      const result = await billingService.getUserUsage(userId);
+      sendSuccess(res, "Usage records retrieved successfully", result);
     } catch (error) {
       next(error);
     }
