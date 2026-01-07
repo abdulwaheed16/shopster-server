@@ -1,5 +1,6 @@
 import axios from "axios";
 import { Job, Worker } from "bullmq";
+import { cloudinary, cloudinaryOptions } from "../config/cloudinary.config";
 import { prisma } from "../config/database.config";
 import { config } from "../config/env.config";
 import { connection, QUEUE_NAMES } from "../config/queue.config";
@@ -49,26 +50,40 @@ export const adGenerationWorker = new Worker(
         }
       );
 
-      // Extract image URLs from response
-      const { imageUrl, imageUrls, cloudinaryId, storagePaths } = response.data;
+      // Extract image URL from response
+      // We expect n8n to return the image URL (could be temporary or external)
+      const { imageUrl } = response.data;
 
-      // Update ad with generated images
+      if (!imageUrl) {
+        throw new Error("No image URL returned from generation service");
+      }
+
+      console.log(`Uploading generated image to Cloudinary: ${imageUrl}`);
+
+      // Upload to Cloudinary
+      const uploadResult = await cloudinary.uploader.upload(imageUrl, {
+        ...cloudinaryOptions.ads,
+        allowed_formats: [...cloudinaryOptions.ads.allowed_formats],
+        public_id: `ad_${adId}_${Date.now()}`, // Unique ID
+      });
+
+      // Update ad with generated images and Cloudinary details
       await prisma.ad.update({
         where: { id: adId },
         data: {
           status: "COMPLETED",
-          imageUrl,
-          imageUrls: imageUrls || [],
-          cloudinaryId,
-          storagePaths: storagePaths || [],
+          imageUrl: uploadResult.secure_url,
+          imageUrls: [uploadResult.secure_url], // For now just one, or append if multiple
+          cloudinaryId: uploadResult.public_id,
+          storagePaths: [uploadResult.public_id],
           webhookJobId: response.data.jobId,
         },
       });
 
-      console.log(`✅ Ad generation completed for ad ${adId}`);
+      console.log(`Ad generation completed for ad ${adId}`);
       return { success: true, adId };
     } catch (error: any) {
-      console.error(`❌ Ad generation failed for ad ${adId}:`, error.message);
+      console.error(`Ad generation failed for ad ${adId}:`, error.message);
 
       // Update ad status to FAILED
       await prisma.ad.update({
@@ -93,13 +108,13 @@ export const adGenerationWorker = new Worker(
 
 // Worker event listeners
 adGenerationWorker.on("completed", (job) => {
-  console.log(`✅ Job ${job.id} completed successfully`);
+  console.log(`Job ${job.id} completed successfully`);
 });
 
 adGenerationWorker.on("failed", (job, err) => {
-  console.error(`❌ Job ${job?.id} failed:`, err.message);
+  console.error(`Job ${job?.id} failed:`, err.message);
 });
 
 adGenerationWorker.on("error", (err) => {
-  console.error("❌ Worker error:", err);
+  console.error("Worker error:", err);
 });

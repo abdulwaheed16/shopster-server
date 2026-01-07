@@ -1,5 +1,6 @@
 import axios from "axios";
 import { Job, Worker } from "bullmq";
+import { cloudinary, cloudinaryOptions } from "../config/cloudinary.config";
 import { prisma } from "../config/database.config";
 import { config } from "../config/env.config";
 import { connection, QUEUE_NAMES } from "../config/queue.config";
@@ -20,7 +21,9 @@ export const templatePreviewWorker = new Worker(
     const { templateId, promptTemplate, referenceAdImage, productImage } =
       job.data;
 
-    console.log(`Processing template preview job ${job.id} for template ${templateId}`);
+    console.log(
+      `Processing template preview job ${job.id} for template ${templateId}`
+    );
 
     try {
       // Call n8n webhook for preview generation
@@ -45,11 +48,35 @@ export const templatePreviewWorker = new Worker(
       // Extract preview URLs from response
       const { previewImages } = response.data;
 
+      if (!previewImages || !Array.isArray(previewImages)) {
+        throw new Error(
+          "Invalid preview images returned from generation service"
+        );
+      }
+
+      console.log(
+        `Uploading ${previewImages.length} preview images to Cloudinary...`
+      );
+
+      // Upload all previews to Cloudinary
+      const uploadPromises = previewImages.map(
+        async (url: string, index: number) => {
+          const result = await cloudinary.uploader.upload(url, {
+            ...cloudinaryOptions.templates,
+            allowed_formats: [...cloudinaryOptions.templates.allowed_formats],
+            public_id: `tpl_preview_${templateId}_${Date.now()}_${index}`,
+          });
+          return result.secure_url;
+        }
+      );
+
+      const secureUrls = await Promise.all(uploadPromises);
+
       // Update template with preview images
       await prisma.template.update({
         where: { id: templateId },
         data: {
-          previewImages: previewImages || [],
+          previewImages: secureUrls,
         },
       });
 
