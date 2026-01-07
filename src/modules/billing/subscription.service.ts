@@ -21,7 +21,7 @@ export class SubscriptionService implements ISubscriptionService {
     });
   }
 
-  async upsertSubscription(data: Partial<Subscription>) {
+  async upsertSubscription(data: Partial<Subscription>): Promise<Subscription> {
     return await prisma.subscription.upsert({
       where: { userId: data.userId },
       update: data,

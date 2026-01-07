@@ -1,3 +1,4 @@
+import { AdStatus, JobStatus } from "@prisma/client";
 import { prisma } from "../../config/database.config";
 
 import { IDashboardService } from "./dashboard.types";
@@ -19,7 +20,7 @@ export class DashboardService implements IDashboardService {
 
       // Total products
       prisma.product.count({
-        where: { store: { userId } },
+        where: { store: { userId } }, 
       }),
 
       // Total templates
@@ -70,7 +71,7 @@ export class DashboardService implements IDashboardService {
       failed: 0,
     };
 
-    adsStats.forEach((stat) => {
+    adsStats.forEach((stat: { status: AdStatus; _count: number }) => {
       adsStatusCounts.total += stat._count;
       adsStatusCounts[
         stat.status.toLowerCase() as keyof typeof adsStatusCounts
@@ -166,7 +167,7 @@ export class DashboardService implements IDashboardService {
       failed: 0,
     };
 
-    adsStats.forEach((stat) => {
+    adsStats.forEach((stat: { status: AdStatus; _count: number }) => {
       adsStatusCounts.total += stat._count;
       adsStatusCounts[
         stat.status.toLowerCase() as keyof typeof adsStatusCounts
@@ -183,7 +184,7 @@ export class DashboardService implements IDashboardService {
       cancelled: 0,
     };
 
-    jobsStats.forEach((stat) => {
+    jobsStats.forEach((stat: { status: JobStatus; _count: number }) => {
       jobsStatusCounts.total += stat._count;
       jobsStatusCounts[
         stat.status.toLowerCase() as keyof typeof jobsStatusCounts

@@ -18,3 +18,6 @@ yarn-error.log*
 coverage/
 .nyc_output/
 .vercel
+
+# Documentation
+/docs

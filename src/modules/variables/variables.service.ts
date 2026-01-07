@@ -6,7 +6,7 @@ import {
   UpdateVariableBody,
 } from "./variables.validation";
 
-import { VariableType } from "@prisma/client";
+import { Prisma, VariableType } from "@prisma/client";
 import { calculatePagination } from "../../common/utils/pagination.util";
 import { IVariablesService } from "./variables.types";
 
@@ -17,7 +17,7 @@ export class VariablesService implements IVariablesService {
     const limit = parseInt(query.limit || "10");
     const skip = (page - 1) * limit;
 
-    const where: any = { userId };
+    const where: Prisma.VariableWhereInput = { userId };
 
     // Filter by type
     if (query.type) {

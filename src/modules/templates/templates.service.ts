@@ -10,6 +10,14 @@ import {
   UpdateTemplateBody,
 } from "./templates.validation";
 
+import {
+  Prisma,
+  Template,
+  TemplateFavorite,
+  TemplateLike,
+  TemplateVisit,
+} from "@prisma/client";
+
 import { calculatePagination } from "../../common/utils/pagination.util";
 import { ITemplatesService } from "./templates.types";
 
@@ -20,7 +28,7 @@ export class TemplatesService implements ITemplatesService {
     const limit = parseInt(query.limit || "20");
     const skip = (page - 1) * limit;
 
-    const where: any = { isActive: true };
+    const where: Prisma.TemplateWhereInput = { isActive: true };
 
     // Filtering logic
     if (query.filterType === "mine") {
@@ -39,13 +47,13 @@ export class TemplatesService implements ITemplatesService {
         where: { userId },
         select: { templateId: true },
       });
-      where.id = { in: likes.map((l) => l.templateId) };
+      where.id = { in: likes.map((l: { templateId: string }) => l.templateId) };
     } else if (query.filterType === "favorited") {
       const favorites = await prisma.templateFavorite.findMany({
         where: { userId },
         select: { templateId: true },
       });
-      where.id = { in: favorites.map((f) => f.templateId) };
+      where.id = { in: favorites.map((f: { templateId: string }) => f.templateId) };
     } else if (query.filterType === "recent") {
       const visits = await prisma.templateVisit.findMany({
         where: { userId },
@@ -54,7 +62,9 @@ export class TemplatesService implements ITemplatesService {
         select: { templateId: true },
       });
       // Get unique template IDs while maintaining order
-      const uniqueIds = Array.from(new Set(visits.map((v) => v.templateId)));
+      const uniqueIds = Array.from(
+        new Set(visits.map((v: { templateId: string }) => v.templateId))
+      );
       where.id = { in: uniqueIds };
     } else {
       where.OR = [{ userId: userId }, { userId: null }];
@@ -125,7 +135,7 @@ export class TemplatesService implements ITemplatesService {
 
     // Enhance templates with user-specific interaction status and variables
     const enhancedTemplates = await Promise.all(
-      templates.map(async (t) => {
+      templates.map(async (t: Template) => {
         const [isLiked, isFavorited, variables] = await Promise.all([
           prisma.templateLike.findUnique({
             where: { userId_templateId: { userId, templateId: t.id } },
