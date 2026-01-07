@@ -22,7 +22,7 @@ export const initializeWorkers = () => {
  * Gracefully shutdown all workers
  */
 export const shutdownWorkers = async () => {
-  console.log("Shutting down queue workers...");
+  console.log("Shutting down queue workers...");  
 
   await Promise.all([
     adGenerationWorker.close(),

@@ -48,7 +48,12 @@ export const getTemplatesSchema = z.object({
     search: z.string().optional(),
     categoryId: z.string().optional(),
     isActive: z.string().optional(),
-    filterType: z.enum(["mine", "others", "all"]).default("all"),
+    filterType: z
+      .enum(["mine", "others", "all", "liked", "favorited", "recent"])
+      .default("all"),
+    sortBy: z
+      .enum(["createdAt", "usageCount", "likesCount", "visitsCount"])
+      .default("createdAt"),
   }),
 });
 

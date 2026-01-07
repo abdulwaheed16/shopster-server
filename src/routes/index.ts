@@ -7,7 +7,9 @@ import authRoutes from "../modules/auth/auth.routes";
 import billingRoutes from "../modules/billing/billing.routes";
 import categoriesRoutes from "../modules/categories/categories.routes";
 import dashboardRoutes from "../modules/dashboard/dashboard.routes";
+import feedbackRoutes from "../modules/feedback/feedback.routes";
 import jobsRoutes from "../modules/jobs/jobs.routes";
+import notificationsRoutes from "../modules/notifications/notifications.routes";
 import productsRoutes from "../modules/products/products.routes";
 import settingsRoutes from "../modules/settings/settings.routes";
 import shopifyRoutes from "../modules/stores/shopify.routes";
@@ -69,6 +71,12 @@ router.use(`${API_VERSION}/upload`, uploadRoutes);
 
 // Settings routes
 router.use(`${API_VERSION}/settings`, settingsRoutes);
+
+// Feedback routes
+router.use(`${API_VERSION}/feedback`, feedbackRoutes);
+
+// Notifications routes
+router.use(`${API_VERSION}/notifications`, notificationsRoutes);
 
 // Billing routes
 router.use(`${API_VERSION}/billing`, billingRoutes);

@@ -4,6 +4,10 @@ Complete MERN stack backend built with Node.js, Express, TypeScript, Prisma, and
 
 ## Features
 
+- ✅ **Ad Generation Engine** - Background job processing with BullMQ and Redis
+- ✅ **Shopify Integration** - Robust OAuth 2.0 flow and automated catalog synchronization
+- ✅ **Stripe Billing** - Multi-tier subscription management and automated credit refills
+- ✅ **Enterprise Admin** - Advanced user governance and custom plan overrides
 - ✅ **JWT Authentication** - Access & Refresh tokens with HTTP-only cookies
 - ✅ **Role-Based Authorization** - USER and ADMIN roles
 - ✅ **Email Verification** - Secure email verification flow
@@ -14,9 +18,7 @@ Complete MERN stack backend built with Node.js, Express, TypeScript, Prisma, and
 - ✅ **Validation** - Request validation using Zod
 - ✅ **Security** - Helmet, CORS, and other security best practices
 - ✅ **Cloudinary Integration** - Image upload and management
-- ✅ **Prisma ORM** - Type-safe database access
-- ✅ **MongoDB** - NoSQL database with Prisma
-- ✅ **Docker Support** - Containerized deployment
+- ✅ **Prisma ORM** - Type-safe database access (MongoDB)
 
 ## Tech Stack
 
@@ -243,4 +245,5 @@ docker run -p 5000:5000 --env-file .env shopster-backend
 ## License
 
 MIT
+
 # shopster-server

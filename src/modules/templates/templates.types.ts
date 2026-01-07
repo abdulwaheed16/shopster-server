@@ -28,4 +28,15 @@ export interface ITemplatesService {
     userId: string,
     data: GeneratePreviewBody
   ): Promise<{ message: string; templateId: string }>;
+
+  trackVisit(templateId: string, userId: string): Promise<void>;
+  toggleLike(
+    templateId: string,
+    userId: string
+  ): Promise<{ liked: boolean; count: number }>;
+  toggleFavorite(
+    templateId: string,
+    userId: string
+  ): Promise<{ favorited: boolean }>;
+  getAdminStats(): Promise<any>;
 }

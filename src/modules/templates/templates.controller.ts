@@ -196,6 +196,80 @@ export class TemplatesController {
       next(error);
     }
   }
+
+  // Track visit --- POST /templates/:id/visit
+  async trackVisit(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
+    try {
+      const userId = req.user!.id;
+      const { id } = req.params;
+      await templatesService.trackVisit(id, userId);
+      sendSuccess(res, "Visit tracked");
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // Toggle like --- POST /templates/:id/like
+  async toggleLike(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
+    try {
+      const userId = req.user!.id;
+      const { id } = req.params;
+      const result = await templatesService.toggleLike(id, userId);
+      sendSuccess(
+        res,
+        result.liked ? "Template liked" : "Template unliked",
+        result
+      );
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // Toggle favorite --- POST /templates/:id/favorite
+  async toggleFavorite(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
+    try {
+      const userId = req.user!.id;
+      const { id } = req.params;
+      const result = await templatesService.toggleFavorite(id, userId);
+      sendSuccess(
+        res,
+        result.favorited ? "Template favorited" : "Template unfavorited",
+        result
+      );
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // Get admin stats --- GET /templates/admin/stats
+  async getAdminStats(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
+    try {
+      const { role } = req.user!;
+      if (role !== "ADMIN") {
+        throw ApiError.unauthorized("Only admins can access stats");
+      }
+      const stats = await templatesService.getAdminStats();
+      sendSuccess(res, "Stats fetched successfully", stats);
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 export const templatesController = new TemplatesController();

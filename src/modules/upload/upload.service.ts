@@ -70,7 +70,7 @@ export class UploadService implements IUploadService {
       format: string;
     }>
   > {
-    const uploadPromises = files.map((file) => this.uploadImage(file, userId));
+    const uploadPromises = files?.map((file) => this.uploadImage(file, userId));
     return Promise.all(uploadPromises);
   }
 

@@ -318,4 +318,29 @@ router.post(
   templatesController.bulkDeleteTemplates.bind(templatesController)
 );
 
+// Interaction Routes
+router.post(
+  "/:id/visit",
+  validate(CommonValidators.idSchema),
+  templatesController.trackVisit.bind(templatesController)
+);
+
+router.post(
+  "/:id/like",
+  validate(CommonValidators.idSchema),
+  templatesController.toggleLike.bind(templatesController)
+);
+
+router.post(
+  "/:id/favorite",
+  validate(CommonValidators.idSchema),
+  templatesController.toggleFavorite.bind(templatesController)
+);
+
+// Admin Routes
+router.get(
+  "/admin/stats",
+  templatesController.getAdminStats.bind(templatesController)
+);
+
 export default router;
