@@ -17,6 +17,10 @@ export class AdsService implements IAdsService {
 
     const where: Prisma.AdWhereInput = { userId };
 
+    const orderBy: Prisma.AdOrderByWithRelationInput = {
+      createdAt: query.sort === "oldest" ? "asc" : "desc",
+    };
+
     if (query.status) {
       where.status = query.status as AdStatus;
     }
@@ -29,12 +33,34 @@ export class AdsService implements IAdsService {
       where.templateId = query.templateId;
     }
 
+    if (query.storeId) {
+      where.product = {
+        storeId: query.storeId,
+      };
+    }
+
+    if (query.search) {
+      where.title = {
+        contains: query.search,
+        mode: "insensitive",
+      };
+    }
+
+    if (query.days && query.days !== "all") {
+      const days = parseInt(query.days);
+      const date = new Date();
+      date.setDate(date.getDate() - days);
+      where.createdAt = {
+        gte: date,
+      };
+    }
+
     const [ads, total] = await Promise.all([
       prisma.ad.findMany({
         where,
         skip,
         take: limit,
-        orderBy: { createdAt: "desc" },
+        orderBy,
         include: {
           product: {
             select: {

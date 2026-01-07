@@ -21,6 +21,10 @@ export const getAdsSchema = z.object({
     status: z.enum(["PENDING", "PROCESSING", "COMPLETED", "FAILED"]).optional(),
     productId: objectIdSchema.optional(),
     templateId: objectIdSchema.optional(),
+    storeId: objectIdSchema.optional(),
+    search: z.string().optional(),
+    sort: z.enum(["recent", "oldest"]).optional(),
+    days: z.enum(["7", "30", "90", "all"]).optional(),
   }),
 });
 
