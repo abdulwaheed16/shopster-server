@@ -3,6 +3,11 @@
   "version": "1.0.0",
   "main": "dist/server.js",
   "license": "MIT",
+  "author": {
+    "name": "ABDUL WAHEED",
+    "email": "abwaheed.ahmed@gmail.com",
+    "url": "https://github.com/abdulwaheed16"
+  },
   "scripts": {
     "dev": "nodemon",
     "build": "prisma generate && tsc",
@@ -64,6 +69,6 @@
     "typescript": "^5.9.3"
   },
   "engines": {
-    "node": ">=20"
+    "node": "20.x"
   }
 }
