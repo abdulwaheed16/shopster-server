@@ -4,10 +4,7 @@ import {
   handleUncaughtException,
   handleUnhandledRejection,
 } from "./common/errors/error-handler";
-import {
-  disconnectDatabase,
-  testDatabaseConnection,
-} from "./config/database.config";
+import { disconnectDatabase } from "./config/database.config";
 import { config } from "./config/env.config";
 import { initializeWorkers, shutdownWorkers } from "./queues";
 
@@ -19,13 +16,13 @@ process.on("unhandledRejection", handleUnhandledRejection);
 
 const startServer = async () => {
   try {
-    // Test database connection
-    const isDbConnected = await testDatabaseConnection();
+    // // Test database connection
+    // const isDbConnected = await testDatabaseConnection();
 
-    if (!isDbConnected) {
-      console.error(chalk.red("Failed to connect to database. Exiting..."));
-      process.exit(1);
-    }
+    // if (!isDbConnected) {
+    //   console.error(chalk.red("Failed to connect to database. Exiting..."));
+    //   process.exit(1);
+    // }
 
     // Initialize queue workers ONLY if not running in API-only mode
     // If WORKER_MODE is 'false', we skip this (API server only)
