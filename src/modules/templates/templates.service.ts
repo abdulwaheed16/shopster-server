@@ -10,13 +10,7 @@ import {
   UpdateTemplateBody,
 } from "./templates.validation";
 
-import {
-  Prisma,
-  Template,
-  TemplateFavorite,
-  TemplateLike,
-  TemplateVisit,
-} from "@prisma/client";
+import { Prisma, Template } from "@prisma/client";
 
 import { calculatePagination } from "../../common/utils/pagination.util";
 import { ITemplatesService } from "./templates.types";
@@ -53,7 +47,9 @@ export class TemplatesService implements ITemplatesService {
         where: { userId },
         select: { templateId: true },
       });
-      where.id = { in: favorites.map((f: { templateId: string }) => f.templateId) };
+      where.id = {
+        in: favorites.map((f: { templateId: string }) => f.templateId),
+      };
     } else if (query.filterType === "recent") {
       const visits = await prisma.templateVisit.findMany({
         where: { userId },
