@@ -27,8 +27,23 @@ const startServer = async () => {
       process.exit(1);
     }
 
-    // Initialize queue workers
-    initializeWorkers();
+    // Initialize queue workers ONLY if not running in API-only mode
+    // If WORKER_MODE is 'false', we skip this (API server only)
+    // If WORKER_MODE is undefined (local dev) or 'true', we run it?
+    // Actually, for better separation:
+    // Local Dev (npm run dev): We want BOTH (Waiters + Chefs).
+    // Production PM2 (shopster-api): WORKER_MODE='false' -> Skip.
+    // Production PM2 (shopster-worker): This file is not run at all.
+
+    if (process.env.WORKER_MODE !== "false") {
+      initializeWorkers();
+    } else {
+      console.log(
+        chalk.blue(
+          "Running in API-only mode. Workers are disabled in this process."
+        )
+      );
+    }
 
     // Create Express app
     const app = createApp();

@@ -21,3 +21,7 @@ coverage/
 
 # Documentation
 /docs
+
+# Docker
+Dockerfile
+.dockerignore
