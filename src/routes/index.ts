@@ -2,6 +2,7 @@ import { Router } from "express";
 import healthRoutes from "../health/health.routes";
 import adDraftsRoutes from "../modules/ad-drafts/ad-drafts.routes";
 import adsRoutes from "../modules/ads/ads.routes";
+import aiRoutes from "../modules/ai/ai.routes";
 import analyticsRoutes from "../modules/analytics/analytics.routes";
 import authRoutes from "../modules/auth/auth.routes";
 import billingRoutes from "../modules/billing/billing.routes";
@@ -26,6 +27,9 @@ const API_VERSION = "/api/v1";
 
 // Health check (no version prefix)
 router.use("/health", healthRoutes);
+
+// AI routes
+router.use(`${API_VERSION}/ai`, aiRoutes);
 
 // Auth routes
 router.use(`${API_VERSION}/auth`, authRoutes);

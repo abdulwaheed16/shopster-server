@@ -56,6 +56,11 @@ const envSchema = z.object({
   REDIS_PORT: z.string().default("6379"),
   REDIS_PASSWORD: z.string().optional(),
 
+  // AI
+  IMAGE_PROVIDER_FAL_AI_API_KEY: z.string().optional(),
+  OPENAI_API_KEY: z.string().optional(),
+  TEXT_PROVIDER_GEMINI_API_KEY: z.string().optional(),
+
   // n8n Webhook
   N8N_WEBHOOK_URL: z.string().url().optional(),
 
@@ -67,6 +72,9 @@ const envSchema = z.object({
   // Rate Limiting
   RATE_LIMIT_WINDOW_MS: z.string().default("900000"), // 15 minutes
   RATE_LIMIT_MAX_REQUESTS: z.string().default("100"),
+
+  // Vercel Blob
+  BLOB_READ_WRITE_TOKEN: z.string().optional(),
 });
 
 // Validate environment variables
@@ -138,8 +146,16 @@ export const config = {
       .map((origin) => origin.trim().replace(/^["']|["']$/g, ""))
       .filter(Boolean),
   },
+  ai: {
+    falApiKey: env.IMAGE_PROVIDER_FAL_AI_API_KEY,
+    openAiApiKey: env.OPENAI_API_KEY,
+    geminiApiKey: env.TEXT_PROVIDER_GEMINI_API_KEY,
+  },
   rateLimit: {
     windowMs: parseInt(env.RATE_LIMIT_WINDOW_MS, 10),
     maxRequests: parseInt(env.RATE_LIMIT_MAX_REQUESTS, 10),
+  },
+  storage: {
+    blobToken: env.BLOB_READ_WRITE_TOKEN,
   },
 } as const;

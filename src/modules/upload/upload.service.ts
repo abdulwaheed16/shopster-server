@@ -1,15 +1,12 @@
-import { v2 as cloudinary } from "cloudinary";
-import { config } from "../../config/env.config";
-
-// Configure Cloudinary
-cloudinary.config({
-  cloud_name: config.cloudinary.cloudName,
-  api_key: config.cloudinary.apiKey,
-  api_secret: config.cloudinary.apiSecret,
-});
-
+import { MESSAGES } from "../../common/constants/messages.constant";
+import { cloudinaryStorageService } from "./services/storage/cloudinary-storage.service";
 import { IUploadService } from "./upload.types";
 
+/**
+ * UploadService
+ * Refactored to use the unified IStorageService (SOLID: Single Responsibility).
+ * It now acts as a bridge between Multer-based uploads and our storage layer.
+ */
 export class UploadService implements IUploadService {
   /**
    * Upload single image to Cloudinary
@@ -26,31 +23,25 @@ export class UploadService implements IUploadService {
     height: number;
     format: string;
   }> {
-    return new Promise((resolve, reject) => {
-      const uploadStream = cloudinary.uploader.upload_stream(
-        {
-          folder: `shopster/${userId}`,
-          resource_type: "image",
-          transformation: [{ quality: "auto" }, { fetch_format: "auto" }],
-        },
-        (error, result) => {
-          if (error) {
-            reject(error);
-          } else if (result) {
-            resolve({
-              url: result.secure_url,
-              publicId: result.public_id,
-              width: result.width,
-              height: result.height,
-              format: result.format,
-            });
-          }
-        }
-      );
+    try {
+      const result = await cloudinaryStorageService.upload(file.buffer, {
+        folder: `shopster/${userId}`,
+      });
 
-      // Send buffer to Cloudinary
-      uploadStream.end(file.buffer);
-    });
+      return {
+        url: result.url,
+        publicId: result.id,
+        width: result.metadata?.width || 0,
+        height: result.metadata?.height || 0,
+        format: result.metadata?.format || "",
+      };
+    } catch (error: any) {
+      console.error(
+        `[UploadService] ${MESSAGES.STORAGE.UPLOAD_FAILED}:`,
+        error.message
+      );
+      throw error;
+    }
   }
 
   /**
@@ -79,8 +70,16 @@ export class UploadService implements IUploadService {
    * @param publicId - Cloudinary public ID
    */
   async deleteImage(publicId: string): Promise<{ result: string }> {
-    const result = await cloudinary.uploader.destroy(publicId);
-    return result;
+    try {
+      await cloudinaryStorageService.delete(publicId);
+      return { result: MESSAGES.GENERAL.OK };
+    } catch (error: any) {
+      console.error(
+        `[UploadService] ${MESSAGES.STORAGE.DELETE_FAILED}:`,
+        error.message
+      );
+      throw error;
+    }
   }
 }
 

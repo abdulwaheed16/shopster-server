@@ -37,7 +37,10 @@ export class ApiError extends Error {
     );
   }
 
-  static unauthorized(message: string, errorCode?: ErrorCode): ApiError {
+  static unauthorized(
+    message: string = "Access Denied",
+    errorCode?: ErrorCode
+  ): ApiError {
     return new ApiError(
       message,
       HTTP_STATUS.UNAUTHORIZED,
@@ -45,11 +48,21 @@ export class ApiError extends Error {
     );
   }
 
-  static forbidden(message: string): ApiError {
-    return new ApiError(message, HTTP_STATUS.FORBIDDEN, ERROR_CODES.FORBIDDEN);
+  static forbidden(
+    message: string = "Access Denied",
+    errorCode?: ErrorCode
+  ): ApiError {
+    return new ApiError(
+      message,
+      HTTP_STATUS.FORBIDDEN,
+      errorCode || ERROR_CODES.FORBIDDEN
+    );
   }
 
-  static notFound(message: string, errorCode?: ErrorCode): ApiError {
+  static notFound(
+    message: string = "Resource Not Found",
+    errorCode?: ErrorCode
+  ): ApiError {
     return new ApiError(
       message,
       HTTP_STATUS.NOT_FOUND,
@@ -57,7 +70,10 @@ export class ApiError extends Error {
     );
   }
 
-  static conflict(message: string, errorCode?: ErrorCode): ApiError {
+  static conflict(
+    message: string = "Resource Conflict",
+    errorCode?: ErrorCode
+  ): ApiError {
     return new ApiError(
       message,
       HTTP_STATUS.CONFLICT,
@@ -65,7 +81,10 @@ export class ApiError extends Error {
     );
   }
 
-  static validation(message: string, errors?: any[]): ApiError {
+  static validation(
+    message: string = "Validation Error",
+    errors?: any[]
+  ): ApiError {
     return new ApiError(
       message,
       HTTP_STATUS.UNPROCESSABLE_ENTITY,

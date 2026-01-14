@@ -35,6 +35,7 @@ export const MESSAGES = {
     SYNCED: "Store synced successfully",
     NOT_FOUND: "Store not found",
     SYNC_IN_PROGRESS: "Store sync already in progress",
+    AUTH_INITIATED: "Auth initiated",
   },
 
   // Products
@@ -60,11 +61,15 @@ export const MESSAGES = {
   // Templates
   TEMPLATES: {
     CREATED: "Template created successfully",
-    FETCHED: "Templates fetched successfully",
+    FETCHED: "Template fetched successfully",
     FETCHED_ONE: "Template fetched successfully",
     UPDATED: "Template updated successfully",
     DELETED: "Template deleted successfully",
     NOT_FOUND: "Template not found",
+    TRACKED: "Visit tracked",
+    STATS_FETCHED: "Stats fetched successfully",
+    USER_FETCHED: "User templates fetched successfully",
+    GLOBAL_FETCHED: "Global templates fetched successfully",
   },
 
   // Ads
@@ -76,14 +81,15 @@ export const MESSAGES = {
     DELETED: "Ad deleted successfully",
     NOT_FOUND: "Ad not found",
     GENERATION_FAILED: "Ad generation failed",
+    QUEUED: "Ad generation queued successfully",
   },
 
   // Ad Drafts
   AD_DRAFTS: {
     CREATED: "Ad draft created successfully",
-    FETCHED: "Ad draft fetched successfully",
-    UPDATED: "Ad draft updated successfully",
-    DELETED: "Ad draft deleted successfully",
+    FETCHED: "Draft fetched successfully",
+    UPDATED: "Draft saved successfully",
+    DELETED: "Draft deleted successfully",
     NOT_FOUND: "Ad draft not found",
   },
 
@@ -95,11 +101,98 @@ export const MESSAGES = {
     NOT_FOUND: "Job not found",
   },
 
+  // Analytics
+  ANALYTICS: {
+    AD_FETCHED: "Ad analytics retrieved successfully",
+    STORE_FETCHED: "Store analytics retrieved successfully",
+    PRODUCT_FETCHED: "Product analytics retrieved successfully",
+  },
+
+  // Billing
+  BILLING: {
+    CHECKOUT_CREATED: "Checkout session created",
+    PORTAL_CREATED: "Portal session created",
+    PLANS_FETCHED: "Plans retrieved successfully",
+    PLAN_FETCHED: "Plan retrieved successfully",
+    SUBSCRIPTION_FETCHED: "Current subscription retrieved",
+    PLAN_UPDATED: "Custom plan updated successfully",
+    INVOICES_FETCHED: "Invoices retrieved successfully",
+    PAYMENT_METHODS_FETCHED: "Payment methods retrieved successfully",
+    USAGE_FETCHED: "Usage records retrieved successfully",
+    WEBHOOK_RECEIVED: "Webhook received",
+  },
+
+  // Dashboard
+  DASHBOARD: {
+    STATS_FETCHED: "Dashboard stats fetched successfully",
+    ADMIN_STATS_FETCHED: "Admin dashboard stats fetched successfully",
+  },
+
+  // Feedback
+  FEEDBACK: {
+    CREATED: "Feedback submitted successfully",
+    FETCHED: "Feedback fetched successfully",
+    UPDATED: "Feedback status updated",
+    DELETED: "Feedback deleted successfully",
+  },
+
+  // Notifications
+  NOTIFICATIONS: {
+    FETCHED: "Notifications fetched successfully",
+    READ: "Notification marked as read",
+    READ_ALL: "All notifications marked as read",
+    COUNT_FETCHED: "Unread count fetched successfully",
+    UPDATED: "Notification updated successfully",
+    DELETED: "Notification deleted successfully",
+  },
+
+  // Settings
+  SETTINGS: {
+    FETCHED: "Settings fetched successfully",
+    UPDATED: "Settings updated successfully",
+    PROFILE_FETCHED: "Profile settings fetched successfully",
+    PROFILE_UPDATED: "Profile settings updated successfully",
+    SECURITY_FETCHED: "Security settings fetched successfully",
+    PASSWORD_UPDATED: "Password updated successfully",
+  },
+
+  // Variables
+  VARIABLES: {
+    CREATED: "Variable created successfully",
+    FETCHED: "Variable fetched successfully",
+    USAGE_FETCHED: "Variable usage details fetched",
+    UPDATED: "Variable updated successfully",
+    DELETED: "Variable deleted successfully",
+  },
+
+  // AI
+  AI: {
+    FAL_API_KEY_MISSING: "FAL_AI_API_KEY is not configured",
+    OPENAI_API_KEY_MISSING: "OPENAI_API_KEY is not configured",
+    GEMINI_API_KEY_MISSING: "GEMINI_API_KEY is not configured",
+    GENERATION_FAILED: "AI Generation failed",
+    TEXT_GENERATION_FAILED: "AI Text generation failed",
+    GEMINI_GENERATION_FAILED: "Gemini Text generation failed",
+    UNSUPPORTED_PROVIDER: "Unsupported AI provider",
+  },
+
+  // Storage
+  STORAGE: {
+    UPLOAD_FAILED: "Storage upload failed",
+    DELETE_FAILED: "Storage deletion failed",
+    UPLOAD_SUCCESS: "File uploaded successfully",
+    DELETE_SUCCESS: "File deleted successfully",
+    NOT_CONNECTED: "Storage provider is not yet connected",
+    UNSUPPORTED_PROVIDER: "Unsupported storage provider",
+  },
+
   // General
   GENERAL: {
     INTERNAL_SERVER_ERROR: "Internal server error",
     VALIDATION_ERROR: "Validation error",
     NOT_FOUND: "Resource not found",
     BAD_REQUEST: "Bad request",
+    SUCCESS: "Success",
+    OK: "ok",
   },
 } as const;

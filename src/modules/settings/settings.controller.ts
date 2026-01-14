@@ -1,4 +1,5 @@
 import { NextFunction, Request, Response } from "express";
+import { MESSAGES } from "../../common/constants/messages.constant";
 import { sendSuccess } from "../../common/utils/response.util";
 import { settingsService } from "./settings.service";
 
@@ -10,7 +11,7 @@ export class SettingsController {
   async getProfile(req: Request, res: Response, next: NextFunction) {
     try {
       const profile = await settingsService.getProfile(req.user!.id);
-      sendSuccess(res, "Profile settings fetched successfully", profile);
+      sendSuccess(res, MESSAGES.SETTINGS.PROFILE_FETCHED, profile);
     } catch (error) {
       next(error);
     }
@@ -26,7 +27,7 @@ export class SettingsController {
         req.user!.id,
         req.body
       );
-      sendSuccess(res, "Profile settings updated successfully", profile);
+      sendSuccess(res, MESSAGES.SETTINGS.PROFILE_UPDATED, profile);
     } catch (error) {
       next(error);
     }
@@ -39,7 +40,7 @@ export class SettingsController {
   async getSecurity(req: Request, res: Response, next: NextFunction) {
     try {
       const security = await settingsService.getSecuritySettings(req.user!.id);
-      sendSuccess(res, "Security settings fetched successfully", security);
+      sendSuccess(res, MESSAGES.SETTINGS.SECURITY_FETCHED, security);
     } catch (error) {
       next(error);
     }
@@ -55,7 +56,7 @@ export class SettingsController {
         req.user!.id,
         req.body
       );
-      sendSuccess(res, "Password updated successfully", result);
+      sendSuccess(res, MESSAGES.SETTINGS.PASSWORD_UPDATED, result);
     } catch (error) {
       next(error);
     }

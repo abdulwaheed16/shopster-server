@@ -1,4 +1,5 @@
 import { NextFunction, Request, Response } from "express";
+import { MESSAGES } from "../../common/constants/messages.constant";
 import { sendPaginated, sendSuccess } from "../../common/utils/response.util";
 import { jobsService } from "./jobs.service";
 import { GetJobsQuery } from "./jobs.validation";
@@ -15,7 +16,7 @@ export class JobsController {
 
       const result = await jobsService.getJobs(query);
 
-      sendPaginated(res, "Jobs fetched successfully", result);
+      sendPaginated(res, MESSAGES.JOBS.FETCHED, result);
     } catch (error) {
       next(error);
     }
@@ -32,7 +33,7 @@ export class JobsController {
 
       const job = await jobsService.getJobById(id);
 
-      sendSuccess(res, "Job fetched successfully", job);
+      sendSuccess(res, MESSAGES.JOBS.FETCHED_ONE, job);
     } catch (error) {
       next(error);
     }

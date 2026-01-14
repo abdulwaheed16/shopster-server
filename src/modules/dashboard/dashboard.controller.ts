@@ -1,10 +1,11 @@
 import { NextFunction, Request, Response } from "express";
+import { MESSAGES } from "../../common/constants/messages.constant";
 import { sendSuccess } from "../../common/utils/response.util";
 import { dashboardService } from "./dashboard.service";
 
 export class DashboardController {
-  // Get user dashboard stats --- GET /dashboard
-  async getUserStats(
+  // Get dashboard statistics
+  async getStats(
     req: Request,
     res: Response,
     next: NextFunction
@@ -14,13 +15,13 @@ export class DashboardController {
 
       const stats = await dashboardService.getUserStats(userId);
 
-      sendSuccess(res, "Dashboard stats fetched successfully", stats);
+      sendSuccess(res, MESSAGES.DASHBOARD.STATS_FETCHED, stats);
     } catch (error) {
       next(error);
     }
   }
 
-  // Get admin dashboard stats --- GET /dashboard/admin
+  // Get admin stats
   async getAdminStats(
     req: Request,
     res: Response,
@@ -29,7 +30,7 @@ export class DashboardController {
     try {
       const stats = await dashboardService.getAdminStats();
 
-      sendSuccess(res, "Admin dashboard stats fetched successfully", stats);
+      sendSuccess(res, MESSAGES.DASHBOARD.ADMIN_STATS_FETCHED, stats);
     } catch (error) {
       next(error);
     }

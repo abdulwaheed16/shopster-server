@@ -1,5 +1,6 @@
 import crypto from "crypto";
 import { NextFunction, Request, Response } from "express";
+import { MESSAGES } from "../../common/constants/messages.constant";
 import {
   sendCreated,
   sendPaginated,
@@ -52,7 +53,7 @@ export class StoresController {
       const authUrl = shopifyService.generateAuthUrl(shop, state);
       console.log("Shopify Auth URL:", authUrl);
 
-      sendSuccess(res, "Auth initiated", { url: authUrl });
+      sendSuccess(res, MESSAGES.STORES.AUTH_INITIATED, { url: authUrl });
     } catch (error) {
       next(error);
     }
@@ -202,7 +203,7 @@ export class StoresController {
 
       const result = await storesService.getStores(userId, query);
 
-      sendPaginated(res, "Stores fetched successfully", result);
+      sendPaginated(res, MESSAGES.STORES.FETCHED, result);
     } catch (error) {
       next(error);
     }
@@ -220,7 +221,7 @@ export class StoresController {
 
       const store = await storesService.getStoreById(id, userId);
 
-      sendSuccess(res, "Store fetched successfully", store);
+      sendSuccess(res, MESSAGES.STORES.FETCHED_ONE, store);
     } catch (error) {
       next(error);
     }
@@ -238,7 +239,7 @@ export class StoresController {
 
       const store = await storesService.createStore(userId, data);
 
-      sendCreated(res, "Store created successfully", store);
+      sendCreated(res, MESSAGES.STORES.CREATED, store);
     } catch (error) {
       next(error);
     }
@@ -257,7 +258,7 @@ export class StoresController {
 
       const store = await storesService.updateStore(id, userId, data);
 
-      sendSuccess(res, "Store updated successfully", store);
+      sendSuccess(res, MESSAGES.STORES.UPDATED, store);
     } catch (error) {
       next(error);
     }
@@ -275,7 +276,7 @@ export class StoresController {
 
       await storesService.deleteStore(id, userId);
 
-      sendSuccess(res, "Store deleted successfully");
+      sendSuccess(res, MESSAGES.STORES.DELETED);
     } catch (error) {
       next(error);
     }
@@ -436,4 +437,3 @@ export class StoresController {
 }
 
 export const storesController = new StoresController();
-

@@ -1,4 +1,5 @@
 import { NextFunction, Request, Response } from "express";
+import { MESSAGES } from "../../common/constants/messages.constant";
 import { sendPaginated, sendSuccess } from "../../common/utils/response.util";
 import { notificationsService } from "./notifications.service";
 
@@ -10,7 +11,7 @@ export class NotificationsController {
         userId,
         req.query
       );
-      sendPaginated(res, "Notifications fetched successfully", result);
+      sendPaginated(res, MESSAGES.NOTIFICATIONS.FETCHED, result);
     } catch (error) {
       next(error);
     }
@@ -21,7 +22,7 @@ export class NotificationsController {
       const userId = req.user!.id;
       const { id } = req.params;
       const notification = await notificationsService.markAsRead(id, userId);
-      sendSuccess(res, "Notification marked as read", notification);
+      sendSuccess(res, MESSAGES.NOTIFICATIONS.READ, notification);
     } catch (error) {
       next(error);
     }
@@ -31,7 +32,7 @@ export class NotificationsController {
     try {
       const userId = req.user!.id;
       await notificationsService.markAllAsRead(userId);
-      sendSuccess(res, "All notifications marked as read");
+      sendSuccess(res, MESSAGES.NOTIFICATIONS.READ_ALL);
     } catch (error) {
       next(error);
     }
@@ -41,7 +42,7 @@ export class NotificationsController {
     try {
       const userId = req.user!.id;
       const count = await notificationsService.getUnreadCount(userId);
-      sendSuccess(res, "Unread count fetched successfully", { count });
+      sendSuccess(res, MESSAGES.NOTIFICATIONS.COUNT_FETCHED, { count });
     } catch (error) {
       next(error);
     }

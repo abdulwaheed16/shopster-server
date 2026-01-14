@@ -54,6 +54,7 @@ export const createApp = (): Application => {
         "Content-Type",
         "Authorization",
         "X-Requested-With",
+        "Accept",
         "ngrok-skip-browser-warning",
       ],
     })
@@ -120,3 +121,15 @@ export const createApp = (): Application => {
 
 // # Verify
 // docker ps | grep redis
+
+// # Start
+// docker start shopster-redis
+
+// # Stop
+// docker stop shopster-redis
+
+// # Remove
+// docker rm shopster-redis
+
+// # Inspect
+// docker inspect shopster-redis

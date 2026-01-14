@@ -1,4 +1,5 @@
 import { NextFunction, Request, Response } from "express";
+import { MESSAGES } from "../../common/constants/messages.constant";
 import { ApiError } from "../../common/errors/api-error";
 import {
   sendCreated,
@@ -17,7 +18,7 @@ export class FeedbackController {
       const userId = req.user!.id;
       const data: CreateFeedbackBody = req.body;
       const feedback = await feedbackService.submitFeedback(userId, data);
-      sendCreated(res, "Feedback submitted successfully", feedback);
+      sendCreated(res, MESSAGES.FEEDBACK.CREATED, feedback);
     } catch (error) {
       next(error);
     }
@@ -28,7 +29,7 @@ export class FeedbackController {
       if (req.user!.role !== "ADMIN")
         throw ApiError.unauthorized("Only admins can access all feedback");
       const result = await feedbackService.getAllFeedback(req.query);
-      sendPaginated(res, "Feedback fetched successfully", result);
+      sendPaginated(res, MESSAGES.FEEDBACK.FETCHED, result);
     } catch (error) {
       next(error);
     }
@@ -40,7 +41,7 @@ export class FeedbackController {
         throw ApiError.unauthorized("Only admins can access specific feedback");
       const { id } = req.params;
       const feedback = await feedbackService.getFeedbackById(id);
-      sendSuccess(res, "Feedback fetched successfully", feedback);
+      sendSuccess(res, MESSAGES.FEEDBACK.FETCHED, feedback);
     } catch (error) {
       next(error);
     }
@@ -53,7 +54,7 @@ export class FeedbackController {
       const { id } = req.params;
       const data: UpdateFeedbackStatusBody = req.body;
       const feedback = await feedbackService.updateFeedbackStatus(id, data);
-      sendSuccess(res, "Feedback status updated", feedback);
+      sendSuccess(res, MESSAGES.FEEDBACK.UPDATED, feedback);
     } catch (error) {
       next(error);
     }
@@ -63,7 +64,7 @@ export class FeedbackController {
     try {
       const userId = req.user!.id;
       const feedback = await feedbackService.getUserFeedback(userId);
-      sendSuccess(res, "Your feedback fetched successfully", feedback);
+      sendSuccess(res, MESSAGES.FEEDBACK.FETCHED, feedback);
     } catch (error) {
       next(error);
     }

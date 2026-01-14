@@ -1,4 +1,5 @@
 import { NextFunction, Request, Response } from "express";
+import { MESSAGES } from "../../common/constants/messages.constant";
 import { sendSuccess } from "../../common/utils/response.util";
 import { adDraftsService } from "./ad-drafts.service";
 import { UpsertAdDraftInput } from "./ad-drafts.validation";
@@ -15,7 +16,7 @@ export class AdDraftsController {
 
       const draft = await adDraftsService.getCurrentDraft(userId);
 
-      sendSuccess(res, "Draft fetched successfully", draft);
+      sendSuccess(res, MESSAGES.AD_DRAFTS.FETCHED, draft);
     } catch (error) {
       next(error);
     }
@@ -33,7 +34,7 @@ export class AdDraftsController {
 
       const draft = await adDraftsService.upsertDraft(userId, data);
 
-      sendSuccess(res, "Draft saved successfully", draft);
+      sendSuccess(res, MESSAGES.AD_DRAFTS.UPDATED, draft);
     } catch (error) {
       next(error);
     }
@@ -50,7 +51,7 @@ export class AdDraftsController {
 
       await adDraftsService.deleteDraft(userId);
 
-      sendSuccess(res, "Draft deleted successfully");
+      sendSuccess(res, MESSAGES.AD_DRAFTS.DELETED);
     } catch (error) {
       next(error);
     }

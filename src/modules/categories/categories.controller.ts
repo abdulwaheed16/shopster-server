@@ -1,4 +1,5 @@
 import { NextFunction, Request, Response } from "express";
+import { MESSAGES } from "../../common/constants/messages.constant";
 import {
   sendCreated,
   sendPaginated,
@@ -24,7 +25,7 @@ export class CategoriesController {
 
       const result = await categoriesService.getCategories(userId, query);
 
-      sendPaginated(res, "Categories fetched successfully", result);
+      sendPaginated(res, MESSAGES.CATEGORIES.FETCHED, result);
     } catch (error) {
       next(error);
     }
@@ -42,7 +43,7 @@ export class CategoriesController {
 
       const category = await categoriesService.getCategoryById(id, userId);
 
-      sendSuccess(res, "Category fetched successfully", category);
+      sendSuccess(res, MESSAGES.CATEGORIES.FETCHED_ONE, category);
     } catch (error) {
       next(error);
     }
@@ -60,7 +61,7 @@ export class CategoriesController {
 
       const category = await categoriesService.createCategory(userId, data);
 
-      sendCreated(res, "Category created successfully", category);
+      sendCreated(res, MESSAGES.CATEGORIES.CREATED, category);
     } catch (error) {
       next(error);
     }
@@ -79,7 +80,7 @@ export class CategoriesController {
 
       const category = await categoriesService.updateCategory(id, userId, data);
 
-      sendSuccess(res, "Category updated successfully", category);
+      sendSuccess(res, MESSAGES.CATEGORIES.UPDATED, category);
     } catch (error) {
       next(error);
     }
@@ -97,7 +98,7 @@ export class CategoriesController {
 
       await categoriesService.deleteCategory(id, userId);
 
-      sendSuccess(res, "Category deleted successfully");
+      sendSuccess(res, MESSAGES.CATEGORIES.DELETED);
     } catch (error) {
       next(error);
     }

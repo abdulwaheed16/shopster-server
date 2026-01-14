@@ -1,4 +1,5 @@
 import { NextFunction, Request, Response } from "express";
+import { MESSAGES } from "../../common/constants/messages.constant";
 import {
   sendCreated,
   sendPaginated,
@@ -24,7 +25,7 @@ export class ProductsController {
 
       const result = await productsService.getProducts(userId, query);
 
-      sendPaginated(res, "Products fetched successfully", result);
+      sendPaginated(res, MESSAGES.PRODUCTS.FETCHED, result);
     } catch (error) {
       next(error);
     }
@@ -42,7 +43,7 @@ export class ProductsController {
 
       const product = await productsService.getProductById(id, userId);
 
-      sendSuccess(res, "Product fetched successfully", product);
+      sendSuccess(res, MESSAGES.PRODUCTS.FETCHED_ONE, product);
     } catch (error) {
       next(error);
     }
@@ -60,7 +61,7 @@ export class ProductsController {
 
       const product = await productsService.createProduct(userId, data);
 
-      sendCreated(res, "Product created successfully", product);
+      sendCreated(res, MESSAGES.PRODUCTS.CREATED, product);
     } catch (error) {
       next(error);
     }
@@ -79,7 +80,7 @@ export class ProductsController {
 
       const product = await productsService.updateProduct(id, userId, data);
 
-      sendSuccess(res, "Product updated successfully", product);
+      sendSuccess(res, MESSAGES.PRODUCTS.UPDATED, product);
     } catch (error) {
       next(error);
     }
@@ -97,7 +98,7 @@ export class ProductsController {
 
       await productsService.deleteProduct(id, userId);
 
-      sendSuccess(res, "Product deleted successfully");
+      sendSuccess(res, MESSAGES.PRODUCTS.DELETED);
     } catch (error) {
       next(error);
     }

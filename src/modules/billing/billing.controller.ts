@@ -1,5 +1,6 @@
 import { NextFunction, Request, Response } from "express";
 import { ApiError } from "../../common/errors/api-error";
+import { MESSAGES } from "../../common/constants/messages.constant";
 import { sendSuccess } from "../../common/utils/response.util";
 import { billingService } from "./billing.service";
 import {
@@ -22,7 +23,7 @@ export class BillingController {
 
       const result = await billingService.createCheckoutSession(userId, data);
 
-      sendSuccess(res, "Checkout session created", result);
+      sendSuccess(res, MESSAGES.BILLING.CHECKOUT_CREATED, result);
     } catch (error) {
       next(error);
     }
@@ -38,7 +39,7 @@ export class BillingController {
       const userId = req.user!.id;
       const data: CreatePortalSessionBody = req.body;
       const result = await billingService.createPortalSession(userId, data);
-      sendSuccess(res, "Portal session created", result);
+      sendSuccess(res, MESSAGES.BILLING.PORTAL_CREATED, result);
     } catch (error) {
       next(error);
     }
@@ -55,7 +56,7 @@ export class BillingController {
 
       console.log("Plans: server ", result);
 
-      sendSuccess(res, "Plans retrieved successfully", result);
+      sendSuccess(res, MESSAGES.BILLING.PLANS_FETCHED, result);
     } catch (error) {
       next(error);
     }
@@ -70,7 +71,7 @@ export class BillingController {
     try {
       const userId = req.user!.id;
       const result = await subscriptionService.getSubscriptionByUserId(userId);
-      sendSuccess(res, "Current subscription retrieved", result);
+      sendSuccess(res, MESSAGES.BILLING.SUBSCRIPTION_FETCHED, result);
     } catch (error) {
       next(error);
     }
@@ -107,7 +108,7 @@ export class BillingController {
       const adminId = req.user!.id;
       const data: UpdateCustomPlanBody = req.body;
       const result = await billingService.updateCustomPlan(adminId, data);
-      sendSuccess(res, "Custom plan updated successfully", result);
+      sendSuccess(res, MESSAGES.BILLING.PLAN_UPDATED, result);
     } catch (error) {
       next(error);
     }
@@ -121,7 +122,7 @@ export class BillingController {
   ): Promise<void> {
     try {
       const result = await billingService.getPlanById(req.params.id);
-      sendSuccess(res, "Plan retrieved successfully", result);
+      sendSuccess(res, MESSAGES.BILLING.PLAN_FETCHED, result);
     } catch (error) {
       next(error);
     }
@@ -163,7 +164,7 @@ export class BillingController {
         status: status as string,
       });
 
-      sendSuccess(res, "Invoices retrieved successfully", result);
+      sendSuccess(res, MESSAGES.BILLING.INVOICES_FETCHED, result);
     } catch (error) {
       next(error);
     }
@@ -178,7 +179,7 @@ export class BillingController {
     try {
       const userId = req.user!.id;
       const result = await billingService.getPaymentMethods(userId);
-      sendSuccess(res, "Payment methods retrieved successfully", result);
+      sendSuccess(res, MESSAGES.BILLING.PAYMENT_METHODS_FETCHED, result);
     } catch (error) {
       next(error);
     }
@@ -193,7 +194,7 @@ export class BillingController {
     try {
       const { userId } = req.params;
       const result = await billingService.getUserUsage(userId);
-      sendSuccess(res, "Usage records retrieved successfully", result);
+      sendSuccess(res, MESSAGES.BILLING.USAGE_FETCHED, result);
     } catch (error) {
       next(error);
     }

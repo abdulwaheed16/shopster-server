@@ -1,4 +1,5 @@
 import { NextFunction, Request, Response } from "express";
+import { MESSAGES } from "../../common/constants/messages.constant";
 import { ApiError } from "../../common/errors/api-error";
 import { sendSuccess } from "../../common/utils/response.util";
 import { uploadService } from "./upload.service";
@@ -22,7 +23,7 @@ export class UploadController {
 
       const result = await uploadService.uploadImage(req.file, userId);
 
-      sendSuccess(res, "Image uploaded successfully", result);
+      sendSuccess(res, MESSAGES.STORAGE.UPLOAD_SUCCESS, result);
     } catch (error) {
       next(error);
     }
@@ -70,7 +71,7 @@ export class UploadController {
 
       const result = await uploadService.deleteImage(publicId);
 
-      sendSuccess(res, "Image deleted successfully", result);
+      sendSuccess(res, MESSAGES.STORAGE.DELETE_SUCCESS, result);
     } catch (error) {
       next(error);
     }

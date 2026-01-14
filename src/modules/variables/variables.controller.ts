@@ -1,4 +1,5 @@
 import { NextFunction, Request, Response } from "express";
+import { MESSAGES } from "../../common/constants/messages.constant";
 import {
   sendCreated,
   sendPaginated,
@@ -24,7 +25,7 @@ export class VariablesController {
 
       const result = await variablesService.getVariables(userId, query);
 
-      sendPaginated(res, "Variables fetched successfully", result);
+      sendPaginated(res, MESSAGES.VARIABLES.FETCHED, result);
     } catch (error) {
       next(error);
     }
@@ -42,7 +43,7 @@ export class VariablesController {
 
       const variable = await variablesService.getVariableById(id, userId);
 
-      sendSuccess(res, "Variable fetched successfully", variable);
+      sendSuccess(res, MESSAGES.VARIABLES.FETCHED, variable);
     } catch (error) {
       next(error);
     }
@@ -60,7 +61,7 @@ export class VariablesController {
 
       const usage = await variablesService.getVariableUsage(id, userId);
 
-      sendSuccess(res, "Variable usage details fetched", usage);
+      sendSuccess(res, MESSAGES.VARIABLES.USAGE_FETCHED, usage);
     } catch (error) {
       next(error);
     }
@@ -78,7 +79,7 @@ export class VariablesController {
 
       const variable = await variablesService.createVariable(userId, data);
 
-      sendCreated(res, "Variable created successfully", variable);
+      sendCreated(res, MESSAGES.VARIABLES.CREATED, variable);
     } catch (error) {
       next(error);
     }
@@ -97,7 +98,7 @@ export class VariablesController {
 
       const variable = await variablesService.updateVariable(id, userId, data);
 
-      sendSuccess(res, "Variable updated successfully", variable);
+      sendSuccess(res, MESSAGES.VARIABLES.UPDATED, variable);
     } catch (error) {
       next(error);
     }
@@ -115,7 +116,7 @@ export class VariablesController {
 
       await variablesService.deleteVariable(id, userId);
 
-      sendSuccess(res, "Variable deleted successfully");
+      sendSuccess(res, MESSAGES.VARIABLES.DELETED);
     } catch (error) {
       next(error);
     }
