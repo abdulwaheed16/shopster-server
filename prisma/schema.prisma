@@ -296,7 +296,9 @@ model Template {
     // Preview generation inputs
     referenceAdImage String? // Reference ad for style
     productImage     String? // Product image for preview
-    previewImages    String[] // Generated previews
+    previewImages     String[] // Generated previews
+    previewAnalyses   String[] // Analysis results for each preview
+    referenceAnalysis String? // Cached analysis for referenceAdImage (Optimized)
 
     // Category assignments (many-to-many relation)
     categoryIds String[] @db.ObjectId
@@ -477,6 +479,9 @@ model Ad {
 
     // Generation status
     status AdStatus @default(PENDING)
+
+    // Analysis Result (YAML from Senior Computer Vision Analyst)
+    resultAnalysis String?
 
     // Metadata
     metadata Json? // Generation parameters, model used, etc.
