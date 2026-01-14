@@ -4,6 +4,7 @@ import { cloudinary, cloudinaryOptions } from "../config/cloudinary.config";
 import { prisma } from "../config/database.config";
 import { config } from "../config/env.config";
 import { connection, QUEUE_NAMES } from "../config/queue.config";
+import { aiService } from "../modules/ai/ai.service";
 
 // Template Preview Job Data
 export interface TemplatePreviewJobData {
@@ -26,6 +27,31 @@ export const templatePreviewWorker = new Worker(
     );
 
     try {
+      // 1. Analyze reference image if not already analyzed (Optimization)
+      const template = await prisma.template.findUnique({
+        where: { id: templateId },
+        select: { referenceAdImage: true, referenceAnalysis: true },
+      });
+
+      if (template?.referenceAdImage && !template.referenceAnalysis) {
+        console.log(
+          `[TemplateWorker] Caching reference analysis for template: ${templateId}`
+        );
+        try {
+          const analysis = await aiService.analyzeAdTemplate(
+            template.referenceAdImage
+          );
+          await prisma.template.update({
+            where: { id: templateId },
+            data: { referenceAnalysis: analysis },
+          });
+        } catch (err: any) {
+          console.warn(
+            `[TemplateWorker] Failed to cache reference analysis:`,
+            err.message
+          );
+        }
+      }
       // Call n8n webhook for preview generation
       const webhookUrl = config.webhook.n8nUrl;
       if (!webhookUrl) {
@@ -79,6 +105,26 @@ export const templatePreviewWorker = new Worker(
           previewImages: secureUrls,
         },
       });
+
+      // Post-generation Analysis (Vision) for each preview
+      console.log(
+        `Analyzing ${secureUrls.length} previews for template ${templateId}`
+      );
+      try {
+        const previewAnalyses = await Promise.all(
+          secureUrls.map((url) => aiService.analyzeImage(url))
+        );
+
+        await prisma.template.update({
+          where: { id: templateId },
+          data: { previewAnalyses },
+        });
+      } catch (analysisError: any) {
+        console.warn(
+          `Preview analysis failed for template ${templateId}:`,
+          analysisError.message
+        );
+      }
 
       console.log(`Template preview completed for template ${templateId}`);
       return { success: true, templateId };

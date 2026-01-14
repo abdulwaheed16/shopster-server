@@ -1,4 +1,5 @@
 import { NextFunction, Request, Response } from "express";
+import { MESSAGES } from "../../common/constants/messages.constant";
 import {
   sendCreated,
   sendPaginated,
@@ -16,7 +17,7 @@ export class AdsController {
 
       const result = await adsService.getAds(userId, query);
 
-      sendPaginated(res, "Ads fetched successfully", result);
+      sendPaginated(res, MESSAGES.ADS.FETCHED, result);
     } catch (error) {
       next(error);
     }
@@ -34,7 +35,7 @@ export class AdsController {
 
       const ad = await adsService.getAdById(id, userId);
 
-      sendSuccess(res, "Ad fetched successfully", ad);
+      sendSuccess(res, MESSAGES.ADS.FETCHED_ONE, ad);
     } catch (error) {
       next(error);
     }
@@ -52,7 +53,7 @@ export class AdsController {
 
       const ad = await adsService.generateAd(userId, data);
 
-      sendCreated(res, "Ad generation queued successfully", ad);
+      sendCreated(res, MESSAGES.ADS.QUEUED, ad);
     } catch (error) {
       next(error);
     }
@@ -70,7 +71,7 @@ export class AdsController {
 
       await adsService.deleteAd(id, userId);
 
-      sendSuccess(res, "Ad deleted successfully");
+      sendSuccess(res, MESSAGES.ADS.DELETED);
     } catch (error) {
       next(error);
     }

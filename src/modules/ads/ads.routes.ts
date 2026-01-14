@@ -86,7 +86,7 @@ router.get(
  *                 type: object
  *               aspectRatio:
  *                 type: string
- *                 enum: ["1:1", "16:9", "9:16", "4:5"]
+ *                 enum: ["1:1", "4:5", "9:16", "16:9"]
  *               variantsCount:
  *                 type: integer
  *                 minimum: 1

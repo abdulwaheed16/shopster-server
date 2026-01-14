@@ -1,4 +1,5 @@
 import { NextFunction, Request, Response } from "express";
+import { MESSAGES } from "../../common/constants/messages.constant";
 import { ApiError } from "../../common/errors/api-error";
 import {
   sendCreated,
@@ -26,7 +27,7 @@ export class TemplatesController {
 
       const result = await templatesService.getTemplates(userId, query);
 
-      sendPaginated(res, "Templates fetched successfully", result);
+      sendPaginated(res, MESSAGES.TEMPLATES.FETCHED, result);
     } catch (error) {
       next(error);
     }
@@ -47,7 +48,7 @@ export class TemplatesController {
 
       const result = await templatesService.getTemplates(userId, query);
 
-      sendPaginated(res, "User templates fetched successfully", result);
+      sendPaginated(res, MESSAGES.TEMPLATES.USER_FETCHED, result);
     } catch (error) {
       next(error);
     }
@@ -68,7 +69,7 @@ export class TemplatesController {
 
       const result = await templatesService.getTemplates(userId, query);
 
-      sendPaginated(res, "Global templates fetched successfully", result);
+      sendPaginated(res, MESSAGES.TEMPLATES.GLOBAL_FETCHED, result);
     } catch (error) {
       next(error);
     }
@@ -86,7 +87,7 @@ export class TemplatesController {
 
       const template = await templatesService.getTemplateById(id, userId);
 
-      sendSuccess(res, "Template fetched successfully", template);
+      sendSuccess(res, MESSAGES.TEMPLATES.FETCHED_ONE, template);
     } catch (error) {
       next(error);
     }
@@ -107,7 +108,7 @@ export class TemplatesController {
 
       const template = await templatesService.createTemplate(userId, data);
 
-      sendCreated(res, "Template created successfully", template);
+      sendCreated(res, MESSAGES.TEMPLATES.CREATED, template);
     } catch (error) {
       next(error);
     }
@@ -129,7 +130,7 @@ export class TemplatesController {
 
       const template = await templatesService.updateTemplate(id, userId, data);
 
-      sendSuccess(res, "Template updated successfully", template);
+      sendSuccess(res, MESSAGES.TEMPLATES.UPDATED, template);
     } catch (error) {
       next(error);
     }
@@ -150,7 +151,7 @@ export class TemplatesController {
 
       await templatesService.deleteTemplate(id, userId);
 
-      sendSuccess(res, "Template deleted successfully");
+      sendSuccess(res, MESSAGES.TEMPLATES.DELETED);
     } catch (error) {
       next(error);
     }
@@ -207,7 +208,7 @@ export class TemplatesController {
       const userId = req.user!.id;
       const { id } = req.params;
       await templatesService.trackVisit(id, userId);
-      sendSuccess(res, "Visit tracked");
+      sendSuccess(res, MESSAGES.TEMPLATES.TRACKED);
     } catch (error) {
       next(error);
     }
@@ -265,7 +266,7 @@ export class TemplatesController {
         throw ApiError.unauthorized("Only admins can access stats");
       }
       const stats = await templatesService.getAdminStats();
-      sendSuccess(res, "Stats fetched successfully", stats);
+      sendSuccess(res, MESSAGES.TEMPLATES.STATS_FETCHED, stats);
     } catch (error) {
       next(error);
     }

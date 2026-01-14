@@ -6,6 +6,7 @@ import { GenerateAdBody, GetAdsQuery } from "./ads.validation";
 
 import { AdStatus, Prisma, UsageType } from "@prisma/client";
 import { calculatePagination } from "../../common/utils/pagination.util";
+import { ASPECT_RATIOS } from "../ai/ai.constants";
 import { IAdsService } from "./ads.types";
 
 export class AdsService implements IAdsService {
@@ -85,8 +86,14 @@ export class AdsService implements IAdsService {
       prisma.ad.count({ where }),
     ]);
 
+    // Strip internal analysis (Optimization/Privacy)
+    const sanitizedAds = ads.map((ad: any) => {
+      delete ad.resultAnalysis;
+      return ad;
+    });
+
     return {
-      data: ads,
+      data: sanitizedAds,
       meta: calculatePagination(total, page, limit),
     };
   }
@@ -108,7 +115,9 @@ export class AdsService implements IAdsService {
       throw ApiError.notFound("Ad not found or you don't have access");
     }
 
-    return ad;
+    const { resultAnalysis, ...sanitizedAd } = ad as any;
+
+    return sanitizedAd;
   }
 
   // Generate ad (Step 3: Submit)
@@ -162,9 +171,13 @@ export class AdsService implements IAdsService {
         title: data.title || `Ad for ${product.title}`,
         assembledPrompt,
         variableValues,
-        aspectRatio: data.aspectRatio || "1:1",
+        aspectRatio: data.aspectRatio || ASPECT_RATIOS.SQUARE,
         variantsCount: data.variantsCount || 1,
         status: AdStatus.PENDING,
+        metadata: {
+          style: data.style,
+          color: data.color,
+        },
       },
     });
 
@@ -176,13 +189,18 @@ export class AdsService implements IAdsService {
       `Ad Generation: ${ad.id}`
     );
 
-    // 5. Add to queue for background processing (n8n webhook)
+    // 5. Add to queue for background processing
     await adGenerationQueue.add("generate", {
       adId: ad.id,
       userId,
-      prompt: assembledPrompt,
+      assembledPrompt,
       aspectRatio: ad.aspectRatio,
       variantsCount: ad.variantsCount,
+      style: data.style,
+      color: data.color,
+      productImage: product.images?.[0]?.url, // Pass first product image
+      templateImage: (template as any).referenceAdImage, // Pass template reference image
+      templateAnalysis: (template as any).referenceAnalysis, // Pass cached analysis (Optimization)
     });
 
     return ad;

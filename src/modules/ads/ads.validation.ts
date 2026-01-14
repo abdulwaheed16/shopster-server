@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { objectIdSchema } from "../../common/validations/common.validation";
+import { ASPECT_RATIOS } from "../ai/ai.constants";
 
 // Generate ad schema
 export const generateAdSchema = z.object({
@@ -8,8 +9,12 @@ export const generateAdSchema = z.object({
     templateId: objectIdSchema,
     title: z.string().optional(),
     variableValues: z.record(z.string(), z.any()), // JSON object
-    aspectRatio: z.enum(["1:1", "16:9", "9:16", "4:5"]).optional(),
+    aspectRatio: z
+      .enum(Object.values(ASPECT_RATIOS) as [string, ...string[]])
+      .optional(),
     variantsCount: z.number().int().min(1).max(4).optional(),
+    style: z.string().optional(),
+    color: z.string().optional(),
   }),
 });
 

@@ -143,12 +143,18 @@ export class TemplatesService implements ITemplatesService {
             where: { id: { in: t.variableIds } },
           }),
         ]);
-        return {
+        const result = {
           ...t,
           variables,
           isLiked: !!isLiked,
           isFavorited: !!isFavorited,
         };
+
+        // Strip internal analysis fields (Optimization/Privacy)
+        delete (result as any).referenceAnalysis;
+        delete (result as any).previewAnalyses;
+
+        return result;
       })
     );
 
@@ -189,12 +195,18 @@ export class TemplatesService implements ITemplatesService {
       where: { id: { in: template.variableIds } },
     });
 
-    return {
+    const result = {
       ...template,
       variables,
       isLiked: !!isLiked,
       isFavorited: !!isFavorited,
     };
+
+    // Strip internal analysis fields (Optimization/Privacy)
+    delete (result as any).referenceAnalysis;
+    delete (result as any).previewAnalyses;
+
+    return result;
   }
 
   // Track template visit
