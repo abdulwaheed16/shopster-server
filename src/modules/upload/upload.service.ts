@@ -1,5 +1,5 @@
 import { MESSAGES } from "../../common/constants/messages.constant";
-import { cloudinaryStorageService } from "./services/storage/cloudinary-storage.service";
+import { vercelBlobService } from "./services/storage/vercel-blob.service";
 import { IUploadService } from "./upload.types";
 
 /**
@@ -9,13 +9,15 @@ import { IUploadService } from "./upload.types";
  */
 export class UploadService implements IUploadService {
   /**
-   * Upload single image to Cloudinary
+   * Upload single image
    * @param file - Multer file object (in memory)
    * @param userId - User ID for folder organization
+   * @param type - Optional type hint ('avatar' uses Vercel Blob, others Cloudinary)
    */
   async uploadImage(
     file: Express.Multer.File,
-    userId: string
+    userId: string,
+    type?: string
   ): Promise<{
     url: string;
     publicId: string;
@@ -24,6 +26,23 @@ export class UploadService implements IUploadService {
     format: string;
   }> {
     try {
+      // Use Vercel Blob for all uploads (Cloudinary is disconnected but code is preserved)
+      const result = await vercelBlobService.upload(file.buffer, {
+        folder: type === "avatar" ? `avatars/${userId}` : `assets/${userId}`,
+        publicId: `${type || "asset"}_${Date.now()}`,
+        resourceType: "image",
+      });
+
+      return {
+        url: result.url,
+        publicId: result.id,
+        width: 0,
+        height: 0,
+        format: "webp",
+      };
+
+      /* 
+      // Cloudinary Logic (Disconnected)
       const result = await cloudinaryStorageService.upload(file.buffer, {
         folder: `shopster/${userId}`,
       });
@@ -35,6 +54,7 @@ export class UploadService implements IUploadService {
         height: result.metadata?.height || 0,
         format: result.metadata?.format || "",
       };
+      */
     } catch (error: any) {
       console.error(
         `[UploadService] ${MESSAGES.STORAGE.UPLOAD_FAILED}:`,
@@ -45,7 +65,7 @@ export class UploadService implements IUploadService {
   }
 
   /**
-   * Upload multiple images to Cloudinary
+   * Upload multiple images
    * @param files - Array of Multer file objects
    * @param userId - User ID for folder organization
    */
@@ -66,12 +86,18 @@ export class UploadService implements IUploadService {
   }
 
   /**
-   * Delete image from Cloudinary
-   * @param publicId - Cloudinary public ID
+   * Delete image
+   * @param publicId - Public ID / URL
    */
   async deleteImage(publicId: string): Promise<{ result: string }> {
     try {
-      await cloudinaryStorageService.delete(publicId);
+      // Try deleting from Vercel Blob first (provider agnostic for now)
+      if (publicId.includes("public.blob.vercel-storage.com")) {
+        await vercelBlobService.delete(publicId);
+      } else {
+        // Fallback for Cloudinary if it's a legacy publicId
+        // await cloudinaryStorageService.delete(publicId);
+      }
       return { result: MESSAGES.GENERAL.OK };
     } catch (error: any) {
       console.error(

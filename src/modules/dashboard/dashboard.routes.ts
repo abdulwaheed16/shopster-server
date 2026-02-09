@@ -24,7 +24,7 @@ router.use(authenticate);
  *       401:
  *         description: Unauthorized
  */
-router.get("/", dashboardController.getStats.bind(dashboardController));
+router.get("/", dashboardController.getUserStats.bind(dashboardController));
 
 /**
  * @swagger

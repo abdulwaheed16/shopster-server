@@ -4,11 +4,10 @@ import { sendSuccess } from "../../common/utils/response.util";
 import { dashboardService } from "./dashboard.service";
 
 export class DashboardController {
-  // Get dashboard statistics
-  async getStats(
+  async getUserStats(
     req: Request,
     res: Response,
-    next: NextFunction
+    next: NextFunction,
   ): Promise<void> {
     try {
       const userId = req.user!.id;
@@ -25,7 +24,7 @@ export class DashboardController {
   async getAdminStats(
     req: Request,
     res: Response,
-    next: NextFunction
+    next: NextFunction,
   ): Promise<void> {
     try {
       const stats = await dashboardService.getAdminStats();

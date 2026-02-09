@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { UserRole } from "../../common/constants/roles.constant";
+import { auditLogger } from "../../common/middlewares/audit-logger.middleware";
 import { authenticate } from "../../common/middlewares/auth.middleware";
 import { authorize } from "../../common/middlewares/role.middleware";
 import { validate } from "../../common/middlewares/validate.middleware";
@@ -101,7 +102,7 @@ router.get(
   "/",
   authorize(UserRole.ADMIN),
   validate(getUsersSchema),
-  usersController.getUsers.bind(usersController)
+  usersController.getUsers.bind(usersController),
 );
 
 /**
@@ -130,7 +131,7 @@ router.get(
 router.get(
   "/:id",
   validate(getUserByIdSchema),
-  usersController.getUserById.bind(usersController)
+  usersController.getUserById.bind(usersController),
 );
 
 /**
@@ -175,87 +176,32 @@ router.get(
  *       404:
  *         description: User not found
  */
+
+// Update user (Admin only)
 router.put(
   "/:id",
   authorize(UserRole.ADMIN),
   validate(updateUserSchema),
-  usersController.updateUser.bind(usersController)
+  auditLogger("UPDATE_USER", "User"),
+  usersController.updateUser.bind(usersController),
 );
 
-/**
- * @swagger
- * /users/{id}:
- *   delete:
- *     summary: Delete user (Admin only)
- *     description: Deletes a specific user account.
- *     tags: [Users]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: User deleted successfully
- *       401:
- *         description: Unauthorized
- *       403:
- *         description: Forbidden (Admin only)
- *       404:
- *         description: User not found
- */
+// Delete user (Admin only)
 router.delete(
   "/:id",
   authorize(UserRole.ADMIN),
   validate(deleteUserSchema),
-  usersController.deleteUser.bind(usersController)
+  auditLogger("DELETE_USER", "User"),
+  usersController.deleteUser.bind(usersController),
 );
 
-/**
- * @swagger
- * /users/{id}/role:
- *   put:
- *     summary: Update user role (Admin only)
- *     description: Updates the role of a specific user.
- *     tags: [Users]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               role:
- *                 type: string
- *                 enum: [USER, ADMIN]
- *     responses:
- *       200:
- *         description: User role updated successfully
- *       400:
- *         description: Invalid input
- *       401:
- *         description: Unauthorized
- *       403:
- *         description: Forbidden (Admin only)
- *       404:
- *         description: User not found
- */
+// Update user role (Admin only)
 router.put(
   "/:id/role",
   authorize(UserRole.ADMIN),
   validate(updateUserRoleSchema),
-  usersController.updateUserRole.bind(usersController)
+  auditLogger("UPDATE_USER_ROLE", "User"),
+  usersController.updateUserRole.bind(usersController),
 );
 
 export default router;

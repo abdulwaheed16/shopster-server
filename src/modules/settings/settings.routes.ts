@@ -31,7 +31,7 @@ router.get("/profile", settingsController.getProfile.bind(settingsController));
 router.put(
   "/profile",
   validate(updateProfileSchema),
-  settingsController.updateProfile.bind(settingsController)
+  settingsController.updateProfile.bind(settingsController),
 );
 
 /**
@@ -43,7 +43,7 @@ router.put(
  */
 router.get(
   "/security",
-  settingsController.getSecurity.bind(settingsController)
+  settingsController.getSecurity.bind(settingsController),
 );
 
 /**
@@ -56,7 +56,7 @@ router.get(
 router.put(
   "/security",
   validate(updateSecuritySchema),
-  settingsController.updateSecurity.bind(settingsController)
+  settingsController.updateSecurity.bind(settingsController),
 );
 
 /**
@@ -68,7 +68,7 @@ router.put(
  */
 router.post(
   "/security/2fa/enable",
-  settingsController.enable2FA.bind(settingsController)
+  settingsController.enable2FA.bind(settingsController),
 );
 
 /**
@@ -80,7 +80,7 @@ router.post(
  */
 router.post(
   "/security/2fa/disable",
-  settingsController.disable2FA.bind(settingsController)
+  settingsController.disable2FA.bind(settingsController),
 );
 
 export default router;

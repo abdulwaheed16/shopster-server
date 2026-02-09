@@ -10,7 +10,7 @@ export class DashboardService implements IDashboardService {
       storesCount,
       productsCount,
       templatesCount,
-      variablesCount,
+      // variablesCount,
       adsStats,
       recentAds,
       user,
@@ -20,14 +20,14 @@ export class DashboardService implements IDashboardService {
 
       // Total products
       prisma.product.count({
-        where: { store: { userId } }, 
+        where: { store: { userId } },
       }),
 
       // Total templates
       prisma.template.count({ where: { userId } }),
 
       // Total variables
-      prisma.variable.count({ where: { userId } }),
+      // prisma.variable.count({ where: { userId } }),
 
       // Ads stats by status
       prisma.ad.groupBy({
@@ -82,7 +82,7 @@ export class DashboardService implements IDashboardService {
       stores: storesCount,
       products: productsCount,
       templates: templatesCount,
-      variables: variablesCount,
+      // variables: variablesCount,
       ads: adsStatusCounts,
       recentAds,
       credits: user?.credits || 0,

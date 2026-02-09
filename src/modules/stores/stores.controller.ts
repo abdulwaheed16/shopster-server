@@ -8,7 +8,7 @@ import {
 } from "../../common/utils/response.util";
 import { prisma } from "../../config/database.config";
 import { config } from "../../config/env.config";
-import { productsService } from "../products/products.service";
+import { storeProductsService } from "../products/services/store-products.service";
 import { shopifyService } from "./shopify.service";
 import { storesService } from "./stores.service";
 import {
@@ -24,7 +24,7 @@ export class StoresController {
   async initiateShopifyAuth(
     req: Request,
     res: Response,
-    next: NextFunction
+    next: NextFunction,
   ): Promise<void> {
     try {
       const { shop } = req.query as unknown as ShopifyAuthQuery;
@@ -63,7 +63,7 @@ export class StoresController {
   async shopifyAuthCallback(
     req: Request,
     res: Response,
-    next: NextFunction
+    next: NextFunction,
   ): Promise<void> {
     try {
       const query = req.query as unknown as ShopifyCallbackQuery;
@@ -127,7 +127,7 @@ export class StoresController {
       console.error("Shopify callback error:", error);
       const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
       res.redirect(
-        `${frontendUrl}/stores?status=error&message=Authentication failed`
+        `${frontendUrl}/stores?status=error&message=Authentication failed`,
       );
     }
   }
@@ -136,7 +136,7 @@ export class StoresController {
   async handleShopifyWebhook(
     req: Request,
     res: Response,
-    next: NextFunction
+    next: NextFunction,
   ): Promise<void> {
     try {
       const topic = req.headers["x-shopify-topic"] as string;
@@ -148,7 +148,7 @@ export class StoresController {
       const rawBody = (req as any).rawBody;
       if (!shopifyService.verifyWebhookHmac(rawBody, hmacHeader)) {
         console.warn(
-          `🛑 Invalid HMAC for Shopify webhook: ${topic} from ${shop}`
+          `🛑 Invalid HMAC for Shopify webhook: ${topic} from ${shop}`,
         );
         res.status(401).send("Invalid HMAC");
         return;
@@ -195,7 +195,7 @@ export class StoresController {
   async getStores(
     req: Request,
     res: Response,
-    next: NextFunction
+    next: NextFunction,
   ): Promise<void> {
     try {
       const userId = req.user!.id;
@@ -213,7 +213,7 @@ export class StoresController {
   async getStoreById(
     req: Request,
     res: Response,
-    next: NextFunction
+    next: NextFunction,
   ): Promise<void> {
     try {
       const userId = req.user!.id;
@@ -231,7 +231,7 @@ export class StoresController {
   async createStore(
     req: Request,
     res: Response,
-    next: NextFunction
+    next: NextFunction,
   ): Promise<void> {
     try {
       const userId = req.user!.id;
@@ -249,7 +249,7 @@ export class StoresController {
   async updateStore(
     req: Request,
     res: Response,
-    next: NextFunction
+    next: NextFunction,
   ): Promise<void> {
     try {
       const userId = req.user!.id;
@@ -268,7 +268,7 @@ export class StoresController {
   async deleteStore(
     req: Request,
     res: Response,
-    next: NextFunction
+    next: NextFunction,
   ): Promise<void> {
     try {
       const userId = req.user!.id;
@@ -286,7 +286,7 @@ export class StoresController {
   async syncStore(
     req: Request,
     res: Response,
-    next: NextFunction
+    next: NextFunction,
   ): Promise<void> {
     try {
       const userId = req.user!.id;
@@ -304,7 +304,7 @@ export class StoresController {
   async syncProductsManually(
     req: Request,
     res: Response,
-    next: NextFunction
+    next: NextFunction,
   ): Promise<void> {
     try {
       const userId = req.user!.id;
@@ -328,7 +328,7 @@ export class StoresController {
       // 3. Fetch products from Shopify
       const shopifyProducts = await shopifyService.fetchProducts(
         store.shopifyDomain,
-        store.accessToken
+        store.accessToken,
       );
 
       console.log(`📦 Fetched ${shopifyProducts.length} products from Shopify`);
@@ -348,7 +348,7 @@ export class StoresController {
         isActive: sp.status === "active",
         inStock: sp.variants.some(
           (v: any) =>
-            v.inventory_quantity > 0 || v.inventory_policy === "continue"
+            v.inventory_quantity > 0 || v.inventory_policy === "continue",
         ),
         images: sp.images.map((img: any) => ({
           url: img.src,
@@ -365,9 +365,9 @@ export class StoresController {
         })),
       }));
 
-      const result = await productsService.bulkCreateProducts(
+      const result = await storeProductsService.bulkCreateProducts(
         userId,
-        productsToSync
+        productsToSync,
       );
 
       // 5. Update sync status to COMPLETED
@@ -379,7 +379,8 @@ export class StoresController {
       console.log(`✅ Successfully synced ${result.count} new products`);
 
       // 6. Fetch and return products from database
-      const products = await productsService.getProducts(userId, {
+      const products = await storeProductsService.getProducts(userId, {
+        source: "STORE",
         storeId: id,
         page: "1",
         limit: "100",

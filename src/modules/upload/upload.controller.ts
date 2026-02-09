@@ -16,12 +16,13 @@ export class UploadController {
   ): Promise<void> {
     try {
       const userId = req.user!.id;
+      const type = req.body.type || req.query.type;
 
       if (!req.file) {
         throw ApiError.badRequest("No image file provided");
       }
 
-      const result = await uploadService.uploadImage(req.file, userId);
+      const result = await uploadService.uploadImage(req.file, userId, type);
 
       sendSuccess(res, MESSAGES.STORAGE.UPLOAD_SUCCESS, result);
     } catch (error) {
