@@ -2,11 +2,16 @@ import { Router } from "express";
 import { authenticate } from "../../common/middlewares/auth.middleware";
 import { validate } from "../../common/middlewares/validate.middleware";
 import * as CommonValidators from "../../common/validations/common.validation";
-import { productsController } from "./products.controller";
+import { manualProductsController } from "./controllers/manual-products.controller";
+import { storeProductsController } from "./controllers/store-products.controller";
 import {
+  bulkCsvImportSchema,
   bulkDeleteProductsSchema,
+  createManualProductSchema,
   createProductSchema,
+  getManualProductsSchema,
   getProductsSchema,
+  updateManualProductSchema,
   updateProductSchema,
 } from "./products.validation";
 
@@ -15,251 +20,224 @@ const router = Router();
 // All routes require authentication
 router.use(authenticate);
 
+// --------------------------------------------------------------------------
+// Store-Synced Products Routes
+// --------------------------------------------------------------------------
+
 /**
  * @swagger
- * /products:
+ * /products/store:
  *   get:
- *     summary: Get all products
- *     description: Returns a paginated list of products.
- *     tags: [Products]
+ *     summary: Get all store products
+ *     tags: [Store Products]
  *     security:
  *       - bearerAuth: []
- *     parameters:
- *       - in: query
- *         name: page
- *         schema:
- *           type: integer
- *           default: 1
- *       - in: query
- *         name: limit
- *         schema:
- *           type: integer
- *           default: 10
- *       - in: query
- *         name: storeId
- *         schema:
- *           type: string
- *       - in: query
- *         name: categoryId
- *         schema:
- *           type: string
- *       - in: query
- *         name: search
- *         schema:
- *           type: string
- *       - in: query
- *         name: isActive
- *         schema:
- *           type: boolean
- *     responses:
- *       200:
- *         description: Products retrieved successfully
- *       401:
- *         description: Unauthorized
  */
 router.get(
-  "/",
+  "/store",
   validate(getProductsSchema),
-  productsController.getProducts.bind(productsController)
+  storeProductsController.getProducts.bind(storeProductsController),
 );
 
 /**
  * @swagger
- * /products/bulk:
+ * /products/store/bulk:
  *   post:
- *     summary: Bulk create products
- *     description: Creates multiple products at once (used for Shopify sync).
- *     tags: [Products]
+ *     summary: Bulk create store products
+ *     tags: [Store Products]
  *     security:
  *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: array
- *             items:
- *               $ref: '#/components/schemas/ProductInput'
- *     responses:
- *       201:
- *         description: Products created successfully
- *       401:
- *         description: Unauthorized
  */
 router.post(
-  "/bulk",
-  productsController.bulkCreateProducts.bind(productsController)
+  "/store/bulk",
+  storeProductsController.bulkCreateProducts.bind(storeProductsController),
 );
 
 /**
  * @swagger
- * /products/bulk-delete:
+ * /products/store/bulk-delete:
  *   post:
- *     summary: Bulk delete products
- *     description: Deletes multiple products at once.
- *     tags: [Products]
+ *     summary: Bulk delete store products
+ *     tags: [Store Products]
  *     security:
  *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               ids:
- *                 type: array
- *                 items:
- *                   type: string
- *     responses:
- *       200:
- *         description: Products deleted successfully
- *       401:
- *         description: Unauthorized
  */
 router.post(
-  "/bulk-delete",
+  "/store/bulk-delete",
   validate(bulkDeleteProductsSchema),
-  productsController.bulkDeleteProducts.bind(productsController)
+  storeProductsController.bulkDeleteProducts.bind(storeProductsController),
 );
 
 /**
  * @swagger
- * /products/{id}:
+ * /products/store/{id}:
  *   get:
- *     summary: Get product by ID
- *     description: Returns details of a specific product.
- *     tags: [Products]
+ *     summary: Get store product by ID
+ *     tags: [Store Products]
  *     security:
  *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: Product retrieved successfully
- *       401:
- *         description: Unauthorized
- *       404:
- *         description: Product not found
  */
 router.get(
-  "/:id",
+  "/store/:id",
   validate(CommonValidators.idSchema),
-  productsController.getProductById.bind(productsController)
+  storeProductsController.getProductById.bind(storeProductsController),
 );
 
 /**
  * @swagger
- * /products:
+ * /products/store:
  *   post:
- *     summary: Create a product
- *     description: Manually creates a new product.
- *     tags: [Products]
+ *     summary: Create a store product
+ *     tags: [Store Products]
  *     security:
  *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             $ref: '#/components/schemas/ProductInput'
- *     responses:
- *       201:
- *         description: Product created successfully
- *       400:
- *         description: Invalid input
- *       401:
- *         description: Unauthorized
  */
 router.post(
-  "/",
+  "/store",
   validate(createProductSchema),
-  productsController.createProduct.bind(productsController)
+  storeProductsController.createProduct.bind(storeProductsController),
 );
 
 /**
  * @swagger
- * /products/{id}:
+ * /products/store/{id}:
  *   put:
- *     summary: Update product
- *     description: Updates the information profile of a specific product.
- *     tags: [Products]
+ *     summary: Update store product
+ *     tags: [Store Products]
  *     security:
  *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               name:
- *                 type: string
- *               storeUrl:
- *                 type: string
- *                 format: uri
- *               apiKey:
- *                 type: string
- *               apiSecret:
- *                 type: string
- *               accessToken:
- *                 type: string
- *               isActive:
- *                 type: boolean
- *     responses:
- *       200:
- *         description: Product updated successfully
- *       400:
- *         description: Invalid input
- *       401:
- *         description: Unauthorized
- *       404:
- *         description: Product not found
  */
 router.put(
-  "/:id",
+  "/store/:id",
   validate(CommonValidators.idSchema),
   validate(updateProductSchema),
-  productsController.updateProduct.bind(productsController)
+  storeProductsController.updateProduct.bind(storeProductsController),
 );
 
 /**
  * @swagger
- * /products/{id}:
+ * /products/store/{id}:
  *   delete:
- *     summary: Delete product
- *     description: Deletes a specific product.
- *     tags: [Products]
+ *     summary: Delete store product
+ *     tags: [Store Products]
  *     security:
  *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: Product deleted successfully
- *       401:
- *         description: Unauthorized
- *       404:
- *         description: Product not found
  */
 router.delete(
-  "/:id",
+  "/store/:id",
   validate(CommonValidators.idSchema),
-  productsController.deleteProduct.bind(productsController)
+  storeProductsController.deleteProduct.bind(storeProductsController),
+);
+
+// --------------------------------------------------------------------------
+// Manual/Uploaded Products Routes
+// --------------------------------------------------------------------------
+
+/**
+ * @swagger
+ * /products/manual:
+ *   get:
+ *     summary: Get all manual products
+ *     tags: [Manual Products]
+ *     security:
+ *       - bearerAuth: []
+ */
+router.get(
+  "/manual",
+  validate(getManualProductsSchema),
+  manualProductsController.getManualProducts.bind(manualProductsController),
+);
+
+/**
+ * @swagger
+ * /products/manual:
+ *   post:
+ *     summary: Create a manual product
+ *     tags: [Manual Products]
+ *     security:
+ *       - bearerAuth: []
+ */
+router.post(
+  "/manual",
+  validate(createManualProductSchema),
+  manualProductsController.createManualProduct.bind(manualProductsController),
+);
+
+/**
+ * @swagger
+ * /products/manual/bulk:
+ *   post:
+ *     summary: Create multiple manual products
+ *     tags: [Manual Products]
+ *     security:
+ *       - bearerAuth: []
+ */
+router.post(
+  "/manual/bulk",
+  validate(bulkCsvImportSchema),
+  manualProductsController.bulkCreateManualProducts.bind(
+    manualProductsController,
+  ),
+);
+
+/**
+ * @swagger
+ * /products/manual/export:
+ *   get:
+ *     summary: Export manual products as JSON/CSV data
+ *     tags: [Manual Products]
+ *     security:
+ *       - bearerAuth: []
+ */
+router.get(
+  "/manual/export",
+  manualProductsController.exportManualProducts.bind(manualProductsController),
+);
+
+/**
+ * @swagger
+ * /products/manual/{id}:
+ *   get:
+ *     summary: Get manual product by ID
+ *     tags: [Manual Products]
+ *     security:
+ *       - bearerAuth: []
+ */
+router.get(
+  "/manual/:id",
+  validate(CommonValidators.idSchema),
+  manualProductsController.getManualProductById.bind(manualProductsController),
+);
+
+/**
+ * @swagger
+ * /products/manual/{id}:
+ *   patch:
+ *     summary: Update manual product
+ *     tags: [Manual Products]
+ *     security:
+ *       - bearerAuth: []
+ */
+router.patch(
+  "/manual/:id",
+  validate(CommonValidators.idSchema),
+  validate(updateManualProductSchema),
+  manualProductsController.updateManualProduct.bind(manualProductsController),
+);
+
+/**
+ * @swagger
+ * /products/manual/{id}:
+ *   delete:
+ *     summary: Delete manual product
+ *     tags: [Manual Products]
+ *     security:
+ *       - bearerAuth: []
+ */
+router.delete(
+  "/manual/:id",
+  validate(CommonValidators.idSchema),
+  manualProductsController.deleteManualProduct.bind(manualProductsController),
 );
 
 export default router;

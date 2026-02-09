@@ -12,7 +12,8 @@ export const createTemplateSchema = z.object({
     referenceAdImage: z.string().optional(),
     productImage: z.string().optional(),
     isPublic: z.boolean().default(true),
-    assignedUserId: z.string().optional(), // Optional assignment to a user
+    assignedUserId: z.string().optional(),
+    mediaType: z.enum(["IMAGE", "VIDEO"]).default("IMAGE"),
   }),
 });
 
@@ -30,6 +31,7 @@ export const updateTemplateSchema = z.object({
     isActive: z.boolean().optional(),
     isPublic: z.boolean().optional(),
     assignedUserId: z.string().optional(),
+    mediaType: z.enum(["IMAGE", "VIDEO"]).optional(),
   }),
 });
 
@@ -51,6 +53,7 @@ export const getTemplatesSchema = z.object({
     filterType: z
       .enum(["mine", "others", "all", "liked", "favorited", "recent"])
       .default("all"),
+    mediaType: z.enum(["IMAGE", "VIDEO"]).optional(),
     sortBy: z
       .enum(["createdAt", "usageCount", "likesCount", "visitsCount"])
       .default("createdAt"),

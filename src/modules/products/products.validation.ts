@@ -52,11 +52,18 @@ export const getProductsSchema = z.object({
   query: z.object({
     page: z.string().optional(),
     limit: z.string().optional(),
-    storeId: objectIdSchema.optional(),
-    categoryId: objectIdSchema.optional(),
+    storeId: z.preprocess(
+      (val) => (val === "" ? undefined : val),
+      objectIdSchema.optional()
+    ),
+    categoryId: z.preprocess(
+      (val) => (val === "" ? undefined : val),
+      objectIdSchema.optional()
+    ),
     search: z.string().optional(),
     isActive: z.string().optional(),
     inStock: z.string().optional(),
+    source: z.enum(["STORE", "UPLOADED", "ALL"]).optional().default("ALL"),
   }),
 });
 
@@ -75,3 +82,75 @@ export type BulkDeleteProductsBody = z.infer<
 >["body"];
 
 export type GetProductsQuery = z.infer<typeof getProductsSchema>["query"];
+
+// --------------------------------------------------------------------------
+// Manual Product Schemas
+// --------------------------------------------------------------------------
+
+// Create manual product schema
+export const createManualProductSchema = z.object({
+  body: z.object({
+    title: z.string().min(1, "Title is required"),
+    description: z.string().optional(),
+    imageUrl: z
+      .string()
+      .url("Valid Image URL is required")
+      .optional()
+      .nullable(),
+    categoryId: objectIdSchema.optional(),
+    isActive: z.boolean().default(true),
+  }),
+});
+
+// Bulk CSV Import schema
+export const bulkCsvImportSchema = z.object({
+  body: z.object({
+    products: z
+      .array(
+        z.object({
+          title: z.string().min(1, "Title is required"),
+          description: z.string().optional(),
+          imageUrl: z
+            .string()
+            .url("Valid Image URL is required")
+            .optional()
+            .nullable(),
+          categoryId: objectIdSchema.optional(),
+          isActive: z.boolean().default(true),
+        }),
+      )
+      .min(1, "At least one product is required"),
+  }),
+});
+
+// Update manual product schema
+export const updateManualProductSchema = z.object({
+  body: z.object({
+    title: z.string().min(1).optional(),
+    description: z.string().optional(),
+    imageUrl: z.string().url().optional(),
+    categoryId: objectIdSchema.optional(),
+    isActive: z.boolean().optional(),
+  }),
+});
+
+// Get manual products query schema
+export const getManualProductsSchema = z.object({
+  query: z.object({
+    page: z.string().optional(),
+    limit: z.string().optional(),
+    search: z.string().optional(),
+    isActive: z.string().optional(),
+  }),
+});
+
+export type CreateManualProductBody = z.infer<
+  typeof createManualProductSchema
+>["body"];
+export type BulkCsvImportBody = z.infer<typeof bulkCsvImportSchema>["body"];
+export type UpdateManualProductBody = z.infer<
+  typeof updateManualProductSchema
+>["body"];
+export type GetManualProductsQuery = z.infer<
+  typeof getManualProductsSchema
+>["query"];
