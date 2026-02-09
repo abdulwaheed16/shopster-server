@@ -3,6 +3,7 @@ export interface PaginationParams {
   limit?: number;
   sortBy?: string;
   sortOrder?: "asc" | "desc";
+  cursor?: string;
 }
 
 export interface PaginationMeta {
@@ -12,6 +13,7 @@ export interface PaginationMeta {
   totalPages: number;
   hasNextPage: boolean;
   hasPrevPage: boolean;
+  nextCursor?: string | null;
 }
 
 export interface PaginatedResponse<T> {
@@ -24,23 +26,24 @@ export const DEFAULT_LIMIT = 10;
 export const MAX_LIMIT = 100;
 
 export const parsePaginationParams = (
-  query: any
+  query: any,
 ): Required<PaginationParams> => {
   const page = Math.max(1, parseInt(query.page) || DEFAULT_PAGE);
   const limit = Math.min(
     MAX_LIMIT,
-    Math.max(1, parseInt(query.limit) || DEFAULT_LIMIT)
+    Math.max(1, parseInt(query.limit) || DEFAULT_LIMIT),
   );
   const sortBy = query.sortBy || "createdAt";
   const sortOrder = query.sortOrder === "asc" ? "asc" : "desc";
+  const cursor = query.cursor || undefined;
 
-  return { page, limit, sortBy, sortOrder };
+  return { page, limit, sortBy, sortOrder, cursor };
 };
 
 export const calculatePagination = (
   total: number,
   page: number,
-  limit: number
+  limit: number,
 ): PaginationMeta => {
   const totalPages = Math.ceil(total / limit);
 
@@ -62,10 +65,14 @@ export const createPaginatedResponse = <T>(
   data: T[],
   total: number,
   page: number,
-  limit: number
+  limit: number,
+  nextCursor?: string | null,
 ): PaginatedResponse<T> => {
   return {
     data,
-    meta: calculatePagination(total, page, limit),
+    meta: {
+      ...calculatePagination(total, page, limit),
+      nextCursor: nextCursor || null,
+    },
   };
 };

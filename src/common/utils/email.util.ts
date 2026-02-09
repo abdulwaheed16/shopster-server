@@ -115,26 +115,28 @@ const logEmailPreview = (to: string, subject: string, html: string) => {
  */
 export const emailTemplates = {
   sendVerificationEmail: async (to: string, token: string, name: string) => {
+    const baseUrl = process.env.FRONTEND_URL || "http://localhost:5173";
     return sendEmail({
       to,
       subject: "Verify Your Email - Shopster",
       template: "verify-email",
       context: {
         name,
-        url: `${process.env.FRONTEND_URL}/verify-email?token=${token}`,
+        url: `${baseUrl}/auth/verify-email?token=${token}`,
         subject: "Verify Your Email - Shopster",
       },
     });
   },
 
   sendPasswordResetEmail: async (to: string, token: string, name: string) => {
+    const baseUrl = process.env.FRONTEND_URL || "http://localhost:5173";
     return sendEmail({
       to,
       subject: "Reset Your Password - Shopster",
       template: "reset-password",
       context: {
         name,
-        url: `${process.env.FRONTEND_URL}/reset-password?token=${token}`,
+        url: `${baseUrl}/auth/reset-password?token=${token}`,
         subject: "Reset Your Password - Shopster",
       },
     });

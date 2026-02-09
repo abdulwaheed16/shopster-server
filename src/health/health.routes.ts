@@ -1,6 +1,10 @@
 import { Router } from "express";
-import { authenticate } from "../common/middlewares/auth.middleware";
-import { sendSuccess } from "../common/utils/response.util";
+import {
+  healthCheck,
+  livenessCheck,
+  readinessCheck,
+  startupCheck,
+} from "./health.controller";
 
 const router = Router();
 
@@ -8,39 +12,54 @@ const router = Router();
  * @swagger
  * /health:
  *   get:
- *     summary: Health check endpoint
+ *     summary: General health check
  *     tags: [Health]
  *     responses:
  *       200:
  *         description: Service is healthy
+ *       503:
+ *         description: Service is unhealthy
  */
-
-router.get("/", (req, res) => {
-  sendSuccess(res, "Service is healthy", {
-    status: "ok",
-    timestamp: new Date().toISOString(),
-    uptime: process.uptime(),
-  });
-});
+router.get("/", healthCheck);
 
 /**
  * @swagger
- * /health/protected:
+ * /health/liveness:
  *   get:
- *     summary: Protected health check (requires authentication)
+ *     summary: Liveness probe
  *     tags: [Health]
- *     security:
- *       - bearerAuth: []
  *     responses:
  *       200:
- *         description: Service is healthy and user is authenticated
+ *         description: Service is alive
  */
-router.get("/protected", authenticate, (req, res) => {
-  sendSuccess(res, "Service is healthy and authenticated", {
-    status: "ok",
-    user: req.user,
-    timestamp: new Date().toISOString(),
-  });
-});
+router.get("/liveness", livenessCheck);
+
+/**
+ * @swagger
+ * /health/readiness:
+ *   get:
+ *     summary: Readiness probe
+ *     tags: [Health]
+ *     responses:
+ *       200:
+ *         description: Service is ready to handle traffic
+ *       503:
+ *         description: Service is not ready
+ */
+router.get("/readiness", readinessCheck);
+
+/**
+ * @swagger
+ * /health/startup:
+ *   get:
+ *     summary: Startup probe
+ *     tags: [Health]
+ *     responses:
+ *       200:
+ *         description: Service has finished starting
+ *       503:
+ *         description: Service is still starting
+ */
+router.get("/startup", startupCheck);
 
 export default router;

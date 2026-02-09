@@ -6,11 +6,10 @@ import helmet from "helmet";
 import morgan from "morgan";
 import swaggerUi from "swagger-ui-express";
 
-import {
-  errorHandler,
-  notFoundHandler,
-} from "./common/middlewares/error.middleware";
+import { errorHandler } from "./common/middlewares/error.middleware";
+import { requestLogger } from "./common/monitoring/metrics";
 import { config } from "./config/env.config";
+import { morganStream } from "./config/logger.config";
 import { swaggerSpec } from "./config/swagger.config";
 import routes from "./routes/index";
 
@@ -24,7 +23,7 @@ export const createApp = (): Application => {
   app.use(
     helmet({
       crossOriginResourcePolicy: { policy: "cross-origin" },
-    })
+    }),
   );
 
   // CORS configuration
@@ -32,20 +31,16 @@ export const createApp = (): Application => {
     cors({
       origin: (origin, callback) => {
         const allowedOrigins = config.cors.origin;
-        // In development, be more permissive or log clearly
-        if (!origin || allowedOrigins.includes(origin)) {
+        // In development, be more permissive
+        if (
+          !origin ||
+          allowedOrigins.includes(origin) ||
+          (config.server.isDevelopment &&
+            (origin.includes("localhost") || origin.includes("ngrok-free.app")))
+        ) {
           callback(null, true);
         } else {
-          // If it's a localhost origin but with a different port, allow in dev
-          if (config.server.isDevelopment && origin.includes("localhost")) {
-            callback(null, true);
-          } else {
-            if (config.server.isDevelopment) {
-              console.log(`[CORS] Rejected: ${origin}`);
-              console.log(`[CORS] Allowed: ${allowedOrigins}`);
-            }
-            callback(null, false);
-          }
+          callback(null, false);
         }
       },
       credentials: true,
@@ -57,7 +52,7 @@ export const createApp = (): Application => {
         "Accept",
         "ngrok-skip-browser-warning",
       ],
-    })
+    }),
   );
 
   // Body parsing middleware
@@ -74,22 +69,22 @@ export const createApp = (): Application => {
           req.rawBody = buf;
         }
       },
-    })
+    }),
   );
   app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
   // Cookie parser
   app.use(cookieParser(config.server.cookieSecret));
 
-  // Logging middleware (only in development)
+  // Logging middleware with Winston
   if (config.server.isDevelopment) {
-    app.use(morgan("dev"));
+    app.use(morgan("dev", { stream: morganStream }));
   } else {
-    app.use(morgan("combined"));
+    app.use(morgan("combined", { stream: morganStream }));
   }
 
-  // Rate limiting (apply to all routes)
-  // app.use(apiLimiter);
+  // Request Duration Logging
+  app.use(requestLogger);
 
   // Swagger documentation
   app.use(
@@ -99,14 +94,19 @@ export const createApp = (): Application => {
       explorer: true,
       customCss: ".swagger-ui .topbar { display: none }",
       customSiteTitle: "Shopster API Documentation",
-    })
+    }),
   );
 
   // API routes
   app.use(routes);
 
   // 404 handler (must be after all routes)
-  app.use(notFoundHandler);
+  app.use((req, res) => {
+    res.status(404).json({
+      status: "fail",
+      message: `Route ${req.originalUrl} not found`,
+    });
+  });
 
   // Error handler (must be last)
   app.use(errorHandler);

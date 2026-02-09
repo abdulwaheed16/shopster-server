@@ -2,6 +2,7 @@ import { Prisma } from "@prisma/client";
 import { NextFunction, Request, Response } from "express";
 import { ZodError } from "zod";
 import { config } from "../../config/env.config";
+import { logError } from "../../config/logger.config";
 import { HTTP_STATUS } from "../constants/http-status.constant";
 import { ApiError } from "./api-error";
 import { ERROR_CODES } from "./error-codes";
@@ -12,7 +13,7 @@ export const errorHandler = (
   req: Request,
   res: Response,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  next: NextFunction
+  next: NextFunction,
 ): void => {
   // Default error
   let error = err;
@@ -34,23 +35,23 @@ export const errorHandler = (
         HTTP_STATUS.INTERNAL_SERVER_ERROR,
         ERROR_CODES.INTERNAL_SERVER_ERROR,
         undefined,
-        false
+        false,
       );
     }
   }
 
   const apiError = error as ApiError;
 
-  // Log error in development
-  if (config.server.isDevelopment) {
-    console.error("Error:", {
-      message: apiError.message,
-      statusCode: apiError.statusCode,
-      errorCode: apiError.errorCode,
-      stack: apiError.stack,
-      errors: apiError.errors,
-    });
-  }
+  // Log error with Winston
+  logError(apiError.message, apiError, {
+    statusCode: apiError.statusCode,
+    errorCode: apiError.errorCode,
+    path: req.path,
+    method: req.method,
+    ip: req.ip,
+    userId: (req as any).user?.id,
+    errors: apiError.errors,
+  });
 
   // Send error response
   res.status(apiError.statusCode).json({
@@ -64,7 +65,7 @@ export const errorHandler = (
 
 // Handle Prisma errors
 const handlePrismaError = (
-  error: Prisma.PrismaClientKnownRequestError
+  error: Prisma.PrismaClientKnownRequestError,
 ): ApiError => {
   switch (error.code) {
     case "P2002":
@@ -72,7 +73,7 @@ const handlePrismaError = (
       const field = (error.meta?.target as string[])?.join(", ") || "field";
       return ApiError.conflict(
         `${field} already exists`,
-        ERROR_CODES.VALIDATION_ERROR
+        ERROR_CODES.VALIDATION_ERROR,
       );
 
     case "P2025":
@@ -105,16 +106,21 @@ const handleZodError = (error: ZodError): ApiError => {
 // Handle unhandled promise rejections
 export const handleUnhandledRejection = (
   reason: Error,
-  promise: Promise<any>
+  promise: Promise<any>,
 ) => {
-  console.error("Unhandled Rejection at:", promise, "reason:", reason);
+  logError("Unhandled Promise Rejection", reason, {
+    promise: promise.toString(),
+    errorCode: ERROR_CODES.INTERNAL_SERVER_ERROR,
+  });
   // In production, you might want to log this to an external service
   process.exit(1);
 };
 
 // Handle uncaught exceptions
 export const handleUncaughtException = (error: Error) => {
-  console.error("Uncaught Exception:", error);
+  logError("Uncaught Exception", error, {
+    errorCode: ERROR_CODES.INTERNAL_SERVER_ERROR,
+  });
   // In production, you might want to log this to an external service
   process.exit(1);
 };

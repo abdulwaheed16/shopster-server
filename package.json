@@ -45,11 +45,13 @@
     "morgan": "^1.10.1",
     "multer": "^2.0.2",
     "nodemailer": "^7.0.11",
+    "react-player": "^3.4.0",
     "resend": "^6.6.0",
     "stripe": "^20.1.0",
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.1",
     "tsc": "^2.0.4",
+    "winston": "^3.19.0",
     "zod": "^4.2.1"
   },
   "devDependencies": {
