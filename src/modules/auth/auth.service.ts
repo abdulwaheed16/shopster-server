@@ -72,7 +72,7 @@ export class AuthService implements IAuthService {
     const hashedPassword = await hashPassword(data.password);
     let user: User;
 
-    if (existingUser) {
+    if (existingUser && !existingUser.emailVerified) {
       // Update existing unverified user with new registration info
       user = await prisma.user.update({
         where: { id: existingUser.id },
@@ -160,12 +160,12 @@ export class AuthService implements IAuthService {
     }
 
     // Check if email is verified
-    if (!user.emailVerified) {
-      throw ApiError.unauthorized(
-        MESSAGES.AUTH.EMAIL_NOT_VERIFIED,
-        ERROR_CODES.EMAIL_NOT_VERIFIED
-      );
-    }
+    // if (!user.emailVerified) {
+    //   throw ApiError.unauthorized(
+    //     MESSAGES.AUTH.EMAIL_NOT_VERIFIED,
+    //     ERROR_CODES.EMAIL_NOT_VERIFIED
+    //   );
+    // }
 
     // Generate tokens
     const tokens = generateTokens({
@@ -225,6 +225,15 @@ export class AuthService implements IAuthService {
     });
 
     if (!verificationToken || verificationToken.type !== "EMAIL_VERIFICATION") {
+      // Check if user is already verified
+      const user = await prisma.user.findFirst({
+        where: {
+          emailVerified: { not: null },
+          // We don't have the identifier here if token is missing
+        },
+      });
+      // Better strategy: if token is missing, we can't know the user,
+      // but if the user *knows* they verified, we can at least suggest they check login.
       throw ApiError.badRequest(MESSAGES.AUTH.INVALID_TOKEN);
     }
 
