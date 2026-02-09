@@ -13,6 +13,6 @@ export const jwtConfig = {
     httpOnly: true,
     secure: config.server.isProduction,
     sameSite: "strict" as const,
-    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days in milliseconds
+    maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days in milliseconds
   },
 } as const;

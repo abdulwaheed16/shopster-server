@@ -25,8 +25,8 @@ const envSchema = z.object({
   JWT_REFRESH_SECRET: z
     .string()
     .min(32, "JWT_REFRESH_SECRET must be at least 32 characters"),
-  JWT_ACCESS_EXPIRY: z.string().default("15m"),
-  JWT_REFRESH_EXPIRY: z.string().default("7d"),
+  JWT_ACCESS_EXPIRY: z.string().default("1d"),
+  JWT_REFRESH_EXPIRY: z.string().default("30d"),
 
   // Cloudinary
   CLOUDINARY_CLOUD_NAME: z.string().min(1, "CLOUDINARY_CLOUD_NAME is required"),
@@ -67,7 +67,7 @@ const envSchema = z.object({
   // CORS
   CORS_ORIGIN: z
     .string()
-    .default("http://localhost:5173,http://localhost:3000"),
+    .default("http://localhost:5173, http://localhost:3000"),
 
   // Rate Limiting
   RATE_LIMIT_WINDOW_MS: z.string().default("900000"), // 15 minutes

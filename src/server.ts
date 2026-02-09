@@ -1,4 +1,3 @@
-import chalk from "chalk";
 import { createApp } from "./app";
 import {
   handleUncaughtException,
@@ -6,6 +5,7 @@ import {
 } from "./common/errors/error-handler";
 import { disconnectDatabase } from "./config/database.config";
 import { config } from "./config/env.config";
+import Logger from "./common/logging/logger";
 import { initializeWorkers, shutdownWorkers } from "./queues";
 
 // Handle uncaught exceptions
@@ -35,10 +35,8 @@ const startServer = async () => {
     if (process.env.WORKER_MODE !== "false") {
       initializeWorkers();
     } else {
-      console.log(
-        chalk.blue(
-          "Running in API-only mode. Workers are disabled in this process."
-        )
+      Logger.info(
+        "Running in API-only mode. Workers are disabled in this process.",
       );
     }
 
@@ -47,52 +45,62 @@ const startServer = async () => {
 
     // Start server
     const server = app.listen(config.server.port, () => {
-      console.log(chalk.green.bold("Server is running!"));
-      console.log(chalk.cyan(`Environment: ${config.server.env}`));
-      console.log(chalk.cyan(`Port: ${config.server.port}`));
-      console.log(
-        chalk.cyan(`API Docs: http://localhost:${config.server.port}/api-docs`)
-      );
-      console.log(
-        chalk.cyan(
-          `Health Check: http://localhost:${config.server.port}/health\n`
-        )
+      Logger.info("Server is running!");
+      Logger.info(`Environment: ${config.server.env}`);
+      Logger.info(`Port: ${config.server.port}`);
+      Logger.info(`API Docs: http://localhost:${config.server.port}/api-docs`);
+      Logger.info(
+        `Health Check: http://localhost:${config.server.port}/health`,
       );
     });
 
     // Graceful shutdown
+    let isShuttingDown = false;
+
     const gracefulShutdown = async (signal: string) => {
-      console.log(
-        chalk.yellow(`\n${signal} received. Starting graceful shutdown...`)
-      );
+      if (isShuttingDown) {
+        Logger.warn("Shutdown already in progress...");
+        return;
+      }
 
+      isShuttingDown = true;
+      Logger.info(`\n${signal} received. Starting graceful shutdown...`);
+
+      // Stop accepting new connections
       server.close(async () => {
-        console.log(chalk.yellow("HTTP server closed"));
+        Logger.info("HTTP server closed (no new connections)");
 
-        // Shutdown queue workers
-        await shutdownWorkers();
-        console.log(chalk.yellow("Queue workers shut down"));
+        try {
+          // Shutdown queue workers
+          await shutdownWorkers();
+          Logger.info("Queue workers shut down");
 
-        // Disconnect from database
-        await disconnectDatabase();
-        console.log(chalk.yellow("Database disconnected"));
+          // Disconnect from database
+          await disconnectDatabase();
+          Logger.info("Database disconnected");
 
-        console.log(chalk.green("Graceful shutdown completed"));
-        process.exit(0);
+          Logger.info("Graceful shutdown completed");
+          process.exit(0);
+        } catch (error) {
+          Logger.error("Error during shutdown:", error);
+          process.exit(1);
+        }
       });
 
-      // Force shutdown after 10 seconds
+      // Force shutdown after 30 seconds
       setTimeout(() => {
-        console.error(chalk.red("Forced shutdown after timeout"));
+        Logger.error(
+          "Forced shutdown after 30s timeout (in-flight requests didn't complete)",
+        );
         process.exit(1);
-      }, 10000);
+      }, 30000);
     };
 
     // Listen for termination signals
     process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
     process.on("SIGINT", () => gracefulShutdown("SIGINT"));
   } catch (error) {
-    console.error(chalk.red("Failed to start server:"), error);
+    Logger.error("Failed to start server:", error);
     process.exit(1);
   }
 };

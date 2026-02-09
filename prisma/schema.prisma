@@ -22,14 +22,15 @@ model User {
     role          UserRole  @default(USER)
 
     // Relations
-    accounts   Account[]
-    sessions   Session[]
-    stores     Store[]
-    ads        Ad[]
-    adDrafts   AdDraft[]
-    variables  Variable[]
-    templates  Template[]
-    categories Category[]
+    accounts         Account[]
+    sessions         Session[]
+    stores           Store[]
+    uploadedProducts UploadedProduct[]
+    ads              Ad[]
+    adDrafts         AdDraft[]
+    variables        Variable[]
+    templates        Template[]
+    categories       Category[]
 
     // Interactions
     templateLikes     TemplateLike[]
@@ -46,10 +47,11 @@ model User {
     invoices         Invoice[]
 
     // Status
-    isActive         Boolean  @default(true)
-    twoFactorEnabled Boolean  @default(false)
-    createdAt        DateTime @default(now())
-    updatedAt        DateTime @updatedAt
+    isActive         Boolean    @default(true)
+    twoFactorEnabled Boolean    @default(false)
+    createdAt        DateTime   @default(now())
+    updatedAt        DateTime   @updatedAt
+    auditLogs        AuditLog[]
 
     @@index([stripeCustomerId])
     @@map("users")
@@ -223,8 +225,9 @@ model Category {
     icon String?
 
     // Relations
-    products Product[]
-    user     User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
+    products         Product[]
+    uploadedProducts UploadedProduct[]
+    user             User?             @relation(fields: [userId], references: [id], onDelete: Cascade)
 
     // Timestamps
     createdAt DateTime @default(now())
@@ -233,6 +236,35 @@ model Category {
     @@unique([userId, slug]) // Unique slug per user
     @@index([userId])
     @@map("categories")
+}
+
+//--------------------------------------------------------------------
+// Manual Product Uploads
+//--------------------------------------------------------------------
+
+model UploadedProduct {
+    id     String @id @default(auto()) @map("_id") @db.ObjectId
+    userId String @db.ObjectId
+
+    title       String
+    description String?
+    imageUrl    String?
+    categoryId  String? @db.ObjectId
+
+    // Status
+    isActive Boolean @default(true)
+
+    // Relations
+    user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+    category Category? @relation(fields: [categoryId], references: [id])
+    ads      Ad[]
+
+    // Timestamps
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    @@index([userId])
+    @@map("uploaded_products")
 }
 
 //--------------------------------------------------------------------
@@ -294,14 +326,17 @@ model Template {
     variableIds    String[] @db.ObjectId // References to Variable model
 
     // Preview generation inputs
-    referenceAdImage String? // Reference ad for style
-    productImage     String? // Product image for preview
+    referenceAdImage  String? // Reference ad for style
+    productImage      String? // Product image for preview
     previewImages     String[] // Generated previews
     previewAnalyses   String[] // Analysis results for each preview
     referenceAnalysis String? // Cached analysis for referenceAdImage (Optimized)
 
     // Category assignments (many-to-many relation)
     categoryIds String[] @db.ObjectId
+
+    // Media type
+    mediaType MediaType @default(IMAGE)
 
     // Status
     isActive Boolean @default(true)
@@ -325,6 +360,7 @@ model Template {
     @@index([userId])
     @@index([isActive])
     @@index([categoryIds])
+    @@index([isActive, categoryIds]) // Optimized for filtering
     @@map("templates")
 }
 
@@ -445,11 +481,12 @@ enum NotificationType {
 //--------------------------------------------------------------------
 
 model Ad {
-    id              String  @id @default(auto()) @map("_id") @db.ObjectId
-    userId          String  @db.ObjectId
-    productId       String  @db.ObjectId
-    templateId      String  @db.ObjectId
-    generationJobId String? @db.ObjectId
+    id                String  @id @default(auto()) @map("_id") @db.ObjectId
+    userId            String  @db.ObjectId
+    productId         String? @db.ObjectId
+    uploadedProductId String? @db.ObjectId
+    templateId        String? @db.ObjectId
+    generationJobId   String? @db.ObjectId
 
     // Ad details
     title           String?
@@ -487,10 +524,11 @@ model Ad {
     metadata Json? // Generation parameters, model used, etc.
 
     // Relations
-    user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-    product       Product        @relation(fields: [productId], references: [id])
-    template      Template       @relation(fields: [templateId], references: [id])
-    generationJob GenerationJob? @relation(fields: [generationJobId], references: [id])
+    user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+    product         Product?         @relation(fields: [productId], references: [id])
+    uploadedProduct UploadedProduct? @relation(fields: [uploadedProductId], references: [id])
+    template        Template?        @relation(fields: [templateId], references: [id])
+    generationJob   GenerationJob?   @relation(fields: [generationJobId], references: [id])
 
     // Timestamps
     createdAt DateTime @default(now())
@@ -498,6 +536,7 @@ model Ad {
 
     @@index([userId])
     @@index([status])
+    @@index([userId, status, createdAt]) // Optimized for dashboard queries
     @@map("ads")
 }
 
@@ -676,6 +715,7 @@ model UsageRecord {
     createdAt DateTime @default(now())
 
     @@index([userId])
+    @@index([userId, createdAt]) // Optimized for history queries
     @@map("usage_records")
 }
 
@@ -713,4 +753,28 @@ model Invoice {
 
     @@index([userId])
     @@map("invoices")
+}
+
+//--------------------------------------------------------------------
+// Audit Logging
+//--------------------------------------------------------------------
+
+model AuditLog {
+    id         String  @id @default(auto()) @map("_id") @db.ObjectId
+    userId     String  @db.ObjectId // Admin who performed the action
+    action     String // e.g., "DELETE_USER", "UPDATE_PLAN"
+    resource   String // e.g., "User", "Plan"
+    resourceId String? // ID of the affected resource
+    details    Json? // Specific changes or metadata
+    ipAddress  String?
+    userAgent  String?
+
+    timestamp DateTime @default(now())
+
+    user User @relation(fields: [userId], references: [id])
+
+    @@index([userId])
+    @@index([action])
+    @@index([timestamp])
+    @@map("audit_logs")
 }
