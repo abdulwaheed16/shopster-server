@@ -59,7 +59,7 @@ export class TemplatesService implements ITemplatesService {
       });
       // Get unique template IDs while maintaining order
       const uniqueIds = Array.from(
-        new Set(visits.map((v: { templateId: string }) => v.templateId))
+        new Set(visits.map((v: { templateId: string }) => v.templateId)),
       );
       where.id = { in: uniqueIds };
     } else {
@@ -111,6 +111,10 @@ export class TemplatesService implements ITemplatesService {
       where.isActive = query.isActive === "true";
     }
 
+    if (query.mediaType) {
+      where.mediaType = query.mediaType as any;
+    }
+
     const orderBy: any = {};
     orderBy[query.sortBy || "createdAt"] = "desc";
 
@@ -155,7 +159,7 @@ export class TemplatesService implements ITemplatesService {
         delete (result as any).previewAnalyses;
 
         return result;
-      })
+      }),
     );
 
     return {
@@ -332,7 +336,7 @@ export class TemplatesService implements ITemplatesService {
       template.id,
       template.variableIds,
       template.name,
-      template.promptTemplate
+      template.promptTemplate,
     );
     return template;
   }
@@ -351,7 +355,7 @@ export class TemplatesService implements ITemplatesService {
         updated.variableIds,
         updated.name,
         updated.promptTemplate,
-        updated.previewImages?.[0]
+        updated.previewImages?.[0],
       );
     }
     return updated;
@@ -399,7 +403,7 @@ export class TemplatesService implements ITemplatesService {
       userId,
       0.5,
       "TEMPLATE_PREVIEW",
-      `Preview generation for template: ${template.name}`
+      `Preview generation for template: ${template.name}`,
     );
     await templatePreviewQueue.add("generate-preview", {
       templateId: template.id,
@@ -420,7 +424,7 @@ export class TemplatesService implements ITemplatesService {
     variableIds: string[],
     templateName: string,
     prompt: string,
-    previewUrl?: string
+    previewUrl?: string,
   ) {
     for (const variableId of variableIds) {
       await variablesService.updateVariableUsage(
@@ -428,7 +432,7 @@ export class TemplatesService implements ITemplatesService {
         templateId,
         templateName as any,
         prompt,
-        previewUrl
+        previewUrl,
       );
     }
   }

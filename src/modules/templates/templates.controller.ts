@@ -19,7 +19,7 @@ export class TemplatesController {
   async getTemplates(
     req: Request,
     res: Response,
-    next: NextFunction
+    next: NextFunction,
   ): Promise<void> {
     try {
       const userId = req.user!.id;
@@ -37,7 +37,7 @@ export class TemplatesController {
   async getMyTemplates(
     req: Request,
     res: Response,
-    next: NextFunction
+    next: NextFunction,
   ): Promise<void> {
     try {
       const userId = req.user!.id;
@@ -58,7 +58,7 @@ export class TemplatesController {
   async getGeneralTemplates(
     req: Request,
     res: Response,
-    next: NextFunction
+    next: NextFunction,
   ): Promise<void> {
     try {
       const userId = req.user!.id;
@@ -79,7 +79,7 @@ export class TemplatesController {
   async getTemplateById(
     req: Request,
     res: Response,
-    next: NextFunction
+    next: NextFunction,
   ): Promise<void> {
     try {
       const userId = req.user!.id;
@@ -97,13 +97,10 @@ export class TemplatesController {
   async createTemplate(
     req: Request,
     res: Response,
-    next: NextFunction
+    next: NextFunction,
   ): Promise<void> {
     try {
-      const { id: userId, role } = req.user!;
-      if (role !== "ADMIN") {
-        throw ApiError.unauthorized("Only admins can create templates");
-      }
+      const { id: userId } = req.user!;
       const data: CreateTemplateBody = req.body;
 
       const template = await templatesService.createTemplate(userId, data);
@@ -118,13 +115,10 @@ export class TemplatesController {
   async updateTemplate(
     req: Request,
     res: Response,
-    next: NextFunction
+    next: NextFunction,
   ): Promise<void> {
     try {
-      const { id: userId, role } = req.user!;
-      if (role !== "ADMIN") {
-        throw ApiError.unauthorized("Only admins can update templates");
-      }
+      const { id: userId } = req.user!;
       const { id } = req.params;
       const data: UpdateTemplateBody = req.body;
 
@@ -140,13 +134,10 @@ export class TemplatesController {
   async deleteTemplate(
     req: Request,
     res: Response,
-    next: NextFunction
+    next: NextFunction,
   ): Promise<void> {
     try {
-      const { id: userId, role } = req.user!;
-      if (role !== "ADMIN") {
-        throw ApiError.unauthorized("Only admins can delete templates");
-      }
+      const { id: userId } = req.user!;
       const { id } = req.params;
 
       await templatesService.deleteTemplate(id, userId);
@@ -161,7 +152,7 @@ export class TemplatesController {
   async generatePreview(
     req: Request,
     res: Response,
-    next: NextFunction
+    next: NextFunction,
   ): Promise<void> {
     try {
       const userId = req.user!.id;
@@ -179,7 +170,7 @@ export class TemplatesController {
   async bulkDeleteTemplates(
     req: Request,
     res: Response,
-    next: NextFunction
+    next: NextFunction,
   ): Promise<void> {
     try {
       const { id: userId, role } = req.user!;
@@ -202,7 +193,7 @@ export class TemplatesController {
   async trackVisit(
     req: Request,
     res: Response,
-    next: NextFunction
+    next: NextFunction,
   ): Promise<void> {
     try {
       const userId = req.user!.id;
@@ -218,7 +209,7 @@ export class TemplatesController {
   async toggleLike(
     req: Request,
     res: Response,
-    next: NextFunction
+    next: NextFunction,
   ): Promise<void> {
     try {
       const userId = req.user!.id;
@@ -227,7 +218,7 @@ export class TemplatesController {
       sendSuccess(
         res,
         result.liked ? "Template liked" : "Template unliked",
-        result
+        result,
       );
     } catch (error) {
       next(error);
@@ -238,7 +229,7 @@ export class TemplatesController {
   async toggleFavorite(
     req: Request,
     res: Response,
-    next: NextFunction
+    next: NextFunction,
   ): Promise<void> {
     try {
       const userId = req.user!.id;
@@ -247,7 +238,7 @@ export class TemplatesController {
       sendSuccess(
         res,
         result.favorited ? "Template favorited" : "Template unfavorited",
-        result
+        result,
       );
     } catch (error) {
       next(error);
@@ -258,7 +249,7 @@ export class TemplatesController {
   async getAdminStats(
     req: Request,
     res: Response,
-    next: NextFunction
+    next: NextFunction,
   ): Promise<void> {
     try {
       const { role } = req.user!;
