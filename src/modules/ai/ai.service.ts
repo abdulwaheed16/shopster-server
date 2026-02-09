@@ -11,21 +11,11 @@ import {
   VideoPromptOptions,
 } from "./interfaces/video-generator.interface";
 
-/**
- * FACADE PATTERN: AIService
- * This service provides a simplified, unified interface to the complex AI module.
- * It abstracts away the factory and provider selection, allowing other modules
- * (like Ads) to simply request "generate an image" without knowing the details.
- */
-// Flow:
-// 1. Request generator from Factory (Strategy Pattern)
-// 2. Call generate on the provider (Strategy Execution)
-
 export class AIService {
   // High-level method to generate images.
   async generateImage(
     options: ImagePromptOptions,
-    provider: string = AI_PROVIDERS.FAL_AI
+    provider: string = AI_PROVIDERS.MOCK,
   ): Promise<ImageGenerationResult[]> {
     const generator = AIFactory.getImageGenerator(provider);
     return generator.generate(options);
@@ -34,7 +24,7 @@ export class AIService {
   // High-level method to generate videos.
   async generateVideo(
     options: VideoPromptOptions,
-    provider: string
+    provider: string = AI_PROVIDERS.MOCK,
   ): Promise<VideoGenerationResult> {
     const generator = AIFactory.getVideoGenerator(provider);
     return generator.generate(options);
@@ -43,7 +33,7 @@ export class AIService {
   // High-level method to generate text.
   async generateText(
     options: TextPromptOptions,
-    provider: string = AI_PROVIDERS.OPENAI
+    provider: string = AI_PROVIDERS.OPENAI,
   ): Promise<string> {
     const generator = AIFactory.getTextGenerator(provider);
     return generator.generate(options);
@@ -61,7 +51,7 @@ export class AIService {
         imageUrls: [imageUrl],
         modelName: TEXT_MODELS.GEMINI_2_5_FLASH,
       },
-      AI_PROVIDERS.GEMINI
+      AI_PROVIDERS.GEMINI,
     );
   }
 
@@ -86,18 +76,18 @@ export class AIService {
    */
   async constructAdPrompt(
     userInstructions: string,
-    visionAnalysis: string
+    visionAnalysis: string,
   ): Promise<{ imagePrompt: string; aspectRatio: string }> {
     const result = await this.generateText(
       {
         prompt: AD_PROMPT_ENGINEERING.CONSTRUCT_USER_PROMPT(
           userInstructions,
-          visionAnalysis
+          visionAnalysis,
         ),
         systemPrompt: AD_PROMPT_ENGINEERING.SYSTEM_MESSAGE,
         modelName: TEXT_MODELS.GEMINI_2_5_FLASH,
       },
-      AI_PROVIDERS.GEMINI
+      AI_PROVIDERS.GEMINI,
     );
 
     // Parse the result (which should be JSON or raw YAML-like string)
@@ -119,7 +109,7 @@ export class AIService {
     } catch (e) {
       console.warn(
         "[AIService] Failed to parse prompt construction result:",
-        e
+        e,
       );
       return {
         imagePrompt: result,

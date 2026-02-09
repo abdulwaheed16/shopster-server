@@ -5,7 +5,8 @@ import { billingService } from "../billing/billing.service";
 import { GenerateAdBody, GetAdsQuery } from "./ads.validation";
 
 import { AdStatus, Prisma, UsageType } from "@prisma/client";
-import { calculatePagination } from "../../common/utils/pagination.util";
+import { createPaginatedResponse } from "../../common/utils/pagination.util";
+import { requestDeduplicator } from "../../common/utils/request-deduplication.util";
 import { ASPECT_RATIOS } from "../ai/ai.constants";
 import { IAdsService } from "./ads.types";
 
@@ -14,7 +15,7 @@ export class AdsService implements IAdsService {
   async getAds(userId: string, query: GetAdsQuery) {
     const page = parseInt(query.page || "1");
     const limit = parseInt(query.limit || "20");
-    const skip = (page - 1) * limit;
+    const skip = query.cursor ? 1 : (page - 1) * limit; // Skip the cursor itself if present
 
     const where: Prisma.AdWhereInput = { userId };
 
@@ -59,8 +60,9 @@ export class AdsService implements IAdsService {
     const [ads, total] = await Promise.all([
       prisma.ad.findMany({
         where,
-        skip,
         take: limit,
+        skip: query.cursor ? skip : skip,
+        cursor: query.cursor ? { id: query.cursor } : undefined,
         orderBy,
         include: {
           product: {
@@ -73,6 +75,13 @@ export class AdsService implements IAdsService {
                   name: true,
                 },
               },
+            },
+          },
+          uploadedProduct: {
+            select: {
+              id: true,
+              title: true,
+              imageUrl: true,
             },
           },
           template: {
@@ -92,10 +101,15 @@ export class AdsService implements IAdsService {
       return ad;
     });
 
-    return {
-      data: sanitizedAds,
-      meta: calculatePagination(total, page, limit),
-    };
+    const nextCursor = ads.length === limit ? ads[ads.length - 1].id : null;
+
+    return createPaginatedResponse(
+      sanitizedAds,
+      total,
+      page,
+      limit,
+      nextCursor,
+    );
   }
 
   // Get ad by ID
@@ -107,6 +121,7 @@ export class AdsService implements IAdsService {
       },
       include: {
         product: true,
+        uploadedProduct: true,
         template: true,
       },
     });
@@ -122,6 +137,14 @@ export class AdsService implements IAdsService {
 
   // Generate ad (Step 3: Submit)
   async generateAd(userId: string, data: GenerateAdBody) {
+    // 0. Deduplicate request
+    const dedupKey = requestDeduplicator.generateKey(userId, data);
+    if (requestDeduplicator.isDuplicate(dedupKey)) {
+      throw ApiError.badRequest(
+        "A similar generation request is already being processed. Please wait a few seconds.",
+      );
+    }
+
     // 1. Check user credits
     const user = await prisma.user.findUnique({
       where: { id: userId },
@@ -135,61 +158,108 @@ export class AdsService implements IAdsService {
     // Each generation costs 1 credit
     if (user.credits < 1) {
       throw ApiError.badRequest(
-        "Insufficient credits. Please top up to generate ads."
+        "Insufficient credits. Please top up to generate ads.",
       );
     }
 
-    // 2. Verify product and template exist and belong to user
-    const [product, template] = await Promise.all([
-      prisma.product.findFirst({
+    // 2. Resolve Product Data
+    let productTitle = data.productTitle || "";
+    let productImage = data.productImageUrl || "";
+
+    // If IDs are provided and URLs are missing, fetch from DB as fallback
+    if (!productImage && data.productId) {
+      const product = await prisma.product.findFirst({
         where: { id: data.productId, store: { userId } },
-      }),
-      prisma.template.findFirst({
-        where: { id: data.templateId, userId },
-      }),
-    ]);
+      });
+      if (product) {
+        productTitle = productTitle || product.title;
+        productImage = product.images[0]?.url || "";
+      }
+    } else if (!productImage && data.uploadedProductId) {
+      const uploadedProduct = await prisma.uploadedProduct.findFirst({
+        where: { id: data.uploadedProductId, userId },
+      });
+      if (uploadedProduct) {
+        productTitle = productTitle || uploadedProduct.title;
+        productImage = (uploadedProduct.imageUrl as string) || "";
+      }
+    }
 
-    if (!product) throw ApiError.notFound("Product not found");
-    if (!template) throw ApiError.notFound("Template not found");
+    // Default title if still empty
+    productTitle = productTitle || "Product";
 
-    // 3. Create Ad record in PENDING status
-    // Assemble the prompt using template and variable values
-    let assembledPrompt = template.promptTemplate;
-    const variableValues = data.variableValues;
+    // 3. Resolve Template Data
+    let templateImage = data.templateImageUrl || "";
+    let assembledPrompt = "";
 
-    // Replace placeholders e.g. {{product_name}}
-    Object.entries(variableValues).forEach(([key, value]) => {
-      const regex = new RegExp(`{{${key}}}`, "g");
-      assembledPrompt = assembledPrompt.replace(regex, String(value));
-    });
+    if (data.templateId) {
+      const template = await prisma.template.findFirst({
+        where: { id: data.templateId },
+      });
 
+      if (template) {
+        assembledPrompt = template.promptTemplate;
+        templateImage =
+          templateImage || (template as any).referenceAdImage || "";
+      }
+    }
+
+    // Fallbacks for prompt
+    if (!assembledPrompt) {
+      if (data.thoughts) {
+        assembledPrompt = `Create a video ad for ${productTitle} based on: ${data.thoughts}`;
+      } else {
+        assembledPrompt = `Showcase the product: ${productTitle}`;
+      }
+    }
+
+    // 4. Assemble Variable Values
+    const variableValues = data.variableValues || {};
+    if (Object.keys(variableValues).length > 0) {
+      Object.entries(variableValues).forEach(([key, value]) => {
+        const regex = new RegExp(`{{${key}}}`, "g");
+        assembledPrompt = assembledPrompt.replace(regex, String(value));
+      });
+    }
+
+    // Append thoughts and video type
+    if (data.thoughts)
+      assembledPrompt += `\nAdditional instructions: ${data.thoughts}`;
+    if (data.videoType)
+      assembledPrompt += `\nCamera Movement: ${data.videoType.replace(/_/g, " ")}`;
+
+    // 4. Create Ad record
     const ad = await prisma.ad.create({
       data: {
         userId,
-        productId: data.productId,
-        templateId: data.templateId,
-        title: data.title || `Ad for ${product.title}`,
+        productId: data.productId || null,
+        uploadedProductId: data.uploadedProductId || null,
+        templateId: data.templateId || null,
+        title: data.title || `Ad for ${productTitle}`,
         assembledPrompt,
-        variableValues,
+        variableValues: variableValues ?? {}, // Ensure JSON compatibility
         aspectRatio: data.aspectRatio || ASPECT_RATIOS.SQUARE,
         variantsCount: data.variantsCount || 1,
-        status: AdStatus.PENDING,
+        status: "PENDING",
+        mediaType: data.videoType ? "VIDEO" : "IMAGE",
         metadata: {
           style: data.style,
           color: data.color,
+          videoType: data.videoType,
+          thoughts: data.thoughts,
         },
       },
     });
 
-    // 4. Deduct credit
+    // 5. Deduct credit
     await billingService.checkAndDeductCredits(
       userId,
       1,
       UsageType.AD_GENERATION,
-      `Ad Generation: ${ad.id}`
+      `Ad Generation: ${ad.id}`,
     );
 
-    // 5. Add to queue for background processing
+    // 6. Add to queue for background processing
     await adGenerationQueue.add("generate", {
       adId: ad.id,
       userId,
@@ -198,10 +268,13 @@ export class AdsService implements IAdsService {
       variantsCount: ad.variantsCount,
       style: data.style,
       color: data.color,
-      productImage: product.images?.[0]?.url, // Pass first product image
-      templateImage: (template as any).referenceAdImage, // Pass template reference image
-      templateAnalysis: (template as any).referenceAnalysis, // Pass cached analysis (Optimization)
-    });
+      videoType: data.videoType || undefined,
+      mediaType: ad.mediaType,
+      productImage: productImage,
+      templateImage: templateImage,
+      // templateAnalysis is left out here if we don't fetch the template object,
+      // but the worker/processor can re-analyze if templateImage is present.
+    } as any);
 
     return ad;
   }

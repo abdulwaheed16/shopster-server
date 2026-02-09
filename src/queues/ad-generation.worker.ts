@@ -1,7 +1,8 @@
+import { MediaType } from "@prisma/client";
 import { Job, Worker } from "bullmq";
 import { connection, QUEUE_NAMES } from "../config/queue.config";
 import { AdProcessorService } from "../modules/ads/ad-processor.service";
-import { cloudinaryStorageService } from "../modules/upload/services/storage/cloudinary-storage.service";
+import { vercelBlobService } from "../modules/upload/services/storage/vercel-blob.service";
 
 import { AspectRatio, StylePreset } from "../modules/ai/ai.constants";
 
@@ -17,10 +18,12 @@ export interface AdGenerationJobData {
   templateAnalysis?: string; // Cached vision analysis (Optimization)
   style?: StylePreset | string;
   color?: string;
+  videoType?: string;
+  mediaType: MediaType;
 }
 
-// Instantiate the processor with the specific storage strategy (SOLID: Dependency Injection)
-const adProcessorService = new AdProcessorService(cloudinaryStorageService);
+// Instantiate the processor with Vercel Blob (keeping Cloudinary available via DI if needed)
+const adProcessorService = new AdProcessorService(vercelBlobService);
 
 /**
  * Worker to process ad generation jobs.
@@ -31,20 +34,22 @@ export const adGenerationWorker = new Worker<AdGenerationJobData>(
   QUEUE_NAMES.AD_GENERATION,
   async (job: Job<AdGenerationJobData>) => {
     console.log(
-      `[Worker] Started processing job ${job.id} for ad ${job.data.adId}`
+      `[Worker] Started processing job ${job.id} for ad ${job.data.adId}`,
     );
 
     try {
       // Delegate to the orchestrator service
       const result = await adProcessorService.processGeneration({
-        adId: job.data.adId,
-        assembledPrompt: job.data.assembledPrompt,
-        aspectRatio: job.data.aspectRatio,
-        variantsCount: job.data.variantsCount,
-        productImage: job.data.productImage,
-        templateImage: job.data.templateImage,
-        style: job.data.style,
-        color: job.data.color,
+        adId: job?.data?.adId,
+        assembledPrompt: job?.data?.assembledPrompt,
+        aspectRatio: job?.data?.aspectRatio,
+        variantsCount: job?.data?.variantsCount,
+        productImage: job?.data?.productImage,
+        templateImage: job?.data?.templateImage,
+        style: job?.data?.style,
+        color: job?.data?.color,
+        videoType: job?.data?.videoType,
+        mediaType: job?.data?.mediaType,
       });
 
       return result;
@@ -56,7 +61,7 @@ export const adGenerationWorker = new Worker<AdGenerationJobData>(
   {
     connection,
     concurrency: 5, // Process up to 5 jobs concurrently
-  }
+  },
 );
 
 // Worker event listeners
