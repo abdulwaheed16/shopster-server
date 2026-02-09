@@ -1,9 +1,9 @@
+import { ProductSource } from "@prisma/client";
 import { Job, Worker } from "bullmq";
 import { prisma } from "../config/database.config";
 import { connection, QUEUE_NAMES } from "../config/queue.config";
-import { productsService } from "../modules/products/products.service";
+import { storeProductsService } from "../modules/products/services/store-products.service";
 import { shopifyService } from "../modules/stores/shopify.service";
-import { ProductSource } from "@prisma/client";
 
 // Shopify Sync Job Data
 export interface ShopifySyncJobData {
@@ -27,7 +27,7 @@ export const shopifySyncWorker = new Worker(
 
       if (!store || !store.accessToken || !store.shopifyDomain) {
         throw new Error(
-          `Store ${storeId} not found or missing Shopify credentials`
+          `Store ${storeId} not found or missing Shopify credentials`,
         );
       }
 
@@ -40,7 +40,7 @@ export const shopifySyncWorker = new Worker(
       // 3. Fetch products from Shopify
       const shopifyProducts = await shopifyService.fetchProducts(
         store.shopifyDomain,
-        store.accessToken
+        store.accessToken,
       );
 
       // 4. Map Shopify products to our Product model
@@ -58,7 +58,7 @@ export const shopifySyncWorker = new Worker(
         isActive: sp.status === "active",
         inStock: sp.variants.some(
           (v: any) =>
-            v.inventory_quantity > 0 || v.inventory_policy === "continue"
+            v.inventory_quantity > 0 || v.inventory_policy === "continue",
         ),
         images: sp.images.map((img: any) => ({
           url: img.src,
@@ -76,9 +76,9 @@ export const shopifySyncWorker = new Worker(
       }));
 
       // 5. Bulk create products (handling duplicates internally)
-      const result = await productsService.bulkCreateProducts(
+      const result = await storeProductsService.bulkCreateProducts(
         userId,
-        productsToSync
+        productsToSync,
       );
 
       // 6. Update store status to COMPLETED
@@ -87,13 +87,12 @@ export const shopifySyncWorker = new Worker(
         data: { syncStatus: "COMPLETED" },
       });
 
-      console.log(`Shopify sync completed for store ${storeId}: ${result.message}`);
+      console.log(
+        `Shopify sync completed for store ${storeId}: ${result.message}`,
+      );
       return { success: true, storeId, ...result };
     } catch (error: any) {
-      console.error(
-        `Shopify sync failed for store ${storeId}:`,
-        error.message
-      );
+      console.error(`Shopify sync failed for store ${storeId}:`, error.message);
 
       // Update store status to FAILED
       await prisma.store.update({
@@ -113,7 +112,7 @@ export const shopifySyncWorker = new Worker(
   {
     connection,
     concurrency: 2,
-  }
+  },
 );
 
 // Worker event listeners

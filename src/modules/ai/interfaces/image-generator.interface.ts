@@ -17,6 +17,7 @@ export interface ImagePromptOptions {
   color?: string;
   imageUrls?: string[]; // For image-to-image or editing (e.g., Template + Product)
   modelId?: string; // Allow overriding the default model
+  adId?: string; // Optional context for the ad being generated
 }
 
 export interface ImageGenerationResult {

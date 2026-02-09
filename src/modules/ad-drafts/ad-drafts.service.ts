@@ -17,30 +17,10 @@ export class AdDraftsService implements IAdDraftsService {
 
   // Create or update draft
   async upsertDraft(userId: string, data: UpsertAdDraftInput) {
-    // Check if draft exists
+    // SUSPENDED: Paused state persistence as per requirement
+    console.log(`Ad draft update suspended for user ${userId}`);
     const existing = await this.getCurrentDraft(userId);
-
-    if (existing) {
-      // Update existing draft
-      const updated = await prisma.adDraft.update({
-        where: { id: existing.id },
-        data: {
-          ...data,
-          expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days from now
-        },
-      });
-      return updated;
-    } else {
-      // Create new draft
-      const draft = await prisma.adDraft.create({
-        data: {
-          userId,
-          ...data,
-          expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-        },
-      });
-      return draft;
-    }
+    return existing;
   }
 
   // Delete draft

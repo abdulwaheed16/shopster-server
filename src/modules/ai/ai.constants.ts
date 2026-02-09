@@ -2,6 +2,8 @@ export const AI_PROVIDERS = {
   FAL_AI: "fal-ai",
   OPENAI: "openai",
   GEMINI: "gemini",
+  N8N: "n8n",
+  MOCK: "mock",
 } as const;
 
 export const AI_BASE_URLS = {

@@ -7,6 +7,12 @@ export interface VideoPromptOptions {
   duration?: number;
   fps?: number;
   aspectRatio?: string;
+  videoType?: string;
+  style?: string;
+  color?: string;
+  imageUrls?: string[];
+  modelId?: string;
+  adId?: string;
 }
 
 export interface VideoGenerationResult {

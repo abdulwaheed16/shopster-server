@@ -4,18 +4,66 @@ import { ASPECT_RATIOS } from "../ai/ai.constants";
 
 // Generate ad schema
 export const generateAdSchema = z.object({
-  body: z.object({
-    productId: objectIdSchema,
-    templateId: objectIdSchema,
-    title: z.string().optional(),
-    variableValues: z.record(z.string(), z.any()), // JSON object
-    aspectRatio: z
-      .enum(Object.values(ASPECT_RATIOS) as [string, ...string[]])
-      .optional(),
-    variantsCount: z.number().int().min(1).max(4).optional(),
-    style: z.string().optional(),
-    color: z.string().optional(),
-  }),
+  body: z
+    .object({
+      productId: objectIdSchema.optional(),
+      uploadedProductId: objectIdSchema.optional(),
+      templateId: objectIdSchema.optional(),
+      productImageUrl: z.string().url().optional(),
+      templateImageUrl: z.string().url().optional(),
+      productTitle: z.string().optional(),
+      title: z.string().optional(),
+      variableValues: z.record(z.string(), z.any()).optional(), // JSON object
+      aspectRatio: z
+        .enum(Object.values(ASPECT_RATIOS) as [string, ...string[]])
+        .optional(),
+      variantsCount: z.number().int().min(1).max(4).optional(),
+      style: z.string().optional(),
+      color: z.string().optional(),
+      videoType: z
+        .enum([
+          "STATIC",
+          "PAN_AND_TILT",
+          "PUSH_IN_PULL_OUT",
+          "BOOM_AND_CRANE",
+          "TRACKING_AND_TRUCKING",
+          "ARC_SHOT",
+        ])
+        .optional(),
+      thoughts: z.string().optional(),
+    })
+    .refine(
+      (data) => {
+        // Must have either productId, uploadedProductId, or productImageUrl
+        if (
+          !data.productId &&
+          !data.uploadedProductId &&
+          !data.productImageUrl
+        ) {
+          return false;
+        }
+        return true;
+      },
+      {
+        message:
+          "Product is required (from store, uploaded, or direct image URL)",
+        path: ["productId"],
+      },
+    )
+    .refine(
+      (data) => {
+        // If videoType is present, it's a video ad. If not, it's an image ad.
+        // Image ads REQUIRE a templateId OR a templateImageUrl.
+        if (!data.videoType && !data.templateId && !data.templateImageUrl) {
+          return false;
+        }
+        return true;
+      },
+      {
+        message: "Template is required for Image Ads",
+        path: ["templateId"],
+      },
+    ),
 });
 
 // Get ads query schema
@@ -30,6 +78,7 @@ export const getAdsSchema = z.object({
     search: z.string().optional(),
     sort: z.enum(["recent", "oldest"]).optional(),
     days: z.enum(["7", "30", "90", "all"]).optional(),
+    cursor: z.string().optional(),
   }),
 });
 
