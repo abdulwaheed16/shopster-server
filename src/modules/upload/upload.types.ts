@@ -1,7 +1,18 @@
 export interface IUploadService {
   uploadImage(
     file: Express.Multer.File,
-    userId: string
+    userId: string,
+  ): Promise<{
+    url: string;
+    publicId: string;
+    width: number;
+    height: number;
+    format: string;
+  }>;
+  uploadVideo(
+    file: Express.Multer.File,
+    userId: string,
+    type?: string,
   ): Promise<{
     url: string;
     publicId: string;
@@ -11,7 +22,7 @@ export interface IUploadService {
   }>;
   uploadImages(
     files: Express.Multer.File[],
-    userId: string
+    userId: string,
   ): Promise<
     Array<{
       url: string;

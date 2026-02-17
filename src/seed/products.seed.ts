@@ -31,7 +31,7 @@ export async function seedProducts() {
   let demoStore = await prisma.store.findFirst({
     where: {
       userId: demoUser.id,
-      name: "Demo Electronics Store",
+      name: "Demo Store",
     },
   });
 
@@ -39,9 +39,9 @@ export async function seedProducts() {
     demoStore = await prisma.store.create({
       data: {
         userId: demoUser.id,
-        name: "Demo Electronics Store",
+        name: "Demo Store",
         platform: StorePlatform.SHOPIFY,
-        storeUrl: "https://demo-electronics.myshopify.com",
+        storeUrl: "https://demo-store.myshopify.com",
         isActive: true,
         syncStatus: SyncStatus.COMPLETED,
         lastSyncAt: new Date(),
@@ -55,172 +55,159 @@ export async function seedProducts() {
   }
 
   // Get categories
+  const foodCategory = await prisma.category.findUnique({
+    where: { userId_slug: { userId: demoUser.id, slug: "food" } },
+  });
+
+  const clothesCategory = await prisma.category.findUnique({
+    where: { userId_slug: { userId: demoUser.id, slug: "clothes" } },
+  });
+
+  const ecommerceCategory = await prisma.category.findUnique({
+    where: { userId_slug: { userId: demoUser.id, slug: "e-commerce" } },
+  });
+
   const electronicsCategory = await prisma.category.findUnique({
     where: { userId_slug: { userId: demoUser.id, slug: "electronics" } },
-  });
-
-  const fashionCategory = await prisma.category.findUnique({
-    where: { userId_slug: { userId: demoUser.id, slug: "fashion" } },
-  });
-
-  const homeCategory = await prisma.category.findUnique({
-    where: { userId_slug: { userId: demoUser.id, slug: "home-garden" } },
   });
 
   const beautyCategory = await prisma.category.findUnique({
     where: { userId_slug: { userId: demoUser.id, slug: "beauty" } },
   });
 
-  const fitnessCategory = await prisma.category.findUnique({
-    where: { userId_slug: { userId: demoUser.id, slug: "sports-fitness" } },
-  });
-
   // Create products
   const products = [
     {
+      userId: demoUser.id,
+      storeId: demoStore.id,
+      categoryId: foodCategory?.id,
+      externalId: "FOOD-001",
+      sku: "FOOD-BGR-001",
+      title: "Gourmet Burger Combo",
+      description:
+        "A delicious gourmet burger with fresh ingredients and a side of fries.",
+      images: [
+        {
+          url: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=800&h=800&fit=crop&q=80",
+          alt: "Gourmet Burger",
+          position: 0,
+        },
+      ],
+      variants: [
+        {
+          id: "VAR-FOOD-001",
+          title: "Standard",
+          sku: "FOOD-BGR-001-STD",
+          inStock: true,
+          options: { size: "Regular" },
+        },
+      ],
+      isActive: true,
+      inStock: true,
+    },
+    {
+      userId: demoUser.id,
+      storeId: demoStore.id,
+      categoryId: clothesCategory?.id,
+      externalId: "CLOTHES-001",
+      sku: "CLT-DRS-001",
+      title: "Summer Dress",
+      description: "Elegant and comfortable summer dress for any occasion.",
+      images: [
+        {
+          url: "https://images.unsplash.com/photo-1490481651871-ab68de25d43d?w=800&h=800&fit=crop&q=80",
+          alt: "Summer Dress",
+          position: 0,
+        },
+      ],
+      variants: [
+        {
+          id: "VAR-CLOTHES-001",
+          title: "Medium / Blue",
+          sku: "CLT-DRS-001-M-BLU",
+          inStock: true,
+          options: { size: "M", color: "Blue" },
+        },
+      ],
+      isActive: true,
+      inStock: true,
+    },
+    {
+      userId: demoUser.id,
+      storeId: demoStore.id,
+      categoryId: ecommerceCategory?.id,
+      externalId: "ECOMM-001",
+      sku: "ECM-KIT-001",
+      title: "Smart Home Starter Kit",
+      description: "Everything you need to start your smart home journey.",
+      images: [
+        {
+          url: "https://images.unsplash.com/photo-1472851294608-062f824d29cc?w=800&h=800&fit=crop&q=80",
+          alt: "Smart Home Kit",
+          position: 0,
+        },
+      ],
+      variants: [
+        {
+          id: "VAR-ECOMM-001",
+          title: "Standard",
+          sku: "ECM-KIT-001-STD",
+          inStock: true,
+          options: { type: "Standard" },
+        },
+      ],
+      isActive: true,
+      inStock: true,
+    },
+    {
+      userId: demoUser.id,
       storeId: demoStore.id,
       categoryId: electronicsCategory?.id,
-      externalId: "PROD-001",
-      sku: "WH-PRO-001",
-      title: "Premium Wireless Headphones",
-      description:
-        "Experience crystal-clear audio with our premium wireless headphones. Features active noise cancellation, 30-hour battery life, and premium comfort.",
+      externalId: "ELEC-001",
+      sku: "ELE-WHP-001",
+      title: "Wireless Headphones",
+      description: "High-quality wireless headphones with noise cancellation.",
       images: [
         {
           url: "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=800&h=800&fit=crop&q=80",
-          alt: "Premium Wireless Headphones",
+          alt: "Wireless Headphones",
           position: 0,
         },
       ],
       variants: [
         {
-          id: "VAR-001-BLACK",
+          id: "VAR-ELEC-001",
           title: "Black",
-          sku: "WH-PRO-001-BLK",
+          sku: "ELE-WHP-001-BLK",
           inStock: true,
           options: { color: "Black" },
         },
-        {
-          id: "VAR-001-SILVER",
-          title: "Silver",
-          sku: "WH-PRO-001-SLV",
-          inStock: true,
-          options: { color: "Silver" },
-        },
       ],
       isActive: true,
       inStock: true,
     },
     {
-      storeId: demoStore.id,
-      categoryId: fashionCategory?.id,
-      externalId: "PROD-002",
-      sku: "SG-DES-002",
-      title: "Designer Sunglasses",
-      description:
-        "Stylish designer sunglasses with UV protection. Perfect for any occasion, combining fashion and functionality.",
-      images: [
-        {
-          url: "https://images.unsplash.com/photo-1572635196237-14b3f281503f?w=800&h=800&fit=crop&q=80",
-          alt: "Designer Sunglasses",
-          position: 0,
-        },
-      ],
-      variants: [
-        {
-          id: "VAR-002-TORTOISE",
-          title: "Tortoise Shell",
-          sku: "SG-DES-002-TOR",
-          inStock: true,
-          options: { color: "Tortoise Shell" },
-        },
-      ],
-      isActive: true,
-      inStock: true,
-    },
-    {
-      storeId: demoStore.id,
-      categoryId: homeCategory?.id,
-      externalId: "PROD-003",
-      sku: "TL-MOD-003",
-      title: "Modern Table Lamp",
-      description:
-        "Elegant modern table lamp with adjustable brightness. Perfect for reading or ambient lighting.",
-      images: [
-        {
-          url: "https://images.unsplash.com/photo-1507473885765-e6ed057f782c?w=800&h=800&fit=crop&q=80",
-          alt: "Modern Table Lamp",
-          position: 0,
-        },
-      ],
-      variants: [
-        {
-          id: "VAR-003-WHITE",
-          title: "White",
-          sku: "TL-MOD-003-WHT",
-          inStock: true,
-          options: { color: "White" },
-        },
-      ],
-      isActive: true,
-      inStock: true,
-    },
-    {
+      userId: demoUser.id,
       storeId: demoStore.id,
       categoryId: beautyCategory?.id,
-      externalId: "PROD-004",
-      sku: "SK-ORG-004",
-      title: "Organic Skincare Set",
-      description:
-        "Complete organic skincare set with natural ingredients. Includes cleanser, toner, and moisturizer.",
+      externalId: "BEAUTY-001",
+      sku: "BTY-SRM-001",
+      title: "Radiance Serum",
+      description: "Advanced radiance serum for glowing skin.",
       images: [
         {
-          url: "https://images.unsplash.com/photo-1556228578-0d85b1a4d571?w=800&h=800&fit=crop&q=80",
-          alt: "Organic Skincare Set",
+          url: "https://images.unsplash.com/photo-1596755389378-c31d21fd1273?w=800&h=800&fit=crop&q=80",
+          alt: "Radiance Serum",
           position: 0,
         },
       ],
       variants: [
         {
-          id: "VAR-004-FULL",
-          title: "Full Set",
-          sku: "SK-ORG-004-FULL",
+          id: "VAR-BEAUTY-001",
+          title: "30ml",
+          sku: "BTY-SRM-001-30",
           inStock: true,
-          options: { type: "Full Set" },
-        },
-      ],
-      isActive: true,
-      inStock: true,
-    },
-    {
-      storeId: demoStore.id,
-      categoryId: fitnessCategory?.id,
-      externalId: "PROD-005",
-      sku: "YM-PRE-005",
-      title: "Premium Yoga Mat",
-      description:
-        "Non-slip premium yoga mat with extra cushioning. Perfect for yoga, pilates, and home workouts.",
-      images: [
-        {
-          url: "https://images.unsplash.com/photo-1601925260368-ae2f83cf8b7f?w=800&h=800&fit=crop&q=80",
-          alt: "Premium Yoga Mat",
-          position: 0,
-        },
-      ],
-      variants: [
-        {
-          id: "VAR-005-PURPLE",
-          title: "Purple",
-          sku: "YM-PRE-005-PUR",
-          inStock: true,
-          options: { color: "Purple" },
-        },
-        {
-          id: "VAR-005-BLUE",
-          title: "Blue",
-          sku: "YM-PRE-005-BLU",
-          inStock: true,
-          options: { color: "Blue" },
+          options: { size: "30ml" },
         },
       ],
       isActive: true,

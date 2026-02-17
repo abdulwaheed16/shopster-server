@@ -12,7 +12,7 @@ export class UploadController {
   async uploadImage(
     req: Request,
     res: Response,
-    next: NextFunction
+    next: NextFunction,
   ): Promise<void> {
     try {
       const userId = req.user!.id;
@@ -37,7 +37,7 @@ export class UploadController {
   async uploadImages(
     req: Request,
     res: Response,
-    next: NextFunction
+    next: NextFunction,
   ): Promise<void> {
     try {
       const userId = req.user!.id;
@@ -58,13 +58,38 @@ export class UploadController {
   }
 
   /**
+   * Upload single video
+   * POST /upload/video
+   */
+  async uploadVideo(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
+    try {
+      const userId = req.user!.id;
+      const type = req.body.type || req.query.type;
+
+      if (!req.file) {
+        throw ApiError.badRequest("No video file provided");
+      }
+
+      const result = await uploadService.uploadVideo(req.file, userId, type);
+
+      sendSuccess(res, MESSAGES.STORAGE.UPLOAD_SUCCESS, result);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
    * Delete image
    * DELETE /upload/:publicId
    */
   async deleteImage(
     req: Request,
     res: Response,
-    next: NextFunction
+    next: NextFunction,
   ): Promise<void> {
     try {
       // publicId comes as URL parameter, decode it

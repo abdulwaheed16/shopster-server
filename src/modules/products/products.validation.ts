@@ -21,7 +21,7 @@ const productVariantSchema = z.object({
 export const createProductSchema = z.object({
   body: z.object({
     storeId: objectIdSchema,
-    categoryId: objectIdSchema.optional(),
+    categoryIds: z.array(objectIdSchema).default([]),
     externalId: z.string().optional(),
     sku: z.string().optional(),
     title: z.string().min(1, "Title is required"),
@@ -37,7 +37,7 @@ export const createProductSchema = z.object({
 // Update product schema
 export const updateProductSchema = z.object({
   body: z.object({
-    categoryId: objectIdSchema.optional(),
+    categoryIds: z.array(objectIdSchema).optional(),
     title: z.string().min(1).optional(),
     description: z.string().optional(),
     images: z.array(productImageSchema).optional(),
@@ -54,12 +54,13 @@ export const getProductsSchema = z.object({
     limit: z.string().optional(),
     storeId: z.preprocess(
       (val) => (val === "" ? undefined : val),
-      objectIdSchema.optional()
+      objectIdSchema.optional(),
     ),
     categoryId: z.preprocess(
       (val) => (val === "" ? undefined : val),
-      objectIdSchema.optional()
+      objectIdSchema.optional(),
     ),
+    categoryIds: z.array(objectIdSchema).optional(),
     search: z.string().optional(),
     isActive: z.string().optional(),
     inStock: z.string().optional(),
@@ -92,12 +93,9 @@ export const createManualProductSchema = z.object({
   body: z.object({
     title: z.string().min(1, "Title is required"),
     description: z.string().optional(),
-    imageUrl: z
-      .string()
-      .url("Valid Image URL is required")
-      .optional()
-      .nullable(),
-    categoryId: objectIdSchema.optional(),
+    imageUrl: z.string().url().optional().nullable(),
+    images: z.array(productImageSchema).optional(),
+    categoryIds: z.array(objectIdSchema).default([]),
     isActive: z.boolean().default(true),
   }),
 });
@@ -110,12 +108,9 @@ export const bulkCsvImportSchema = z.object({
         z.object({
           title: z.string().min(1, "Title is required"),
           description: z.string().optional(),
-          imageUrl: z
-            .string()
-            .url("Valid Image URL is required")
-            .optional()
-            .nullable(),
-          categoryId: objectIdSchema.optional(),
+          imageUrl: z.string().url().optional().nullable(),
+          images: z.array(productImageSchema).optional(),
+          categoryIds: z.array(objectIdSchema).default([]),
           isActive: z.boolean().default(true),
         }),
       )
@@ -129,7 +124,8 @@ export const updateManualProductSchema = z.object({
     title: z.string().min(1).optional(),
     description: z.string().optional(),
     imageUrl: z.string().url().optional(),
-    categoryId: objectIdSchema.optional(),
+    images: z.array(productImageSchema).optional(),
+    categoryIds: z.array(objectIdSchema).optional(),
     isActive: z.boolean().optional(),
   }),
 });

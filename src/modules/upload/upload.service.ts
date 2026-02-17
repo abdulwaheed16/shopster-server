@@ -17,7 +17,7 @@ export class UploadService implements IUploadService {
   async uploadImage(
     file: Express.Multer.File,
     userId: string,
-    type?: string
+    type?: string,
   ): Promise<{
     url: string;
     publicId: string;
@@ -32,6 +32,8 @@ export class UploadService implements IUploadService {
         publicId: `${type || "asset"}_${Date.now()}`,
         resourceType: "image",
       });
+
+      console.log("Image Upload Result: ", result);
 
       return {
         url: result.url,
@@ -58,7 +60,47 @@ export class UploadService implements IUploadService {
     } catch (error: any) {
       console.error(
         `[UploadService] ${MESSAGES.STORAGE.UPLOAD_FAILED}:`,
-        error.message
+        error.message,
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * Upload single video
+   * @param file - Multer file object
+   * @param userId - User ID
+   * @param type - Optional type hint
+   */
+  async uploadVideo(
+    file: Express.Multer.File,
+    userId: string,
+    type?: string,
+  ): Promise<{
+    url: string;
+    publicId: string;
+    width: number;
+    height: number;
+    format: string;
+  }> {
+    try {
+      const result = await vercelBlobService.upload(file.buffer, {
+        folder: `videos/${userId}`,
+        publicId: `${type || "video"}_${Date.now()}`,
+        resourceType: "video",
+      });
+
+      return {
+        url: result.url,
+        publicId: result.id,
+        width: 0,
+        height: 0,
+        format: "mp4", // Default or extract from file
+      };
+    } catch (error: any) {
+      console.error(
+        `[UploadService] ${MESSAGES.STORAGE.UPLOAD_FAILED}:`,
+        error.message,
       );
       throw error;
     }
@@ -71,7 +113,7 @@ export class UploadService implements IUploadService {
    */
   async uploadImages(
     files: Express.Multer.File[],
-    userId: string
+    userId: string,
   ): Promise<
     Array<{
       url: string;
@@ -102,7 +144,7 @@ export class UploadService implements IUploadService {
     } catch (error: any) {
       console.error(
         `[UploadService] ${MESSAGES.STORAGE.DELETE_FAILED}:`,
-        error.message
+        error.message,
       );
       throw error;
     }

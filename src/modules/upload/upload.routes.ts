@@ -27,6 +27,22 @@ const upload = multer({
   },
 });
 
+// Configure multer for VIDEO uploads
+const videoUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 50 * 1024 * 1024, // 50MB max file size
+  },
+  fileFilter: (req, file, cb) => {
+    // Only allow video files
+    if (file.mimetype.startsWith("video/")) {
+      cb(null, true);
+    } else {
+      cb(new Error("Only video files are allowed"));
+    }
+  },
+});
+
 /**
  * @swagger
  * /upload/image:
@@ -57,7 +73,7 @@ const upload = multer({
 router.post(
   "/image",
   upload.single("image"),
-  uploadController.uploadImage.bind(uploadController)
+  uploadController.uploadImage.bind(uploadController),
 );
 
 /**
@@ -92,7 +108,40 @@ router.post(
 router.post(
   "/images",
   upload.array("images", 10),
-  uploadController.uploadImages.bind(uploadController)
+  uploadController.uploadImages.bind(uploadController),
+);
+
+/**
+ * @swagger
+ * /upload/video:
+ *   post:
+ *     summary: Upload single video
+ *     description: Uploads a single video to Vercel Blob.
+ *     tags: [Upload]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               video:
+ *                 type: string
+ *                 format: binary
+ *     responses:
+ *       200:
+ *         description: Video uploaded successfully
+ *       400:
+ *         description: No video provided or invalid file type
+ *       401:
+ *         description: Unauthorized
+ */
+router.post(
+  "/video",
+  videoUpload.single("video"),
+  uploadController.uploadVideo.bind(uploadController),
 );
 
 /**
@@ -120,7 +169,7 @@ router.post(
 router.delete(
   "/:publicId",
   validate(deleteImageSchema),
-  uploadController.deleteImage.bind(uploadController)
+  uploadController.deleteImage.bind(uploadController),
 );
 
 export default router;

@@ -17,140 +17,78 @@ export class StoreProductsService {
     const skip = (page - 1) * limit;
     const source = query.source || "ALL";
 
-    // 1. Define base filters for Store Products
-    const storeProductsWhere: Prisma.ProductWhereInput = {
-      store: { userId },
-    };
+    // Define base filters
+    const where: Prisma.ProductWhereInput = {};
 
-    if (query.storeId) {
-      storeProductsWhere.storeId = query.storeId;
+    // Source filtering
+    if (source === "STORE") {
+      where.productSource = "STORE";
+      where.store = { userId };
+    } else if (source === "UPLOADED") {
+      where.productSource = "UPLOADED";
+      where.userId = userId;
+    } else {
+      // source === "ALL"
+      where.OR = [
+        { productSource: "STORE", store: { userId } },
+        { productSource: "UPLOADED", userId },
+      ];
     }
 
-    if (query.categoryId) {
-      storeProductsWhere.categoryId = query.categoryId;
+    if (query.storeId) {
+      where.storeId = query.storeId;
+    }
+
+    if (query.categoryIds && query.categoryIds.length > 0) {
+      where.categoryIds = { hasSome: query.categoryIds };
+    } else if (query.categoryId) {
+      where.categoryIds = { has: query.categoryId };
     }
 
     if (query.isActive !== undefined) {
-      storeProductsWhere.isActive = query.isActive === "true";
+      where.isActive = query.isActive === "true";
     }
 
     if (query.inStock !== undefined) {
-      storeProductsWhere.inStock = query.inStock === "true";
+      where.inStock = query.inStock === "true";
     }
 
     if (query.search) {
-      storeProductsWhere.OR = [
-        { title: { contains: query.search, mode: "insensitive" } },
-        { description: { contains: query.search, mode: "insensitive" } },
-        { sku: { contains: query.search, mode: "insensitive" } },
+      const searchFilter = { contains: query.search, mode: "insensitive" };
+      where.AND = [
+        ...((where.AND as any[]) || []),
+        {
+          OR: [
+            { title: searchFilter },
+            { description: searchFilter },
+            { sku: searchFilter },
+          ],
+        },
       ];
     }
 
-    // 2. Define base filters for Uploaded Products
-    const uploadedProductsWhere: Prisma.UploadedProductWhereInput = {
-      userId,
-    };
+    const [products, total] = await Promise.all([
+      prisma.product.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { createdAt: "desc" },
+        include: {
+          store: { select: { name: true } },
+          categories: { select: { id: true, name: true } },
+        },
+      }),
+      prisma.product.count({ where }),
+    ]);
 
-    if (query.categoryId) {
-      uploadedProductsWhere.categoryId = query.categoryId;
-    }
-
-    if (query.isActive !== undefined) {
-      uploadedProductsWhere.isActive = query.isActive === "true";
-    }
-
-    if (query.search) {
-      uploadedProductsWhere.OR = [
-        { title: { contains: query.search, mode: "insensitive" } },
-        { description: { contains: query.search, mode: "insensitive" } },
-      ];
-    }
-
-    let products: any[] = [];
-    let total = 0;
-
-    if (source === "STORE") {
-      [products, total] = await Promise.all([
-        prisma.product.findMany({
-          where: storeProductsWhere,
-          skip,
-          take: limit,
-          orderBy: { createdAt: "desc" },
-          include: {
-            store: { select: { name: true } },
-            category: { select: { name: true } },
-          },
-        }),
-        prisma.product.count({ where: storeProductsWhere }),
-      ]);
-    } else if (source === "UPLOADED") {
-      const [rawUploadedProducts, rawTotal] = await Promise.all([
-        prisma.uploadedProduct.findMany({
-          where: uploadedProductsWhere,
-          skip,
-          take: limit,
-          orderBy: { createdAt: "desc" },
-          include: {
-            category: { select: { name: true } },
-          },
-        }),
-        prisma.uploadedProduct.count({ where: uploadedProductsWhere }),
-      ]);
-
-      products = rawUploadedProducts.map((p) => ({
-        ...p,
-        productSource: "UPLOADED",
-        images: p.imageUrl
-          ? [{ url: p.imageUrl, alt: p.title, position: 0 }]
-          : [],
-        variants: [],
-        store: { name: "Manual Upload" },
-      }));
-      total = rawTotal;
-    } else {
-      // source === "ALL" - For simplicity, combine with priority to Store products
-      // In a real scenario, we might want a unified view or more complex pagination
-      const [storeProds, storeTotal, uploadedProds, uploadedTotal] =
-        await Promise.all([
-          prisma.product.findMany({
-            where: storeProductsWhere,
-            orderBy: { createdAt: "desc" },
-            include: {
-              store: { select: { name: true } },
-              category: { select: { name: true } },
-            },
-          }),
-          prisma.product.count({ where: storeProductsWhere }),
-          prisma.uploadedProduct.findMany({
-            where: uploadedProductsWhere,
-            orderBy: { createdAt: "desc" },
-            include: {
-              category: { select: { name: true } },
-            },
-          }),
-          prisma.uploadedProduct.count({ where: uploadedProductsWhere }),
-        ]);
-
-      const mappedUploaded = uploadedProds.map((p) => ({
-        ...p,
-        productSource: "UPLOADED",
-        images: p.imageUrl
-          ? [{ url: p.imageUrl, alt: p.title, position: 0 }]
-          : [],
-        variants: [],
-        store: { name: "Manual Upload" },
-      }));
-
-      const allProds = [...storeProds, ...mappedUploaded].sort(
-        (a, b) => b.createdAt.getTime() - a.createdAt.getTime(),
-      );
-
-      total = storeTotal + uploadedTotal;
-      products = allProds.slice(skip, skip + limit);
-    }
+    // Format products for consistent frontend usage
+    const formattedProducts = products.map((p) => ({
+      ...p,
+      store: p.store || { name: "Manual Upload" },
+    }));
 
     return {
-      data: products,
+      data: formattedProducts,
       meta: calculatePagination(total, page, limit),
     };
   }
@@ -164,7 +102,7 @@ export class StoreProductsService {
       },
       include: {
         store: true,
-        category: true,
+        categories: true,
       },
     });
 
@@ -235,30 +173,25 @@ export class StoreProductsService {
 
     const count = await prisma.$transaction(async (tx) => {
       let created = 0;
-      for (const p of productsData) {
+      const data = productsData.map((p) => ({
+        ...p,
+        externalId:
+          p.externalId ||
+          `manual-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        images: p.images as any,
+        variants: p.variants as any,
+      }));
+
+      for (const p of data) {
         await tx.product.upsert({
           where: {
             storeId_externalId: {
-              storeId: p.storeId,
-              externalId: p.externalId as string,
+              storeId: p.storeId as string,
+              externalId: p.externalId,
             },
           },
-          update: {
-            ...p,
-            externalId:
-              p.externalId ||
-              `manual-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-            images: p.images as any,
-            variants: p.variants as any,
-          },
-          create: {
-            ...p,
-            externalId:
-              p.externalId ||
-              `manual-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-            images: p.images as any,
-            variants: p.variants as any,
-          },
+          update: p,
+          create: p,
         });
         created++;
       }
