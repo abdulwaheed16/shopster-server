@@ -10,7 +10,7 @@ import {
   UpdateTemplateBody,
 } from "./templates.validation";
 
-import { Prisma, Template } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 
 import { calculatePagination } from "../../common/utils/pagination.util";
 import { ITemplatesService } from "./templates.types";
@@ -22,34 +22,46 @@ export class TemplatesService implements ITemplatesService {
     const limit = parseInt(query.limit || "20");
     const skip = (page - 1) * limit;
 
-    const where: Prisma.TemplateWhereInput = { isActive: true };
+    // 1. Check User Role (Admin vs User)
+    const isAdmin = await prisma.user
+      .findUnique({
+        where: { id: userId },
+        select: { role: true },
+      })
+      .then((u) => u?.role === "ADMIN");
 
-    // Filtering logic
+    // 2. Build Base Access Control Filter (RBAC)
+    // ADMIN: Sees everything
+    // USER: Sees own OR public templates
+    const accessFilter: Prisma.TemplateWhereInput = isAdmin
+      ? {}
+      : {
+          OR: [{ userId }, { isPublic: true }],
+        };
+
+    const where: Prisma.TemplateWhereInput = {
+      isActive: true, // Only show active templates by default
+      AND: [accessFilter],
+    };
+
+    // 3. Apply Specialized Tab/Filter logic
     if (query.filterType === "mine") {
       where.userId = userId;
     } else if (query.filterType === "others") {
-      const demoUser = await prisma.user.findUnique({
-        where: { email: "demo@shopster.com" },
-        select: { id: true },
-      });
-      where.OR = [
-        { userId: null },
-        ...(demoUser ? [{ userId: demoUser.id }] : []),
-      ];
+      // "General" / "Global" templates
+      where.isPublic = true;
     } else if (query.filterType === "liked") {
       const likes = await prisma.templateLike.findMany({
         where: { userId },
         select: { templateId: true },
       });
-      where.id = { in: likes.map((l: { templateId: string }) => l.templateId) };
+      where.id = { in: likes.map((l) => l.templateId) };
     } else if (query.filterType === "favorited") {
       const favorites = await prisma.templateFavorite.findMany({
         where: { userId },
         select: { templateId: true },
       });
-      where.id = {
-        in: favorites.map((f: { templateId: string }) => f.templateId),
-      };
+      where.id = { in: favorites.map((f) => f.templateId) };
     } else if (query.filterType === "recent") {
       const visits = await prisma.templateVisit.findMany({
         where: { userId },
@@ -57,58 +69,33 @@ export class TemplatesService implements ITemplatesService {
         take: 50,
         select: { templateId: true },
       });
-      // Get unique template IDs while maintaining order
-      const uniqueIds = Array.from(
-        new Set(visits.map((v: { templateId: string }) => v.templateId)),
-      );
+      const uniqueIds = Array.from(new Set(visits.map((v) => v.templateId)));
       where.id = { in: uniqueIds };
-    } else {
-      where.OR = [{ userId: userId }, { userId: null }];
     }
 
+    // 4. Dynamic Filters (Search, Category, Media Type)
     if (query.search) {
-      const searchFilter = {
-        OR: [
-          { name: { contains: query.search, mode: "insensitive" as any } },
-          {
-            description: { contains: query.search, mode: "insensitive" as any },
-          },
-        ],
-      };
-      if (where.OR) {
-        const existingOr = where.OR;
-        delete where.OR;
-        where.AND = [{ OR: existingOr }, searchFilter];
-      } else {
-        where.OR = searchFilter.OR;
-      }
+      where.AND = [
+        ...(where.AND ? (where.AND as any[]) : []),
+        {
+          OR: [
+            { name: { contains: query.search, mode: "insensitive" } },
+            { description: { contains: query.search, mode: "insensitive" } },
+          ],
+        },
+      ];
     }
 
-    if (query.categoryId) {
-      const catFilter = {
-        OR: [
-          { categoryIds: { has: query.categoryId } },
-          {
-            category: {
-              contains: query.categoryId,
-              mode: "insensitive" as any,
-            },
-          },
-        ],
-      };
-      if (where.AND) {
-        (where.AND as any[]).push(catFilter);
-      } else if (where.OR) {
-        const existingOr = where.OR;
-        delete where.OR;
-        where.AND = [{ OR: existingOr }, catFilter];
-      } else {
-        where.OR = catFilter.OR;
-      }
-    }
-
-    if (query.isActive !== undefined) {
-      where.isActive = query.isActive === "true";
+    if (query.categoryIds && query.categoryIds.length > 0) {
+      where.AND = [
+        ...(where.AND ? (where.AND as any[]) : []),
+        { categoryIds: { hasSome: query.categoryIds } },
+      ];
+    } else if (query.categoryId) {
+      where.AND = [
+        ...(where.AND ? (where.AND as any[]) : []),
+        { categoryIds: { has: query.categoryId } },
+      ];
     }
 
     if (query.mediaType) {
@@ -124,7 +111,25 @@ export class TemplatesService implements ITemplatesService {
         skip,
         take: limit,
         orderBy,
-        include: {
+        select: {
+          id: true,
+          name: true,
+          description: true,
+          mediaType: true,
+          previewImages: true,
+          referenceAdImage: true,
+          isPublic: true,
+          userId: true,
+          isActive: true,
+          createdAt: true,
+          updatedAt: true,
+          likesCount: true,
+          visitsCount: true,
+          usageCount: true,
+          variableIds: true,
+          categoryIds: true,
+          promptTemplate: true,
+          productImage: true,
           _count: {
             select: { likes: true, favorites: true, visits: true },
           },
@@ -133,39 +138,81 @@ export class TemplatesService implements ITemplatesService {
       prisma.template.count({ where }),
     ]);
 
-    // Enhance templates with user-specific interaction status and variables
-    const enhancedTemplates = await Promise.all(
-      templates.map(async (t: Template) => {
-        const [isLiked, isFavorited, variables] = await Promise.all([
-          prisma.templateLike.findUnique({
-            where: { userId_templateId: { userId, templateId: t.id } },
-          }),
-          prisma.templateFavorite.findUnique({
-            where: { userId_templateId: { userId, templateId: t.id } },
-          }),
-          prisma.variable.findMany({
-            where: { id: { in: t.variableIds } },
-          }),
-        ]);
-        const result = {
-          ...t,
-          variables,
-          isLiked: !!isLiked,
-          isFavorited: !!isFavorited,
-        };
-
-        // Strip internal analysis fields (Optimization/Privacy)
-        delete (result as any).referenceAnalysis;
-        delete (result as any).previewAnalyses;
-
-        return result;
-      }),
+    // Optimize variable fetching...
+    const allVariableIds = Array.from(
+      new Set(templates.flatMap((t: any) => t.variableIds)),
     );
+    const resolvedVariables = await prisma.variable.findMany({
+      where: { id: { in: allVariableIds } },
+      select: {
+        id: true,
+        name: true,
+        label: true,
+        type: true,
+        required: true,
+      },
+    });
+
+    const variableMap = resolvedVariables.reduce((acc: any, v) => {
+      acc[v.id] = v;
+      return acc;
+    }, {});
+
+    // 5. Batch fetch interactions for the current user
+    const [userLikes, userFavorites] = await Promise.all([
+      prisma.templateLike.findMany({
+        where: { userId, templateId: { in: templates.map((t) => t.id) } },
+        select: { templateId: true },
+      }),
+      prisma.templateFavorite.findMany({
+        where: { userId, templateId: { in: templates.map((t) => t.id) } },
+        select: { templateId: true },
+      }),
+    ]);
+
+    const likedSet = new Set(userLikes.map((l) => l.templateId));
+    const favoritedSet = new Set(userFavorites.map((f) => f.templateId));
+
+    const enhancedTemplates = templates.map((t: any) => ({
+      ...t,
+      variables: t.variableIds
+        .map((vid: string) => variableMap[vid])
+        .filter(Boolean),
+      isLiked: likedSet.has(t.id),
+      isFavorited: favoritedSet.has(t.id),
+    }));
+
+    // FALLBACK: If no templates found after enrichment/filtering (and no search), return mock templates
+    // if (enhancedTemplates.length === 0 && !query.search) {
+    //   // Filter by category if requested
+    //   let filteredMock = mockTemplates as any[];
+    //   if (query.categoryIds && query.categoryIds.length > 0) {
+    //     filteredMock = (mockTemplates as any[]).filter((t) =>
+    //       query.categoryIds?.some((id) => t.categoryIds.includes(id)),
+    //     );
+    //   } else if (query.categoryId) {
+    //     filteredMock = (mockTemplates as any[]).filter((t) =>
+    //       t.categoryIds.includes(query.categoryId!),
+    //     );
+    //   }
+
+    //   // Filter by mediaType if requested
+    //   if (query.mediaType) {
+    //     filteredMock = filteredMock.filter(
+    //       (t) => t.mediaType === query.mediaType,
+    //     );
+    //   }
+
+    //   return {
+    //     data: filteredMock,
+    //     meta: calculatePagination(filteredMock.length, page, limit),
+    //   } as any;
+    // }
 
     return {
       data: enhancedTemplates,
       meta: calculatePagination(total, page, limit),
-    };
+    } as any;
   }
 
   // Get template by ID
@@ -173,9 +220,17 @@ export class TemplatesService implements ITemplatesService {
     const template = await prisma.template.findFirst({
       where: {
         id,
-        OR: [{ userId }, { userId: null }, { isPublic: true }] as any,
+        OR: [{ userId }, { userId: null }, { isPublic: true }],
       },
       include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            role: true,
+          },
+        },
         _count: {
           select: { likes: true, favorites: true, visits: true },
         },
@@ -280,7 +335,7 @@ export class TemplatesService implements ITemplatesService {
 
   // Admin stats for templates
   async getAdminStats() {
-    const [topVisited, topLiked, topUsed] = await Promise.all([
+    const [topVisited, topLiked, topUsed, counts] = await Promise.all([
       prisma.template.findMany({
         take: 5,
         orderBy: { visitsCount: "desc" },
@@ -314,24 +369,111 @@ export class TemplatesService implements ITemplatesService {
           usageCount: true,
         },
       }),
+      prisma.template.groupBy({
+        by: ["mediaType", "isPublic"],
+        _count: { _all: true },
+      }),
     ]);
+
+    // Format counts for easier consumption
+    const summary = {
+      total: counts.reduce((acc, c) => acc + c._count._all, 0),
+      public: counts
+        .filter((c) => c.isPublic)
+        .reduce((acc, c) => acc + c._count._all, 0),
+      image: counts
+        .filter((c) => c.mediaType === "IMAGE")
+        .reduce((acc, c) => acc + c._count._all, 0),
+      video: counts
+        .filter((c) => c.mediaType === "VIDEO")
+        .reduce((acc, c) => acc + c._count._all, 0),
+    };
 
     return {
       topVisited,
       topLiked,
       topUsed,
+      summary,
     };
   }
 
   // Create template
   async createTemplate(userId: string, data: CreateTemplateBody) {
-    const finalUserId = (data as any).assignedUserId || userId;
+    // 1. Sanitize variableIds: filter out those that aren't valid 24-char hex ObjectIds
+    // This prevents "Malformed ObjectID" crashes
+    let validVariableIds = (data.variableIds || []).filter((id) =>
+      /^[0-9a-fA-F]{24}$/.test(id),
+    );
+
+    // 2. Handle inline variable creation if provided
+    if ((data as any).variables && Array.isArray((data as any).variables)) {
+      const inlineVariables = (data as any).variables;
+      for (const v of inlineVariables) {
+        // If ID is missing or invalid, it's likely a new variable from frontend
+        if (!v.id || !/^[0-9a-fA-F]{24}$/.test(v.id)) {
+          try {
+            const newVar = await variablesService.createVariable(userId, {
+              name: v.name,
+              label: v.label,
+              type: v.type,
+              placeholder: v.placeholder,
+              defaultValue: v.defaultValue,
+              required: v.required,
+              validation: v.validation,
+            });
+            if (!validVariableIds.includes(newVar.id)) {
+              validVariableIds.push(newVar.id);
+            }
+          } catch (error) {
+            console.error(`Failed to create inline variable ${v.name}:`, error);
+            // Continue with other variables
+          }
+        } else {
+          // It's an existing variable ID, make sure it's in the list
+          if (!validVariableIds.includes(v.id)) {
+            validVariableIds.push(v.id);
+          }
+        }
+      }
+    }
+
+    // Clean up internal fields before creating template
+    const { variables, previewImage, categoryId, ...restData } = data as any;
+
+    // Map previewImage (singular/deprecated) to previewImages (plural/actual) if needed
+    if (previewImage && !restData.previewImages) {
+      restData.previewImages = Array.isArray(previewImage)
+        ? previewImage
+        : [previewImage];
+    }
+
+    // Debug logging for categoryIds
+    console.log(
+      "[Template Creation] categoryIds from request:",
+      data.categoryIds,
+    );
+    console.log(
+      "[Template Creation] Full data:",
+      JSON.stringify(data, null, 2),
+    );
+
     const template = await prisma.template.create({
       data: {
-        ...data,
-        userId: finalUserId,
-      } as any,
+        ...restData,
+        userId,
+        variableIds: validVariableIds,
+        categoryIds: data.categoryIds || [],
+        assignedUserIds: data.assignedUserIds || [],
+      },
     });
+
+    console.log(
+      "[Template Created] Template ID:",
+      template.id,
+      "categoryIds:",
+      template.categoryIds,
+    );
+
     await this.updateVariableUsages(
       template.id,
       template.variableIds,
@@ -342,13 +484,56 @@ export class TemplatesService implements ITemplatesService {
   }
 
   // Update template
+  // Update template
   async updateTemplate(id: string, userId: string, data: UpdateTemplateBody) {
-    const existing = await prisma.template.findFirst({ where: { id, userId } });
-    if (!existing) throw ApiError.notFound("Template not found");
+    const where: Prisma.TemplateWhereInput = { id };
+    // Admin override (no strict userId check in where)
+
+    const existing = await prisma.template.findFirst({ where });
+    if (!existing)
+      throw ApiError.notFound("Template not found or access denied");
+
+    const { previewImage, categoryId, ...cleanData } = data as any;
+    if (previewImage && !cleanData.previewImages) {
+      cleanData.previewImages = Array.isArray(previewImage)
+        ? previewImage
+        : [previewImage];
+    }
+
+    const updated = await prisma.template.update({
+      where: { id },
+      data: cleanData,
+    });
+    if (data.variableIds || data.name || data.promptTemplate) {
+      await this.updateVariableUsages(
+        updated.id,
+        updated.variableIds,
+        updated.name,
+        updated.promptTemplate,
+        updated.previewImages?.[0],
+      );
+    }
+    return updated;
+  }
+
+  // Update user's own template (Strict Ownership)
+  async updateUserTemplate(
+    id: string,
+    userId: string,
+    data: UpdateTemplateBody,
+  ) {
+    // Strict check: must match id AND userId
+    const where: Prisma.TemplateWhereInput = { id, userId };
+
+    const existing = await prisma.template.findFirst({ where });
+    if (!existing)
+      throw ApiError.notFound("Template not found or you do not own it");
+
     const updated = await prisma.template.update({
       where: { id },
       data,
     });
+
     if (data.variableIds || data.name || data.promptTemplate) {
       await this.updateVariableUsages(
         updated.id,
@@ -363,8 +548,27 @@ export class TemplatesService implements ITemplatesService {
 
   // Delete template
   async deleteTemplate(id: string, userId: string): Promise<void> {
-    const template = await prisma.template.findFirst({ where: { id, userId } });
+    const where: Prisma.TemplateWhereInput = { id };
+
+    const template = await prisma.template.findFirst({ where });
     if (!template) throw ApiError.notFound("Template not found");
+
+    for (const variableId of template.variableIds) {
+      await variablesService.removeVariableUsage(variableId, template.id);
+    }
+    await prisma.template.delete({
+      where: { id },
+    });
+  }
+
+  // Delete user's own template (Strict Ownership)
+  async deleteUserTemplate(id: string, userId: string): Promise<void> {
+    const where: Prisma.TemplateWhereInput = { id, userId };
+
+    const template = await prisma.template.findFirst({ where });
+    if (!template)
+      throw ApiError.notFound("Template not found or you do not own it");
+
     for (const variableId of template.variableIds) {
       await variablesService.removeVariableUsage(variableId, template.id);
     }
@@ -395,26 +599,50 @@ export class TemplatesService implements ITemplatesService {
 
   // Generate preview (n8n webhook)
   async generatePreview(userId: string, data: GeneratePreviewBody) {
-    const template = await prisma.template.findFirst({
-      where: { id: data.templateId, userId },
-    });
-    if (!template) throw ApiError.notFound("Template not found");
+    let promptTemplate: string;
+    let referenceAdImage: string | undefined;
+    let productImage: string | undefined;
+    let templateId: string | undefined = data.templateId;
+
+    if (data.templateId) {
+      const template = await prisma.template.findFirst({
+        where: { id: data.templateId, userId },
+      });
+      if (!template) throw ApiError.notFound("Template not found");
+      promptTemplate = template.promptTemplate;
+      referenceAdImage = template.referenceAdImage || undefined;
+      productImage = template.productImage || undefined;
+    } else {
+      // Unsaved template preview
+      if (!data.promptTemplate) {
+        throw ApiError.badRequest(
+          "promptTemplate is required for unsaved previews",
+        );
+      }
+      promptTemplate = data.promptTemplate;
+      referenceAdImage = data.referenceAdImage;
+      productImage = data.productImage;
+    }
+
     await billingService.checkAndDeductCredits(
       userId,
       0.5,
       "TEMPLATE_PREVIEW",
-      `Preview generation for template: ${template.name}`,
+      `Preview generation for template: ${data.templateId ? "Existing" : "New draft"}`,
     );
+
     await templatePreviewQueue.add("generate-preview", {
-      templateId: template.id,
+      templateId,
       userId,
-      promptTemplate: template.promptTemplate,
-      referenceAdImage: template.referenceAdImage,
-      productImage: template.productImage,
+      promptTemplate,
+      referenceAdImage,
+      productImage,
+      variables: data.variables, // Pass variables for dynamic injection if needed
     });
+
     return {
       message: "Preview generation queued successfully",
-      templateId: template.id,
+      templateId,
     };
   }
 

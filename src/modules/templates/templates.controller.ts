@@ -1,6 +1,6 @@
+import { Template } from "@prisma/client";
 import { NextFunction, Request, Response } from "express";
 import { MESSAGES } from "../../common/constants/messages.constant";
-import { ApiError } from "../../common/errors/api-error";
 import {
   sendCreated,
   sendPaginated,
@@ -27,6 +27,13 @@ export class TemplatesController {
 
       const result = await templatesService.getTemplates(userId, query);
 
+      // Prompt Privacy: Hide prompts from non-admin users
+      if (req.user!.role !== "ADMIN") {
+        result.data = result.data.map((t: Template) =>
+          this._stripSensitiveData(t, userId),
+        );
+      }
+
       sendPaginated(res, MESSAGES.TEMPLATES.FETCHED, result);
     } catch (error) {
       next(error);
@@ -47,6 +54,13 @@ export class TemplatesController {
       } as any;
 
       const result = await templatesService.getTemplates(userId, query);
+
+      // Prompt Privacy: Hide prompts from non-admin users (except if they are the owner, but admins usually handle creation)
+      if (req.user!.role !== "ADMIN") {
+        result.data = result.data.map((t: Template) =>
+          this._stripSensitiveData(t, userId),
+        );
+      }
 
       sendPaginated(res, MESSAGES.TEMPLATES.USER_FETCHED, result);
     } catch (error) {
@@ -69,6 +83,13 @@ export class TemplatesController {
 
       const result = await templatesService.getTemplates(userId, query);
 
+      // Prompt Privacy: Hide prompts from non-admin users
+      if (req.user!.role !== "ADMIN") {
+        result.data = result.data.map((t: Template) =>
+          this._stripSensitiveData(t, userId),
+        );
+      }
+
       sendPaginated(res, MESSAGES.TEMPLATES.GLOBAL_FETCHED, result);
     } catch (error) {
       next(error);
@@ -85,12 +106,33 @@ export class TemplatesController {
       const userId = req.user!.id;
       const { id } = req.params;
 
-      const template = await templatesService.getTemplateById(id, userId);
+      let template = await templatesService.getTemplateById(id, userId);
+
+      // Prompt Privacy: Hide prompts from non-admin users
+      if (req.user!.role !== "ADMIN") {
+        template = this._stripSensitiveData(template, userId);
+      }
 
       sendSuccess(res, MESSAGES.TEMPLATES.FETCHED_ONE, template);
     } catch (error) {
       next(error);
     }
+  }
+
+  // Utility to strip sensitive data
+  private _stripSensitiveData(template: any, requesterId: string) {
+    // Admins see everything
+    // Skip if requester is the owner
+    if (template.userId === requesterId) {
+      return template;
+    }
+
+    // Otherwise, mask the prompt logic
+    const { promptTemplate, ...rest } = template;
+    return {
+      ...rest,
+      promptTemplate: "PROTECTED_ASSET_LOGIC", // Masked value
+    };
   }
 
   // Create template --- POST /templates
@@ -148,6 +190,47 @@ export class TemplatesController {
     }
   }
 
+  // Update MY template --- PUT /templates/my/:id
+  async updateMyTemplate(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
+    try {
+      const { id: userId } = req.user!;
+      const { id } = req.params;
+      const data: UpdateTemplateBody = req.body;
+
+      const template = await templatesService.updateUserTemplate(
+        id,
+        userId,
+        data,
+      );
+
+      sendSuccess(res, MESSAGES.TEMPLATES.UPDATED, template);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // Delete MY template --- DELETE /templates/my/:id
+  async deleteMyTemplate(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
+    try {
+      const { id: userId } = req.user!;
+      const { id } = req.params;
+
+      await templatesService.deleteUserTemplate(id, userId);
+
+      sendSuccess(res, MESSAGES.TEMPLATES.DELETED);
+    } catch (error) {
+      next(error);
+    }
+  }
+
   // Generate preview --- POST /templates/preview
   async generatePreview(
     req: Request,
@@ -173,10 +256,7 @@ export class TemplatesController {
     next: NextFunction,
   ): Promise<void> {
     try {
-      const { id: userId, role } = req.user!;
-      if (role !== "ADMIN") {
-        throw ApiError.unauthorized("Only admins can perform bulk delete");
-      }
+      const { id: userId } = req.user!;
       const { ids } = req.body;
 
       const result = await templatesService.bulkDeleteTemplates(userId, ids);
@@ -252,10 +332,6 @@ export class TemplatesController {
     next: NextFunction,
   ): Promise<void> {
     try {
-      const { role } = req.user!;
-      if (role !== "ADMIN") {
-        throw ApiError.unauthorized("Only admins can access stats");
-      }
       const stats = await templatesService.getAdminStats();
       sendSuccess(res, MESSAGES.TEMPLATES.STATS_FETCHED, stats);
     } catch (error) {

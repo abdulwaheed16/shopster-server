@@ -84,13 +84,14 @@ export class VariablesService implements IVariablesService {
 
     if (existing) {
       throw ApiError.badRequest(
-        `Variable with name "${data.name}" already exists`
+        `Variable with name "${data.name}" already exists`,
       );
     }
 
     return await prisma.variable.create({
       data: {
         ...data,
+        label: data.label || data.name,
         userId,
       },
     });
@@ -112,7 +113,7 @@ export class VariablesService implements IVariablesService {
 
       if (existing) {
         throw ApiError.badRequest(
-          `Variable with name "${data.name}" already exists`
+          `Variable with name "${data.name}" already exists`,
         );
       }
     }
@@ -130,7 +131,7 @@ export class VariablesService implements IVariablesService {
     // Check if variable is being used
     if (variable.usageCount > 0) {
       throw ApiError.badRequest(
-        `Cannot delete variable "${variable.name}" as it is being used in ${variable.usageCount} template(s). Please remove it from templates first.`
+        `Cannot delete variable "${variable.name}" as it is being used in ${variable.usageCount} template(s). Please remove it from templates first.`,
       );
     }
 
@@ -145,7 +146,7 @@ export class VariablesService implements IVariablesService {
     templateId: string,
     templateName: string,
     prompt: string,
-    previewUrl?: string
+    previewUrl?: string,
   ) {
     const variable = await prisma.variable.findUnique({
       where: { id: variableId },
@@ -157,7 +158,7 @@ export class VariablesService implements IVariablesService {
 
     // Check if this template is already in the usage list
     const existingUsage = (variable.usedInTemplates as any[]).find(
-      (usage) => usage.templateId === templateId
+      (usage) => usage.templateId === templateId,
     );
 
     let updatedUsages;
@@ -166,7 +167,7 @@ export class VariablesService implements IVariablesService {
       updatedUsages = (variable.usedInTemplates as any[]).map((usage) =>
         usage.templateId === templateId
           ? { templateId, templateName, prompt, previewUrl }
-          : usage
+          : usage,
       );
     } else {
       // Add new usage
@@ -196,7 +197,7 @@ export class VariablesService implements IVariablesService {
     }
 
     const updatedUsages = (variable.usedInTemplates as any[]).filter(
-      (usage) => usage.templateId !== templateId
+      (usage) => usage.templateId !== templateId,
     );
 
     await prisma.variable.update({

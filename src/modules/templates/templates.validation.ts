@@ -7,13 +7,14 @@ export const createTemplateSchema = z.object({
     description: z.string().optional(),
     promptTemplate: z.string(),
     variableIds: z.array(z.string()).default([]),
-    category: z.string().optional(),
     categoryIds: z.array(z.string()).default([]),
     referenceAdImage: z.string().optional(),
     productImage: z.string().optional(),
     isPublic: z.boolean().default(true),
-    assignedUserId: z.string().optional(),
+    assignedUserIds: z.array(z.string()).optional(),
     mediaType: z.enum(["IMAGE", "VIDEO"]).default("IMAGE"),
+    variables: z.array(z.any()).optional(),
+    previewImages: z.array(z.string()).optional(),
   }),
 });
 
@@ -24,7 +25,6 @@ export const updateTemplateSchema = z.object({
     description: z.string().optional(),
     promptTemplate: z.string().optional(),
     variableIds: z.array(z.string()).optional(),
-    category: z.string().optional(),
     categoryIds: z.array(z.string()).optional(),
     referenceAdImage: z.string().optional(),
     productImage: z.string().optional(),
@@ -32,14 +32,24 @@ export const updateTemplateSchema = z.object({
     isPublic: z.boolean().optional(),
     assignedUserId: z.string().optional(),
     mediaType: z.enum(["IMAGE", "VIDEO"]).optional(),
+    previewImages: z.array(z.string()).optional(),
   }),
 });
 
 // Generate preview schema
 export const generatePreviewSchema = z.object({
-  body: z.object({
-    templateId: z.string().min(1, "Template ID is required"),
-  }),
+  body: z
+    .object({
+      templateId: z.string().optional(),
+      promptTemplate: z.string().optional(),
+      variables: z.record(z.string(), z.any()).optional(),
+      referenceAdImage: z.string().optional(),
+      productImage: z.string().optional(),
+    })
+    .refine((data) => data.templateId || data.promptTemplate, {
+      message: "Either templateId or promptTemplate must be provided",
+      path: ["templateId", "promptTemplate"],
+    }),
 });
 
 // Get templates query schema
@@ -49,6 +59,7 @@ export const getTemplatesSchema = z.object({
     limit: z.string().optional(),
     search: z.string().optional(),
     categoryId: z.string().optional(),
+    categoryIds: z.array(z.string()).optional(),
     isActive: z.string().optional(),
     filterType: z
       .enum(["mine", "others", "all", "liked", "favorited", "recent"])

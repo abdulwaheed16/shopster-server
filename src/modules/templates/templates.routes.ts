@@ -1,5 +1,7 @@
 import { Router } from "express";
+import { UserRole } from "../../common/constants/roles.constant";
 import { authenticate } from "../../common/middlewares/auth.middleware";
+import { authorize } from "../../common/middlewares/role.middleware";
 import { validate } from "../../common/middlewares/validate.middleware";
 import * as CommonValidators from "../../common/validations/common.validation";
 import { templatesController } from "./templates.controller";
@@ -47,7 +49,7 @@ router.use(authenticate);
 router.get(
   "/my",
   validate(getTemplatesSchema),
-  templatesController.getMyTemplates.bind(templatesController)
+  templatesController.getMyTemplates.bind(templatesController),
 );
 
 /**
@@ -81,7 +83,7 @@ router.get(
 router.get(
   "/general",
   validate(getTemplatesSchema),
-  templatesController.getGeneralTemplates.bind(templatesController)
+  templatesController.getGeneralTemplates.bind(templatesController),
 );
 
 /**
@@ -125,7 +127,7 @@ router.get(
 router.get(
   "/",
   validate(getTemplatesSchema),
-  templatesController.getTemplates.bind(templatesController)
+  templatesController.getTemplates.bind(templatesController),
 );
 
 /**
@@ -158,7 +160,7 @@ router.get(
 router.post(
   "/preview",
   validate(generatePreviewSchema),
-  templatesController.generatePreview.bind(templatesController)
+  templatesController.generatePreview.bind(templatesController),
 );
 
 /**
@@ -187,7 +189,7 @@ router.post(
 router.get(
   "/:id",
   validate(CommonValidators.idSchema),
-  templatesController.getTemplateById.bind(templatesController)
+  templatesController.getTemplateById.bind(templatesController),
 );
 
 /**
@@ -215,8 +217,9 @@ router.get(
  */
 router.post(
   "/",
+  authorize(UserRole.ADMIN),
   validate(createTemplateSchema),
-  templatesController.createTemplate.bind(templatesController)
+  templatesController.createTemplate.bind(templatesController),
 );
 
 /**
@@ -252,9 +255,48 @@ router.post(
  */
 router.put(
   "/:id",
+  authorize(UserRole.ADMIN),
   validate(CommonValidators.idSchema),
   validate(updateTemplateSchema),
-  templatesController.updateTemplate.bind(templatesController)
+  templatesController.updateTemplate.bind(templatesController),
+);
+
+/**
+ * @swagger
+ * /templates/my/{id}:
+ *   put:
+ *     summary: Update own template
+ *     description: Updates a template owned by the current user.
+ *     tags: [Templates]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/TemplateUpdateInput'
+ *     responses:
+ *       200:
+ *         description: Template updated successfully
+ *       400:
+ *         description: Invalid input
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Template not found or access denied
+ */
+router.put(
+  "/my/:id",
+  validate(CommonValidators.idSchema),
+  validate(updateTemplateSchema),
+  templatesController.updateMyTemplate.bind(templatesController),
 );
 
 /**
@@ -282,8 +324,38 @@ router.put(
  */
 router.delete(
   "/:id",
+  authorize(UserRole.ADMIN),
   validate(CommonValidators.idSchema),
-  templatesController.deleteTemplate.bind(templatesController)
+  templatesController.deleteTemplate.bind(templatesController),
+);
+
+/**
+ * @swagger
+ * /templates/my/{id}:
+ *   delete:
+ *     summary: Delete own template
+ *     description: Deletes a specific template owned by the current user.
+ *     tags: [Templates]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Template deleted successfully
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Template not found
+ */
+router.delete(
+  "/my/:id",
+  validate(CommonValidators.idSchema),
+  templatesController.deleteMyTemplate.bind(templatesController),
 );
 
 /**
@@ -314,33 +386,35 @@ router.delete(
  */
 router.post(
   "/bulk-delete",
+  authorize(UserRole.ADMIN),
   validate(bulkDeleteTemplatesSchema),
-  templatesController.bulkDeleteTemplates.bind(templatesController)
+  templatesController.bulkDeleteTemplates.bind(templatesController),
 );
 
 // Interaction Routes
 router.post(
   "/:id/visit",
   validate(CommonValidators.idSchema),
-  templatesController.trackVisit.bind(templatesController)
+  templatesController.trackVisit.bind(templatesController),
 );
 
 router.post(
   "/:id/like",
   validate(CommonValidators.idSchema),
-  templatesController.toggleLike.bind(templatesController)
+  templatesController.toggleLike.bind(templatesController),
 );
 
 router.post(
   "/:id/favorite",
   validate(CommonValidators.idSchema),
-  templatesController.toggleFavorite.bind(templatesController)
+  templatesController.toggleFavorite.bind(templatesController),
 );
 
 // Admin Routes
 router.get(
   "/admin/stats",
-  templatesController.getAdminStats.bind(templatesController)
+  authorize(UserRole.ADMIN),
+  templatesController.getAdminStats.bind(templatesController),
 );
 
 export default router;
