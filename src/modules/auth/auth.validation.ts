@@ -11,6 +11,7 @@ export const registerSchema = z.object({
     email: emailSchema,
     password: passwordSchema,
     name: nameSchema,
+    role: z.enum(["USER", "ADMIN"]).optional(), // Temporary
   }),
 });
 
@@ -25,7 +26,7 @@ export const loginSchema = z.object({
 // Refresh token validation
 export const refreshTokenSchema = z.object({
   body: z.object({
-    refreshToken: z.string().min(1, "Refresh token is required"),
+    refreshToken: z.string().optional(),
   }),
 });
 
@@ -68,4 +69,3 @@ export type RequestPasswordResetBody = z.infer<
 >["body"];
 export type ResetPasswordBody = z.infer<typeof resetPasswordSchema>["body"];
 export type ChangePasswordBody = z.infer<typeof changePasswordSchema>["body"];
-

@@ -4,6 +4,7 @@ import express, { Application } from "express";
 import "express-async-errors"; // Must be imported before routes
 import helmet from "helmet";
 import morgan from "morgan";
+import path from "path";
 import swaggerUi from "swagger-ui-express";
 
 import { errorHandler } from "./common/middlewares/error.middleware";
@@ -19,28 +20,35 @@ export const createApp = (): Application => {
   // Trust Proxy for Ngrok/Cloudinary/Heroku
   app.set("trust proxy", 1);
 
-  // Security middleware
-  app.use(
-    helmet({
-      crossOriginResourcePolicy: { policy: "cross-origin" },
-    }),
-  );
+  // Debugging middleware for SSE
+  app.use((req, res, next) => {
+    if (req.url.includes("/events") || req.url.includes("/test-sse")) {
+      console.log(
+        `[EARLY-SSE-DEBUG] Incoming ${req.method} request to ${req.url}`,
+      );
+      console.log(`[EARLY-SSE-DEBUG] Headers:`, JSON.stringify(req.headers));
+    }
+    next();
+  });
 
   // CORS configuration
   app.use(
     cors({
       origin: (origin, callback) => {
         const allowedOrigins = config.cors.origin;
-        // In development, be more permissive
+
         if (
           !origin ||
           allowedOrigins.includes(origin) ||
-          (config.server.isDevelopment &&
-            (origin.includes("localhost") || origin.includes("ngrok-free.app")))
+          origin.startsWith("http://localhost:") ||
+          origin.startsWith("http://127.0.0.1:") ||
+          origin.endsWith("ngrok-free.app") ||
+          origin.endsWith("ngrok.io")
         ) {
           callback(null, true);
         } else {
-          callback(null, false);
+          console.warn(`[CORS] Origin ${origin} is REJECTED`);
+          callback(new Error("Not allowed by CORS"));
         }
       },
       credentials: true,
@@ -52,6 +60,15 @@ export const createApp = (): Application => {
         "Accept",
         "ngrok-skip-browser-warning",
       ],
+      optionsSuccessStatus: 200,
+    }),
+  );
+
+  // 2. Security middleware
+  app.use(
+    helmet({
+      crossOriginResourcePolicy: { policy: "cross-origin" },
+      contentSecurityPolicy: false, // Disable CSP for debugging if it interferes
     }),
   );
 
@@ -97,6 +114,9 @@ export const createApp = (): Application => {
     }),
   );
 
+  // Serve static assets from the assets directory
+  app.use("/assets", express.static(path.join(__dirname, "../assets")));
+
   // API routes
   app.use(routes);
 
@@ -114,22 +134,3 @@ export const createApp = (): Application => {
   return app;
 };
 
-// Docker Redis commands
-
-// # Run Redis in Docker
-// docker run -d -p 6379:6379 --name shopster-redis redis:alpine
-
-// # Verify
-// docker ps | grep redis
-
-// # Start
-// docker start shopster-redis
-
-// # Stop
-// docker stop shopster-redis
-
-// # Remove
-// docker rm shopster-redis
-
-// # Inspect
-// docker inspect shopster-redis

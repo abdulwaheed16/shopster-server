@@ -336,6 +336,7 @@ export class StoresController {
       // 4. Map and save products
       const productsToSync = shopifyProducts.map((sp: any) => ({
         storeId: id,
+        categoryIds: sp.categoryIds || [],
         externalId: sp.id.toString(),
         productSource: "STORE" as const,
         sourceMetadata: {

@@ -6,7 +6,6 @@ import { authService } from "./auth.service";
 import {
   ChangePasswordBody,
   LoginBody,
-  RefreshTokenBody,
   RegisterBody,
   RequestPasswordResetBody,
   ResetPasswordBody,
@@ -18,7 +17,7 @@ export class AuthController {
   async changePassword(
     req: Request,
     res: Response,
-    next: NextFunction
+    next: NextFunction,
   ): Promise<void> {
     try {
       const data: ChangePasswordBody = req.body;
@@ -36,7 +35,7 @@ export class AuthController {
   async register(
     req: Request,
     res: Response,
-    next: NextFunction
+    next: NextFunction,
   ): Promise<void> {
     try {
       const data: RegisterBody = req.body;
@@ -63,7 +62,7 @@ export class AuthController {
         res.cookie(
           "refreshToken",
           result.tokens.refreshToken,
-          jwtConfig.cookie
+          jwtConfig.cookie,
         );
       }
 
@@ -81,11 +80,17 @@ export class AuthController {
   async refreshToken(
     req: Request,
     res: Response,
-    next: NextFunction
+    next: NextFunction,
   ): Promise<void> {
     try {
-      const data: RefreshTokenBody = req.body;
-      const result = await authService.refreshToken(data);
+      const refreshToken = req.body.refreshToken || req.cookies.refreshToken;
+
+      if (!refreshToken) {
+        sendSuccess(res, MESSAGES.AUTH.INVALID_TOKEN, null, 401);
+        return;
+      }
+
+      const result = await authService.refreshToken({ refreshToken });
 
       sendSuccess(res, MESSAGES.AUTH.TOKEN_REFRESHED, result);
     } catch (error) {
@@ -110,7 +115,7 @@ export class AuthController {
   async verifyEmail(
     req: Request,
     res: Response,
-    next: NextFunction
+    next: NextFunction,
   ): Promise<void> {
     try {
       const data: VerifyEmailBody = req.body;
@@ -126,7 +131,7 @@ export class AuthController {
   async requestPasswordReset(
     req: Request,
     res: Response,
-    next: NextFunction
+    next: NextFunction,
   ): Promise<void> {
     try {
       const data: RequestPasswordResetBody = req.body;
@@ -142,7 +147,7 @@ export class AuthController {
   async resetPassword(
     req: Request,
     res: Response,
-    next: NextFunction
+    next: NextFunction,
   ): Promise<void> {
     try {
       const data: ResetPasswordBody = req.body;

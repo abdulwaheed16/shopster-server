@@ -23,6 +23,7 @@ export const validate = (schema: ZodObject) => {
           path: err.path.join("."),
           message: err.message,
         }));
+        console.error("Validation Errors:", JSON.stringify(errors, null, 2));
         next(ApiError.validation("Validation failed", errors));
       } else {
         next(error);

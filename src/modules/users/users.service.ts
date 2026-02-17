@@ -38,7 +38,7 @@ export class UsersService implements IUsersService {
         where,
         skip: getPrismaSkip(page, limit),
         take: limit,
-        orderBy: { [sortBy as string]: sortOrder },
+        orderBy: { [sortBy]: sortOrder },
         select: {
           id: true,
           email: true,
@@ -95,7 +95,7 @@ export class UsersService implements IUsersService {
     if (!user) {
       throw ApiError.notFound(
         MESSAGES.USERS.NOT_FOUND,
-        ERROR_CODES.USER_NOT_FOUND
+        ERROR_CODES.USER_NOT_FOUND,
       );
     }
 
@@ -110,7 +110,7 @@ export class UsersService implements IUsersService {
     if (!existingUser) {
       throw ApiError.notFound(
         MESSAGES.USERS.NOT_FOUND,
-        ERROR_CODES.USER_NOT_FOUND
+        ERROR_CODES.USER_NOT_FOUND,
       );
     }
 
@@ -123,7 +123,7 @@ export class UsersService implements IUsersService {
       if (emailExists) {
         throw ApiError.conflict(
           MESSAGES.AUTH.EMAIL_ALREADY_EXISTS,
-          ERROR_CODES.EMAIL_ALREADY_EXISTS
+          ERROR_CODES.EMAIL_ALREADY_EXISTS,
         );
       }
     }
@@ -159,7 +159,7 @@ export class UsersService implements IUsersService {
     if (!user) {
       throw ApiError.notFound(
         MESSAGES.USERS.NOT_FOUND,
-        ERROR_CODES.USER_NOT_FOUND
+        ERROR_CODES.USER_NOT_FOUND,
       );
     }
 
@@ -192,7 +192,7 @@ export class UsersService implements IUsersService {
     if (!user) {
       throw ApiError.notFound(
         MESSAGES.USERS.NOT_FOUND,
-        ERROR_CODES.USER_NOT_FOUND
+        ERROR_CODES.USER_NOT_FOUND,
       );
     }
 

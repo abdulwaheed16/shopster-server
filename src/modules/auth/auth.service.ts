@@ -37,7 +37,7 @@ export class AuthService implements IAuthService {
     // Verify current (old) password
     const isPasswordValid = await comparePassword(
       data.currentPassword,
-      user.password
+      user.password,
     );
 
     if (!isPasswordValid) {
@@ -64,7 +64,7 @@ export class AuthService implements IAuthService {
     if (existingUser && existingUser.emailVerified) {
       throw ApiError.conflict(
         MESSAGES.AUTH.EMAIL_ALREADY_EXISTS,
-        ERROR_CODES.EMAIL_ALREADY_EXISTS
+        ERROR_CODES.EMAIL_ALREADY_EXISTS,
       );
     }
 
@@ -79,6 +79,7 @@ export class AuthService implements IAuthService {
         data: {
           password: hashedPassword,
           name: data.name,
+          role: (data.role as UserRole) || UserRole.USER,
         },
       });
     } else {
@@ -88,7 +89,8 @@ export class AuthService implements IAuthService {
           email: data.email,
           password: hashedPassword,
           name: data.name,
-          role: UserRole.USER,
+          // role:UserRole.USER,
+          role: (data.role as UserRole) || UserRole.USER,
         },
       });
     }
@@ -119,7 +121,7 @@ export class AuthService implements IAuthService {
     await emailTemplates.sendVerificationEmail(
       user.email,
       verificationToken,
-      user.name || "User"
+      user.name || "User",
     );
 
     // Generate tokens
@@ -188,12 +190,12 @@ export class AuthService implements IAuthService {
 
   // Refresh access token
   async refreshToken(data: RefreshTokenBody) {
-    // Verify refresh token
-    const decoded = verifyRefreshToken(data.refreshToken);
-
-    if (!decoded) {
+    if (!data.refreshToken) {
       throw ApiError.unauthorized(MESSAGES.AUTH.INVALID_TOKEN);
     }
+
+    // Verify refresh token
+    const decoded = verifyRefreshToken(data.refreshToken);
 
     // Check if user still exists
     const user = await prisma.user.findUnique({
@@ -295,7 +297,7 @@ export class AuthService implements IAuthService {
     await emailTemplates.sendPasswordResetEmail(
       user.email,
       resetToken,
-      user.name || "User"
+      user.name || "User",
     );
   }
 

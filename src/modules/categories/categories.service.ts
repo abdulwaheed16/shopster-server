@@ -18,7 +18,7 @@ export class CategoriesService implements ICategoriesService {
     const skip = (page - 1) * limit;
 
     const where: Prisma.CategoryWhereInput = {
-      OR: [{ userId }, { userId: null }], // User's categories or global
+      // OR: [{ userId }, { userId: null }], // User's categories or global
     };
 
     if (query.search) {
@@ -40,21 +40,54 @@ export class CategoriesService implements ICategoriesService {
 
     const [categories, total] = await Promise.all([
       prisma.category.findMany({
-        where,
+        // where,
         skip,
         take: limit,
         orderBy: { name: "asc" },
+        include: {
+          _count: {
+            select: { templates: { where: { isActive: true } } },
+          },
+        },
       }),
       prisma.category.count({ where }),
     ]);
 
+    // Enrichment...
+    const enrichedCategories = categories.map((category) => {
+      const { _count, ...rest } = category as any;
+      return {
+        ...rest,
+        templateCount: _count?.templates || 0,
+      };
+    });
+
+    const finalCategories = query.withTemplatesOnly
+      ? enrichedCategories.filter((cat) => cat.templateCount > 0)
+      : enrichedCategories;
+
+    // console.log("Categories", {
+    //   categories,
+    //   enrichedCategories,
+    //   finalCategories,
+    // });
+
+    // FALLBACK: If no categories found after filtering (and no search), return mock categories
+    // if (finalCategories.length === 0 && !query.search) {
+    //   return {
+    //     data: query.withTemplatesOnly
+    //       ? mockCategories.filter((cat) => cat.templateCount > 0)
+    //       : mockCategories,
+    //     meta: calculatePagination(mockCategories.length, page, limit),
+    //   } as any;
+    // }
+
     return {
-      data: categories,
+      data: finalCategories,
       meta: calculatePagination(total, page, limit),
-    };
+    } as any;
   }
 
-  // Get category by ID
   async getCategoryById(id: string, userId: string) {
     const category = await prisma.category.findFirst({
       where: {
@@ -70,20 +103,17 @@ export class CategoriesService implements ICategoriesService {
     return category;
   }
 
-  // Create category
   async createCategory(userId: string, data: CreateCategoryBody) {
-    // Check if slug already exists for this user
     const existing = await prisma.category.findFirst({
       where: { userId, slug: data.slug },
     });
 
     if (existing) {
       throw ApiError.badRequest(
-        `Category with slug "${data.slug}" already exists`
+        `Category with slug "${data.slug}" already exists`,
       );
     }
 
-    // Verify parent if provided
     if (data.parentId) {
       await this.getCategoryById(data.parentId, userId);
     }
@@ -96,7 +126,6 @@ export class CategoriesService implements ICategoriesService {
     });
   }
 
-  // Update category
   async updateCategory(id: string, userId: string, data: UpdateCategoryBody) {
     const category = await this.getCategoryById(id, userId);
 
@@ -104,7 +133,6 @@ export class CategoriesService implements ICategoriesService {
       throw ApiError.forbidden("Cannot update global categories");
     }
 
-    // Check slug uniqueness if updated
     if (data.slug) {
       const existing = await prisma.category.findFirst({
         where: {
@@ -116,12 +144,11 @@ export class CategoriesService implements ICategoriesService {
 
       if (existing) {
         throw ApiError.badRequest(
-          `Category with slug "${data.slug}" already exists`
+          `Category with slug "${data.slug}" already exists`,
         );
       }
     }
 
-    // Verify parent if provided
     if (data.parentId) {
       await this.getCategoryById(data.parentId, userId);
     }
@@ -132,7 +159,6 @@ export class CategoriesService implements ICategoriesService {
     });
   }
 
-  // Delete category
   async deleteCategory(id: string, userId: string): Promise<void> {
     const category = await this.getCategoryById(id, userId);
 
@@ -140,25 +166,23 @@ export class CategoriesService implements ICategoriesService {
       throw ApiError.forbidden("Cannot delete global categories");
     }
 
-    // Check if there are products using this category
     const productCount = await prisma.product.count({
-      where: { categoryId: id },
+      where: { categoryIds: { has: id } },
     });
 
     if (productCount > 0) {
       throw ApiError.badRequest(
-        `Cannot delete category as it is being used by ${productCount} product(s).`
+        `Cannot delete category as it is being used by ${productCount} product(s).`,
       );
     }
 
-    // Check for children
     const childCount = await prisma.category.count({
       where: { parentId: id },
     });
 
     if (childCount > 0) {
       throw ApiError.badRequest(
-        `Cannot delete category as it has ${childCount} sub-categories.`
+        `Cannot delete category as it has ${childCount} sub-categories.`,
       );
     }
 

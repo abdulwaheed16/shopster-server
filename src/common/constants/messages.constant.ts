@@ -82,6 +82,7 @@ export const MESSAGES = {
     NOT_FOUND: "Ad not found",
     GENERATION_FAILED: "Ad generation failed",
     QUEUED: "Ad generation queued successfully",
+    CANCELLED: "Ad generation cancelled successfully",
   },
 
   // Ad Drafts

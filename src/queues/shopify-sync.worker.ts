@@ -46,6 +46,7 @@ export const shopifySyncWorker = new Worker(
       // 4. Map Shopify products to our Product model
       const productsToSync = shopifyProducts.map((sp: any) => ({
         storeId,
+        categoryIds: sp.categoryIds || [],
         externalId: sp.id.toString(),
         productSource: ProductSource.STORE,
         sourceMetadata: {

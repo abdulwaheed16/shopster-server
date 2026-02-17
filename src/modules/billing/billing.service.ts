@@ -85,7 +85,7 @@ export class BillingService {
               {
                 id: (
                   (await stripeService.retrieveSubscription(
-                    currentSub.stripeSubscriptionId
+                    currentSub.stripeSubscriptionId,
                   )) as any
                 ).items.data[0].id,
                 price: plan.priceId || undefined, // Use priceId if exists, else we'd need to create one. For simplicity, assuming standard plans have priceIds or we use ad-hoc.
@@ -96,7 +96,7 @@ export class BillingService {
             // Stripe automatically aligns this to the next period if scheduled via update with specific flags or just update.
             // Actually, 'none' proration with change of price usually takes effect at the end of the current period if we use 'billing_cycle_anchor: uncharged'?
             // No, 'none' means keep current until end, then switch.
-          } as any
+          } as any,
         );
 
         await subscriptionService.updateSubscriptionPeriod(
@@ -104,7 +104,7 @@ export class BillingService {
           {
             cancelAtPeriodEnd: false, // Ensure it's not canceled, just scheduled for change
             pendingPlanId: plan.id, // Track what it will change to
-          } as any
+          } as any,
         );
 
         return { url: `${process.env.FRONTEND_URL}/billing?scheduled=true` };
@@ -121,7 +121,7 @@ export class BillingService {
       const customer = await stripeService.createCustomer(
         user.email,
         user.name || undefined,
-        { userId: user.id }
+        { userId: user.id },
       );
       stripeCustomerId = customer.id;
       await prisma.user.update({
@@ -162,7 +162,7 @@ export class BillingService {
    */
   async getInvoices(
     userId: string,
-    options: { page?: number; limit?: number; status?: string } = {}
+    options: { page?: number; limit?: number; status?: string } = {},
   ) {
     const { page = 1, limit = 10, status } = options;
     const skip = (page - 1) * (limit > 50 ? 50 : limit);
@@ -181,10 +181,10 @@ export class BillingService {
       });
       if (user?.stripeCustomerId) {
         const stripeInvoices = await stripeService.listInvoices(
-          user.stripeCustomerId
+          user.stripeCustomerId,
         );
         console.log(
-          `Syncing ${stripeInvoices.data.length} invoices for user ${userId}`
+          `Syncing ${stripeInvoices.data.length} invoices for user ${userId}`,
         );
         if (stripeInvoices.data.length > 0) {
           await Promise.all(
@@ -207,8 +207,8 @@ export class BillingService {
                   pdfUrl: inv.invoice_pdf || inv.hosted_invoice_url,
                   number: inv.number,
                 },
-              } as any)
-            )
+              } as any),
+            ),
           );
           total = await prisma.invoice.count({ where });
         }
@@ -251,7 +251,7 @@ export class BillingService {
     if (!user || !user.stripeCustomerId) return [];
 
     const methods = await stripeService.listPaymentMethods(
-      user.stripeCustomerId
+      user.stripeCustomerId,
     );
 
     return methods.data.map((pm) => ({
@@ -272,13 +272,13 @@ export class BillingService {
 
     if (!user || !user.stripeCustomerId) {
       throw ApiError.badRequest(
-        "No active billing record found. Please subscribe first."
+        "No active billing record found. Please subscribe first.",
       );
     }
 
     const { url } = await stripeService.createPortalSession(
       user.stripeCustomerId,
-      data.returnUrl || `${process.env.FRONTEND_URL}/dashboard/settings`
+      data.returnUrl || `${process.env.FRONTEND_URL}/dashboard/settings`,
     );
 
     return { url };
@@ -294,18 +294,18 @@ export class BillingService {
       event = stripeService.constructEvent(
         payload,
         signature,
-        process.env.STRIPE_WEBHOOK_SECRET as string
+        process.env.STRIPE_WEBHOOK_SECRET as string,
       );
     } catch (err: any) {
       throw ApiError.badRequest(
-        `Webhook signature verification failed: ${err.message}`
+        `Webhook signature verification failed: ${err.message}`,
       );
     }
 
     switch (event.type) {
       case "checkout.session.completed":
         await this.handleCheckoutComplete(
-          event.data.object as Stripe.Checkout.Session
+          event.data.object as Stripe.Checkout.Session,
         );
         break;
       case "invoice.paid":
@@ -314,7 +314,7 @@ export class BillingService {
       case "customer.subscription.updated":
       case "customer.subscription.deleted":
         await this.handleSubscriptionChange(
-          event.data.object as Stripe.Subscription
+          event.data.object as Stripe.Subscription,
         );
         break;
     }
@@ -349,23 +349,23 @@ export class BillingService {
     ) {
       try {
         console.log(
-          `Cancelling previous subscription ${user.subscription.stripeSubscriptionId} for user ${userId}`
+          `Cancelling previous subscription ${user.subscription.stripeSubscriptionId} for user ${userId}`,
         );
         await stripeService.cancelSubscription(
           user.subscription.stripeSubscriptionId,
-          true // Immediate cancellation
+          true, // Immediate cancellation
         );
       } catch (e) {
         console.error(
           `Failed to cancel old subscription ${user.subscription.stripeSubscriptionId}:`,
-          e
+          e,
         );
       }
     }
 
     const plan = await this.getPlanById(planId);
     const stripeSub = (await stripeService.retrieveSubscription(
-      stripeSubscriptionId
+      stripeSubscriptionId,
     )) as any;
 
     // Update or create subscription in DB
@@ -386,7 +386,7 @@ export class BillingService {
       userId,
       plan.creditsPerMonth,
       UsageType.MONTHLY_REFILL,
-      `Credits for ${plan.name} plan (Sync)`
+      `Credits for ${plan.name} plan (Sync)`,
     );
   }
 
@@ -404,13 +404,12 @@ export class BillingService {
 
     if (!stripeSubscriptionId) return;
 
-    const sub = await subscriptionService.getSubscriptionByStripeId(
-      stripeSubscriptionId
-    );
+    const sub =
+      await subscriptionService.getSubscriptionByStripeId(stripeSubscriptionId);
     if (!sub) return;
 
     const stripeSub = (await stripeService.retrieveSubscription(
-      stripeSubscriptionId
+      stripeSubscriptionId,
     )) as any;
 
     // Update period in DB
@@ -428,7 +427,7 @@ export class BillingService {
       sub.userId,
       refillAmount,
       UsageType.MONTHLY_REFILL,
-      `Monthly credit refill for ${sub.plan.name}`
+      `Monthly credit refill for ${sub.plan.name}`,
     );
 
     // Persist invoice in DB for history (SOLID: Persistent storage)
@@ -457,7 +456,7 @@ export class BillingService {
    * Handle general subscription changes or cancellations
    */
   private async handleSubscriptionChange(
-    stripeSubscription: Stripe.Subscription
+    stripeSubscription: Stripe.Subscription,
   ) {
     const stripeSub = stripeSubscription as any;
     const stripeSubscriptionId = stripeSub.id;
@@ -465,7 +464,7 @@ export class BillingService {
     if (stripeSub.status === "canceled") {
       await subscriptionService.updateSubscriptionStatus(
         stripeSubscriptionId,
-        SubscriptionStatus.CANCELED
+        SubscriptionStatus.CANCELED,
       );
       return;
     }
@@ -492,7 +491,7 @@ export class BillingService {
     }
 
     const stripeSub = (await stripeService.cancelSubscription(
-      sub.stripeSubscriptionId
+      sub.stripeSubscriptionId,
     )) as any;
 
     // Update DB status immediately to reflect it will cancel at period end
@@ -503,7 +502,7 @@ export class BillingService {
         currentPeriodStart: sub.currentPeriodStart!,
         currentPeriodEnd: sub.currentPeriodEnd!,
         cancelAtPeriodEnd: true,
-      }
+      },
     );
 
     return {
@@ -525,7 +524,7 @@ export class BillingService {
 
     const isPasswordValid = await comparePassword(
       data.adminPassword,
-      admin.password
+      admin.password,
     );
     if (!isPasswordValid)
       throw ApiError.unauthorized("Invalid admin credentials");
@@ -536,7 +535,7 @@ export class BillingService {
     });
     if (!customPlan)
       throw ApiError.notFound(
-        "Custom plan definition not found. Please run seeds."
+        "Custom plan definition not found. Please run seeds.",
       );
 
     // 3. Create or update user's subscription with custom plan
@@ -557,7 +556,7 @@ export class BillingService {
             new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
           customCreditsPerMonth: data.credits,
           customStoresLimit: data.storesLimit,
-        } as any
+        } as any,
       );
     }
 
@@ -565,7 +564,7 @@ export class BillingService {
     await creditsService.setCredits(
       data.userId,
       data.credits,
-      `Custom plan assigned: ${data.credits} credits/month, ${data.storesLimit} stores limit`
+      `Custom plan assigned: ${data.credits} credits/month, ${data.storesLimit} stores limit`,
     );
 
     return {
@@ -584,8 +583,14 @@ export class BillingService {
     userId: string,
     amount: number,
     type: UsageType,
-    description?: string
+    description?: string,
   ) {
+    // PAUSED: Bypassing credit deduction per user request
+    console.log(
+      `Bypassing credit deduction for user: ${userId} (${amount} credits)`,
+    );
+    return;
+
     const user = await prisma.user.findUnique({
       where: { id: userId },
       select: { role: true },
@@ -600,7 +605,7 @@ export class BillingService {
       userId,
       amount,
       type,
-      description
+      description,
     );
   }
 

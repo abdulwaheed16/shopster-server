@@ -10,7 +10,7 @@ export const createCategorySchema = z.object({
       .min(1, "Slug is required")
       .regex(
         /^[a-z0-9-]+$/,
-        "Slug must be lowercase alphanumeric with hyphens"
+        "Slug must be lowercase alphanumeric with hyphens",
       ),
     description: z.string().optional(),
     parentId: objectIdSchema.optional(),
@@ -33,13 +33,16 @@ export const updateCategorySchema = z.object({
   }),
 });
 
-// Get categories query schema
 export const getCategoriesSchema = z.object({
   query: z.object({
     page: z.string().optional(),
     limit: z.string().optional(),
     search: z.string().optional(),
     parentId: objectIdSchema.optional(),
+    withTemplatesOnly: z
+      .string()
+      .optional()
+      .transform((val) => val === "true"),
   }),
 });
 

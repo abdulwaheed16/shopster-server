@@ -18,9 +18,11 @@ export class DashboardService implements IDashboardService {
       // Total stores
       prisma.store.count({ where: { userId } }),
 
-      // Total products
+      // Total products (both synced and uploaded)
       prisma.product.count({
-        where: { store: { userId } },
+        where: {
+          OR: [{ userId }, { store: { userId } }],
+        },
       }),
 
       // Total templates
