@@ -49,7 +49,7 @@ export class AIService {
         prompt: AD_VISION_PROMPTS.ANALYZER_TASK,
         systemPrompt: `${AD_VISION_PROMPTS.ANALYZER_ROLE}\n\nSchema:\n${AD_VISION_PROMPTS.ANALYZER_SCHEMA}\n\nOutput Format: ${AD_VISION_PROMPTS.ANALYZER_FORMAT}`,
         imageUrls: [imageUrl],
-        modelName: TEXT_MODELS.GEMINI_2_5_FLASH,
+        modelName: TEXT_MODELS.GEMINI_1_5_FLASH,
       },
       AI_PROVIDERS.GEMINI,
     );
@@ -85,32 +85,45 @@ export class AIService {
           visionAnalysis,
         ),
         systemPrompt: AD_PROMPT_ENGINEERING.SYSTEM_MESSAGE,
-        modelName: TEXT_MODELS.GEMINI_2_5_FLASH,
+        modelName: TEXT_MODELS.GEMINI_1_5_FLASH,
       },
       AI_PROVIDERS.GEMINI,
     );
 
-    // Parse the result (which should be JSON or raw YAML-like string)
+    // Parse the result
+    let cleanResult = result.trim();
     try {
-      // Clean potential markdown fences
-      const cleanResult = result
+      // Clean potential markdown fences and common prefix text
+      cleanResult = cleanResult
         .replace(/```json/gi, "")
         .replace(/```yaml/gi, "")
         .replace(/```/g, "")
         .trim();
 
+      // If it still contains "scenes": { ... } but isn't just that, try to find the first { and last }
+      if (!cleanResult.startsWith("{")) {
+        const start = cleanResult.indexOf("{");
+        const end = cleanResult.lastIndexOf("}");
+        if (start !== -1 && end !== -1) {
+          cleanResult = cleanResult.substring(start, end + 1);
+        }
+      }
+
       const parsed = JSON.parse(cleanResult);
       const scene = parsed.scenes?.[0] || {};
 
       return {
-        imagePrompt: scene.image_prompt || cleanResult,
-        aspectRatio: scene.aspect_ratio_image || "2:3",
+        imagePrompt: scene.image_prompt || scene.prompt || cleanResult,
+        aspectRatio: scene.aspect_ratio_image || scene.aspect_ratio || "2:3",
       };
     } catch (e) {
       console.warn(
-        "[AIService] Failed to parse prompt construction result:",
-        e,
+        "[AIService] Failed to parse prompt construction result. Error:",
+        e instanceof Error ? e.message : e,
       );
+      console.warn("[AIService] Raw LLM Output:", result);
+      console.warn("[AIService] Cleaned Output Attempt:", cleanResult);
+
       return {
         imagePrompt: result,
         aspectRatio: "2:3",

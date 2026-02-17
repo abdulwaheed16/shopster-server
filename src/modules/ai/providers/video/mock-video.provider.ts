@@ -6,9 +6,10 @@ import {
 
 export class MockVideoProvider implements IVideoGenerator {
   async generate(options: VideoPromptOptions): Promise<VideoGenerationResult> {
+    const scenes = options.scenes || [];
     console.log(
-      "[MockVideoProvider] Generating mock video for:",
-      options.prompt,
+      `[MockVideoProvider] Generating mock video for: ${options.adId || "unknown"}`,
+      `Scenes count: ${scenes.length}`,
     );
 
     // Simulate delay
@@ -19,8 +20,7 @@ export class MockVideoProvider implements IVideoGenerator {
         "https://sample-videos.com/video321/mp4/720/big_buck_bunny_720p_1mb.mp4",
       metadata: {
         provider: "mock",
-        prompt: options.prompt,
-        videoType: options.videoType,
+        scenesCount: scenes.length,
         generatedAt: new Date().toISOString(),
       },
     };

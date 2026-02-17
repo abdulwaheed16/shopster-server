@@ -6,7 +6,8 @@ import {
   sendSuccess,
 } from "../../common/utils/response.util";
 import { adsService } from "./ads.service";
-import { GenerateAdBody, GetAdsQuery } from "./ads.validation";
+import { GetAdsQuery } from "./ads.validation";
+import { GenerateAdPayload } from "./interfaces/generate-ad.interface";
 
 export class AdsController {
   // Get all ads --- GET /ads
@@ -27,7 +28,7 @@ export class AdsController {
   async getAdById(
     req: Request,
     res: Response,
-    next: NextFunction
+    next: NextFunction,
   ): Promise<void> {
     try {
       const userId = req.user!.id;
@@ -45,11 +46,11 @@ export class AdsController {
   async generateAd(
     req: Request,
     res: Response,
-    next: NextFunction
+    next: NextFunction,
   ): Promise<void> {
     try {
       const userId = req.user!.id;
-      const data: GenerateAdBody = req.body;
+      const data: GenerateAdPayload = req.body;
 
       const ad = await adsService.generateAd(userId, data);
 
@@ -59,11 +60,30 @@ export class AdsController {
     }
   }
 
+  // Update ad --- PATCH /ads/:id
+  async updateAd(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
+    try {
+      const userId = req.user!.id;
+      const { id } = req.params;
+      const data = req.body;
+
+      const ad = await adsService.updateAd(id, userId, data);
+
+      sendSuccess(res, MESSAGES.ADS.UPDATED, ad);
+    } catch (error) {
+      next(error);
+    }
+  }
+
   // Delete ad --- DELETE /ads/:id
   async deleteAd(
     req: Request,
     res: Response,
-    next: NextFunction
+    next: NextFunction,
   ): Promise<void> {
     try {
       const userId = req.user!.id;
@@ -81,7 +101,7 @@ export class AdsController {
   async bulkDeleteAds(
     req: Request,
     res: Response,
-    next: NextFunction
+    next: NextFunction,
   ): Promise<void> {
     try {
       const userId = req.user!.id;
@@ -91,6 +111,71 @@ export class AdsController {
 
       sendSuccess(res, `${result.count} ads deleted successfully`, {
         count: result.count,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // Cancel ad generation --- POST /ads/:id/cancel
+  async cancelAd(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
+    try {
+      const userId = req.user!.id;
+      const { id } = req.params;
+
+      await adsService.cancelAd(id, userId);
+
+      sendSuccess(res, MESSAGES.ADS.CANCELLED || "Ad generation cancelled");
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // Stream ad events (SSE) --- GET /ads/:id/events
+  async streamAdEvents(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
+    try {
+      const { id } = req.params;
+      console.log(`[SSE] streamAdEvents hit for ad ${id}`);
+
+      // Set headers explicitly and immediately
+      res.writeHead(200, {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        Connection: "keep-alive",
+        "Access-Control-Allow-Origin": req.headers.origin || "*",
+        "X-Accel-Buffering": "no",
+      });
+
+      // Send initial data immediately to "lock in" the content-type
+      res.write(
+        `data: ${JSON.stringify({ status: "CONNECTED", adId: id })}\n\n`,
+      );
+
+      // Subscribe to updates
+      const unsubscribe = adsService.subscribeToAdUpdates(id, (data) => {
+        res.write(`data: ${JSON.stringify(data)}\n\n`);
+      });
+
+      // Keep connection alive with heartbeat
+      const heartbeat = setInterval(() => {
+        res.write(": heartbeat\n\n");
+      }, 30000);
+
+      console.log("Ad events subscription established for ad:", id);
+
+      // Handle client disconnect
+      req.on("close", () => {
+        clearInterval(heartbeat);
+        unsubscribe();
+        res.end();
       });
     } catch (error) {
       next(error);

@@ -11,6 +11,7 @@ import {
 import { aiService } from "../ai/ai.service";
 import { IStorageService } from "../upload/interfaces/storage.interface";
 import { STORAGE_PROVIDERS } from "../upload/upload.constants";
+import { adsService } from "./ads.service";
 
 /**
  * Orchestrates: AI Generation -> Storage (Buffer) -> DB
@@ -36,27 +37,39 @@ export class AdProcessorService {
     assembledPrompt: string;
     aspectRatio?: AspectRatio | string;
     variantsCount?: number;
-    productImage?: string;
+    productImages?: string[];
     templateImage?: string;
     templateAnalysis?: string;
     style?: StylePreset | string;
     color?: string;
-    videoType?: string;
+    scenes?: string[];
     mediaType: MediaType;
+    duration?: number;
+    templatePrompt?: string;
+    modelImage?: string;
   }) {
     const {
       adId,
       assembledPrompt,
       aspectRatio,
       variantsCount,
-      productImage,
-      templateImage,
-      templateAnalysis,
       style,
       color,
-      videoType,
+      scenes,
       mediaType,
+      duration,
+      templatePrompt,
+      modelImage,
     } = data;
+
+    // Use actual data or fallback to mock data for testing n8n flow
+    const productImages = data.productImages || [
+      "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=1080&h=1080&fit=crop&q=80",
+    ];
+    const templateImage =
+      data.templateImage ||
+      "https://images.unsplash.com/photo-1626785774573-4b799315345d?w=1080&h=1080&fit=crop&q=80";
+    const templateAnalysis = data.templateAnalysis;
 
     try {
       // 1. Status -> PROCESSING
@@ -65,10 +78,11 @@ export class AdProcessorService {
         data: { status: AdStatus.PROCESSING },
       });
 
+      adsService.emitAdUpdate(adId, AdStatus.PROCESSING);
+
       let finalPrompt = assembledPrompt;
       let finalAspectRatio = aspectRatio;
       let modelId = IMAGE_MODELS.FAL_AI_FAST_SDXL;
-      let imageUrls: string[] | undefined = undefined;
 
       // 2-3. (Optional) Vision-based Workflow
       if (templateImage) {
@@ -76,42 +90,47 @@ export class AdProcessorService {
           `[AdProcessorService] Processing vision sequence for ad: ${adId}`,
         );
 
-        let visionAnalysis = templateAnalysis;
+        try {
+          let visionAnalysis = templateAnalysis;
 
-        // 2. Vision Analysis of Template (Skip if cached)
-        if (!visionAnalysis) {
+          // 2. Vision Analysis of Template (Skip if cached)
+          if (!visionAnalysis) {
+            console.log(
+              `[AdProcessorService] Cache miss - analyzing template: ${adId}`,
+            );
+            visionAnalysis = await aiService.analyzeAdTemplate(templateImage);
+          } else {
+            console.log(
+              `[AdProcessorService] Cache hit - using stored analysis for: ${adId}`,
+            );
+          }
+
+          // 3. Prompt Construction
+          const { imagePrompt, aspectRatio: inferredRatio } =
+            await aiService.constructAdPrompt(assembledPrompt, visionAnalysis);
+
+          finalPrompt = imagePrompt;
+          finalAspectRatio = inferredRatio;
+          modelId = IMAGE_MODELS.FAL_AI_NANO_BANANA_PRO_EDIT;
+
           console.log(
-            `[AdProcessorService] Cache miss - analyzing template: ${adId}`,
+            `[AdProcessorService] Vision workflow complete. Prompt constructed.`,
           );
-          visionAnalysis = await aiService.analyzeAdTemplate(templateImage);
-        } else {
-          console.log(
-            `[AdProcessorService] Cache hit - using stored analysis for: ${adId}`,
+        } catch (visionError: any) {
+          console.warn(
+            `[AdProcessorService] Vision/Prompt construction failed (Gemini Quota?):`,
+            visionError.message,
           );
+          console.log(`[AdProcessorService] Falling back to assembled prompt.`);
+          // Status quo remains: finalPrompt = assembledPrompt, etc.
         }
-
-        // 3. Prompt Construction
-        const { imagePrompt, aspectRatio: inferredRatio } =
-          await aiService.constructAdPrompt(assembledPrompt, visionAnalysis);
-
-        finalPrompt = imagePrompt;
-        finalAspectRatio = inferredRatio;
-        modelId = IMAGE_MODELS.FAL_AI_NANO_BANANA_PRO_EDIT;
-
-        // n8n flow: [Template, Product]
-        imageUrls = [templateImage];
-        if (productImage) imageUrls.push(productImage);
-
-        console.log(
-          `[AdProcessorService] Vision workflow complete. Prompt constructed.`,
-        );
       }
 
       // 4. AI Generation
       // Switch between providers here. The user requested to use N8N.
       const provider = AI_PROVIDERS.N8N;
       console.log(
-        `[AdProcessorService] Generating media via provider: ${provider}`,
+        `[AdProcessorService] Generating media via provider----------------: ${provider}`,
       );
 
       const generationResults =
@@ -123,11 +142,15 @@ export class AdProcessorService {
                     adId,
                     prompt: finalPrompt,
                     aspectRatio: finalAspectRatio as string,
-                    videoType,
+                    scenes,
                     style,
                     color,
-                    imageUrls,
                     modelId,
+                    duration,
+                    productImages,
+                    templateImage,
+                    templatePrompt,
+                    modelImage,
                   } as any,
                   provider,
                 )
@@ -141,91 +164,109 @@ export class AdProcessorService {
                 adId,
                 prompt: finalPrompt,
                 aspectRatio: finalAspectRatio,
-                numImages: variantsCount || 1,
+                variants: variantsCount || 1,
                 style,
                 color,
-                imageUrls,
                 modelId,
+                productImages,
+                templateImage,
+                templatePrompt,
+                userPrompt: scenes?.[0] ?? "",
+                modelImage,
               },
               provider,
             );
 
-      // 3-4. Process each variant: Download -> Upload to our Storage
+      // 3. Extract URLs directly from n8n response (no need to download/upload)
+      // NOTE: If you need to re-upload to your own storage in the future, uncomment below:
+      // import { downloadAndUploadMedia } from './utils/media-upload.util';
+      // const uploadResults = await downloadAndUploadMedia(
+      //   generationResults.map(r => r.imageUrl),
+      //   adId,
+      //   mediaType,
+      //   this.storageService
+      // );
+
+      console.log("generationResults", generationResults);
+
       console.log(
         `[AdProcessorService] Processing ${generationResults.length} variants for ad: ${adId}`,
       );
 
-      const uploadResults = await Promise.all(
-        generationResults?.map(async (res, index) => {
-          try {
-            // 3. Download to buffer
-            const url = (res as any)?.url || (res as any)?.imageUrl;
-            if (!url) throw new Error("No media URL found for variant");
-            const buffer = await this.downloadImage(url);
-
-            // 4. Upload to storage
-            const isVideo = mediaType === MediaType.VIDEO;
-            const uploadResult = await this.storageService.upload(buffer, {
-              publicId: `ad_${adId}_v${index}_${Date.now()}`,
-              folder: `ads/${adId}`,
-              resourceType: isVideo ? "video" : "image",
-            });
-
-            return uploadResult;
-          } catch (uploadError: any) {
+      // Extract n8n URLs from the response
+      const n8nUrls = generationResults
+        ?.map((res, index) => {
+          const url = (res as any)?.imageUrl || (res as any)?.url;
+          if (!url) {
             console.error(
-              `[AdProcessorService] Variant ${index} failed:`,
-              uploadError.message,
+              `[AdProcessorService] No URL found for variant ${index}`,
             );
             return null;
           }
-        }),
-      );
+          return url;
+        })
+        .filter(Boolean) as string[];
 
-      // Filter out failed uploads
-      const successfulUploads =
-        uploadResults?.filter((res) => res !== null) ?? [];
-
-      if (successfulUploads.length === 0) {
-        throw new Error(MESSAGES.STORAGE.UPLOAD_FAILED);
+      if (n8nUrls.length === 0) {
+        throw new Error("No valid image URLs returned from n8n");
       }
 
-      const primaryAsset = successfulUploads[0];
+      console.log(`[AdProcessorService] Extracted URLs:`, n8nUrls);
 
-      // 5. Update DB -> COMPLETED
+      // 4. Update DB -> COMPLETED immediately with n8n URLs (show to UI instantly)
       await prisma.ad.update({
         where: { id: adId },
         data: {
           status: AdStatus.COMPLETED,
-          // Correctly assign to videoUrl or imageUrl based on content type
           ...(mediaType === MediaType.VIDEO
             ? {
-                videoUrl: primaryAsset?.url,
-                videoUrls: successfulUploads?.map((res) => res?.url) ?? [],
+                videoUrl: n8nUrls[0],
+                videoUrls: n8nUrls,
               }
             : {
-                imageUrl: primaryAsset?.url,
-                imageUrls: successfulUploads?.map((res) => res?.url) ?? [],
+                imageUrl: n8nUrls[0],
+                imageUrls: n8nUrls,
               }),
-          cloudinaryId:
-            this.storageService.getProviderName() ===
-            STORAGE_PROVIDERS.CLOUDINARY
-              ? primaryAsset?.id
-              : undefined,
-          storagePaths: successfulUploads?.map((res) => res?.id) ?? [],
         },
       });
 
-      // 7. Post-generation Analysis (Vision)
-      // Skip vision analysis for video ads as the current model/prompt is image-specific
+      // Emit update to UI immediately
+      adsService.emitAdUpdate(adId, AdStatus.COMPLETED, {
+        url: n8nUrls[0],
+        mediaType,
+        // Include variants for the frontend
+        ...(mediaType === MediaType.VIDEO
+          ? { videoUrls: n8nUrls }
+          : { imageUrls: n8nUrls }),
+      });
+
+      console.log(
+        `[AdProcessorService] Ad ${adId} completed and visible to user`,
+      );
+
+      // 5. Background: Download and upload to our storage (non-blocking)
+      // This happens in the background and won't block the user experience
+      this.uploadToStorageInBackground(adId, n8nUrls, mediaType).catch(
+        (error: any) => {
+          console.warn(
+            `[AdProcessorService] Background upload failed for ${adId}:`,
+            error.message,
+          );
+          // Don't throw - user already sees the ad with n8n URLs
+        },
+      );
+
+      // 6. Post-generation Analysis (Vision) - DISABLED (using mock providers)
+      // Uncomment this when you want to use Gemini for vision analysis
+      /*
       if (mediaType === MediaType.IMAGE) {
         console.log(`[AdProcessorService] Analyzing generated ad for: ${adId}`);
         try {
           const resultAnalysis = await aiService.analyzeGeneratedAd(
-            primaryAsset?.url ?? "",
+            n8nUrls[0] ?? "",
           );
 
-          // 8. Final DB update with analysis
+          // Final DB update with analysis
           await prisma.ad.update({
             where: { id: adId },
             data: { resultAnalysis } as any,
@@ -243,6 +284,7 @@ export class AdProcessorService {
           `[AdProcessorService] Skipping vision analysis for mediaType: ${mediaType} (Ad: ${adId})`,
         );
       }
+      */
 
       return { success: true, adId };
     } catch (error: any) {
@@ -262,6 +304,8 @@ export class AdProcessorService {
         },
       });
 
+      adsService.emitAdUpdate(adId, AdStatus.FAILED, { error: error.message });
+
       throw error;
     }
   }
@@ -279,6 +323,101 @@ export class AdProcessorService {
         error.message,
       );
       throw new Error(`Failed to download image: ${error.message}`);
+    }
+  }
+
+  /**
+   * Background: Download n8n URLs and upload to our storage
+   * This runs asynchronously and won't block the user experience
+   * Includes retry logic for failed uploads
+   */
+  private async uploadToStorageInBackground(
+    adId: string,
+    n8nUrls: string[],
+    mediaType: MediaType,
+  ): Promise<void> {
+    console.log(`[AdProcessorService] Starting background upload for ${adId}`);
+
+    const maxRetries = 1; // Retry once if it fails
+    let attempt = 0;
+
+    while (attempt <= maxRetries) {
+      try {
+        // Download and upload each variant
+        const uploadResults = await Promise.all(
+          n8nUrls.map(async (url, index) => {
+            try {
+              // Download to buffer
+              const buffer = await this.downloadImage(url);
+
+              // Upload to storage
+              const isVideo = mediaType === MediaType.VIDEO;
+              const uploadResult = await this.storageService.upload(buffer, {
+                publicId: `ad_${adId}_v${index}_${Date.now()}`,
+                folder: `ads/${adId}`,
+                resourceType: isVideo ? "video" : "image",
+              });
+
+              return uploadResult;
+            } catch (error: any) {
+              console.error(
+                `[AdProcessorService] Background upload variant ${index} failed:`,
+                error.message,
+              );
+              return null;
+            }
+          }),
+        );
+
+        // Filter successful uploads
+        const successfulUploads = uploadResults.filter((res) => res !== null);
+
+        if (successfulUploads.length > 0) {
+          // Update DB with our storage URLs (silently, don't emit events)
+          await prisma.ad.update({
+            where: { id: adId },
+            data: {
+              ...(mediaType === MediaType.VIDEO
+                ? {
+                    videoUrl: successfulUploads[0]?.url,
+                    videoUrls: successfulUploads?.map((res) => res?.url) ?? [],
+                  }
+                : {
+                    imageUrl: successfulUploads[0]?.url,
+                    imageUrls: successfulUploads?.map((res) => res?.url) ?? [],
+                  }),
+              cloudinaryId:
+                this.storageService.getProviderName() ===
+                STORAGE_PROVIDERS.VERCEL_BLOB
+                  ? successfulUploads[0]?.id
+                  : undefined,
+              storagePaths: successfulUploads?.map((res) => res?.id) ?? [],
+            },
+          });
+
+          console.log(
+            `[AdProcessorService] Background upload completed for ${adId}`,
+          );
+          return; // Success!
+        }
+
+        throw new Error("All variants failed to upload");
+      } catch (error: any) {
+        attempt++;
+        if (attempt > maxRetries) {
+          console.error(
+            `[AdProcessorService] Background upload failed after ${maxRetries} retries for ${adId}:`,
+            error.message,
+          );
+          // Don't throw - user already has the ad with n8n URLs
+          return;
+        }
+        console.warn(
+          `[AdProcessorService] Background upload attempt ${attempt} failed, retrying...`,
+        );
+        // Wait 2 seconds before retry
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+      }
     }
   }
 }

@@ -30,7 +30,7 @@ export class FalAIProvider implements IImageGenerator {
   }
 
   async generate(
-    options: ImagePromptOptions
+    options: ImagePromptOptions,
   ): Promise<ImageGenerationResult[]> {
     if (!this.apiKey) {
       throw new Error(MESSAGES.AI.FAL_API_KEY_MISSING);
@@ -48,7 +48,7 @@ export class FalAIProvider implements IImageGenerator {
       const payload: any = {
         prompt: enhancedPrompt,
         num_inference_steps: 25,
-        num_images: options.numImages || 1,
+        num_images: options.variants || 1,
         enable_safety_checker: true,
       };
 
@@ -83,7 +83,7 @@ export class FalAIProvider implements IImageGenerator {
     } catch (error: any) {
       console.error(
         `[FalAIProvider] ${MESSAGES.AI.GENERATION_FAILED}:`,
-        error.response?.data || error.message
+        error.response?.data || error.message,
       );
       throw new Error(`${MESSAGES.AI.GENERATION_FAILED}: ${error.message}`);
     }

@@ -1,6 +1,7 @@
 import axios from "axios";
 import { config } from "../../../../config/env.config";
 import { AI_PROVIDERS } from "../../ai.constants";
+import { VideoGenerationPayload } from "../../interfaces/n8n.interface";
 import {
   IVideoGenerator,
   VideoGenerationResult,
@@ -20,13 +21,24 @@ export class N8NVideoProvider implements IVideoGenerator {
     }
 
     try {
-      console.log(`[N8NVideoProvider] Sending request to n8n: ${webhookUrl}`);
-
-      const response = await axios.post(webhookUrl, {
-        ...options,
+      const payload: VideoGenerationPayload = {
+        adId: options.adId,
+        scenes: options.scenes,
+        templatePrompt: options.templatePrompt,
+        templateImage: options.templateImage,
+        productImages: options.productImages,
+        modelImage: options.modelImage,
+        aspectRatio: options.aspectRatio,
+        style: options.style,
+        color: options.color,
         mediaType: "VIDEO",
+        duration: options.duration || 10,
         timestamp: new Date().toISOString(),
-      });
+      };
+
+      console.log("[N8NVideoProvider] Request payload:", payload);
+
+      const response = await axios.post(webhookUrl, payload);
 
       const data = response.data;
 
@@ -45,11 +57,27 @@ export class N8NVideoProvider implements IVideoGenerator {
 
       throw new Error("Invalid response format from n8n webhook for video");
     } catch (error: any) {
+      const is404 = error.response?.status === 404;
+      const data = error.response?.data;
+      const isTestModeError =
+        typeof data === "string" && data.includes("No workspace here");
+
+      if (is404 || isTestModeError) {
+        console.error(
+          "[N8NVideoProvider] 404 Error: The n8n webhook returned 404. " +
+            (webhookUrl.includes("webhook-test")
+              ? "This usually means the n8n workflow is not in 'Test' mode. Please click 'Test Workflow' in n8n and try again."
+              : "Please check if the webhook URL is correct and the workflow is active."),
+        );
+      }
+
       console.error(
         "[N8NVideoProvider] n8n webhook request failed:",
-        error.response?.data || error.message,
+        data || error.message,
       );
-      throw new Error(`n8n video generation failed: ${error.message}`);
+      throw new Error(
+        `n8n video generation failed: ${error.message}${isTestModeError ? " (Possible n8n test mode timeout)" : ""}`,
+      );
     }
   }
 

@@ -1,4 +1,4 @@
-import { AdStatus, PrismaClient } from "@prisma/client";
+import { AdStatus, MediaType, PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
@@ -18,11 +18,9 @@ export async function seedAds() {
   // Get products
   const products = await prisma.product.findMany({
     where: {
-      store: {
-        userId: demoUser.id,
-      },
+      userId: demoUser.id,
     },
-    take: 5,
+    take: 10,
   });
 
   if (products.length === 0) {
@@ -33,7 +31,7 @@ export async function seedAds() {
   // Get templates
   const templates = await prisma.template.findMany({
     where: { isActive: true },
-    take: 5,
+    take: 10,
   });
 
   if (templates.length === 0) {
@@ -41,108 +39,163 @@ export async function seedAds() {
     return;
   }
 
+  // Find specific products and templates for matching
+  const burgerProduct = products.find(p => p.title.includes("Burger")) || products[0];
+  const foodTemplate = templates.find(t => t.name.includes("Food Showcase")) || templates[0];
+  
+  const dressProduct = products.find(p => p.title.includes("Dress")) || products[1] || products[0];
+  const fashionTemplate = templates.find(t => t.name.includes("Lookbook")) || templates[1] || templates[0];
+
+  const electronicsProduct = products.find(p => p.title.includes("Headphones")) || products[3] || products[0];
+  const electronicsTemplate = templates.find(t => t.name.includes("Tech Specs")) || templates[2] || templates[0];
+
   // Create ads with realistic data
   const adsData = [
     {
       userId: demoUser.id,
-      productId: products[0].id, // Premium Wireless Headphones
-      templateId: templates[0].id, // Premium Product Showcase
-      title: "Premium Wireless Headphones - Limited Offer",
-      assembledPrompt: `Create a stunning, professional product advertisement for Premium Wireless Headphones.
-
-Key Features to Highlight:
-- Active Noise Cancellation
-- 30-hour battery life
-- Premium comfort with memory foam ear cups
-- Bluetooth 5.0 connectivity
-- Foldable design with carrying case
-
-Price: $299
-Target Audience: Young professionals, Music lovers, Commuters
-Visual Style: Modern and sleek
-
-The ad should be eye-catching, modern, and convey premium quality. Use vibrant colors and clean typography.`,
+      productId: burgerProduct.id,
+      templateId: foodTemplate.id,
+      title: "Gourmet Burger - Special Offer",
+      assembledPrompt: "Create an appetizing advertisement for Gourmet Burger Combo. Highlight fresh ingredients and special BOGO offer.",
       variableValues: {
-        productName: "Premium Wireless Headphones",
-        features:
-          "Active Noise Cancellation\n30-hour battery life\nPremium comfort with memory foam ear cups\nBluetooth 5.0 connectivity\nFoldable design with carrying case",
-        price: "$299",
-        audience: "Young professionals, Music lovers, Commuters",
-        style: "Modern and sleek",
+        productName: "Gourmet Burger Combo",
+        description: "Freshly grilled Angus beef burger",
+        ingredients: "Angus beef, Fresh lettuce, Special sauce",
+        price: "$12.99",
+        offer: "Buy 1 Get 1 Free"
       },
-      imageUrl:
-        "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=1200&h=1200&fit=crop&q=80",
-      cloudinaryId: "shopster/ads/demo-headphones-001",
+      mediaType: MediaType.IMAGE,
+      imageUrl: burgerProduct.images[0].url,
       status: AdStatus.COMPLETED,
-      metadata: {
-        model: "dall-e-3",
-        generatedAt: new Date().toISOString(),
-        prompt_tokens: 150,
-        quality: "hd",
-      },
     },
     {
       userId: demoUser.id,
-      productId: products[1].id, // Designer Sunglasses
-      templateId: templates[1]?.id || templates[0].id, // Fashion Forward
-      title: "Designer Sunglasses - Summer Collection",
-      assembledPrompt: `Design a chic and trendy advertisement for Designer Sunglasses.
-
-Collection: Summer Collection 2024
-Season: Spring/Summer
-Style: Retro-modern fusion
-Price: $199
-
-Create a visually stunning ad that captures the essence of modern fashion. Use elegant typography and sophisticated color palette.`,
+      productId: dressProduct.id,
+      templateId: fashionTemplate.id,
+      title: "Summer Collection 2024",
+      assembledPrompt: "Design a chic lookbook advertisement for Summer Dress. Capture modern fashion trends.",
       variableValues: {
-        productName: "Designer Sunglasses",
-        collection: "Summer Collection 2024",
-        season: "Spring/Summer",
-        style: "Retro-modern fusion",
-        price: "$199",
+        productName: "Summer Dress",
+        collection: "Summer 2024",
+        style: "Flowy and elegant for hot days",
+        sizes: "S - XL",
+        price: "$49"
       },
-      imageUrl:
-        "https://images.unsplash.com/photo-1572635196237-14b3f281503f?w=1200&h=1200&fit=crop&q=80",
-      cloudinaryId: "shopster/ads/demo-sunglasses-001",
+      mediaType: MediaType.IMAGE,
+      imageUrl: dressProduct.images[0].url,
       status: AdStatus.COMPLETED,
-      metadata: {
-        model: "dall-e-3",
-        generatedAt: new Date().toISOString(),
-        prompt_tokens: 120,
-        quality: "hd",
-      },
     },
     {
       userId: demoUser.id,
-      productId: products[2]?.id || products[0].id, // Modern Table Lamp
-      templateId: templates[2]?.id || templates[0].id, // Home & Living
-      title: "Modern Table Lamp - Illuminate Your Space",
-      assembledPrompt: `Create a warm and inviting advertisement for Modern Table Lamp.
-
-Description: Elegant modern table lamp with adjustable brightness. Perfect for reading or ambient lighting. Features touch controls and energy-efficient LED technology.
-Material: Ceramic base with fabric shade
-Dimensions: 12" x 8" x 6"
-Price: $79.99
-
-Design an ad that makes people feel at home. Use warm colors, natural textures, and comfortable aesthetics.`,
+      productId: electronicsProduct.id,
+      templateId: electronicsTemplate.id,
+      title: "Tech Innovation - Wireless Audio",
+      assembledPrompt: "Create a technical showcase for Wireless Headphones. Emphasize noise cancellation.",
       variableValues: {
-        productName: "Modern Table Lamp",
-        description:
-          "Elegant modern table lamp with adjustable brightness. Perfect for reading or ambient lighting. Features touch controls and energy-efficient LED technology.",
-        material: "Ceramic base with fabric shade",
-        dimensions: '12" x 8" x 6"',
-        price: "$79.99",
+        productName: "Wireless Headphones",
+        specs: "BT 5.0, Noise Cancellation, 40h battery",
+        performance: "Studio quality sound",
+        compatibility: "iOS, Android, Windows",
+        price: "$199"
       },
-      imageUrl:
-        "https://images.unsplash.com/photo-1507473885765-e6ed057f782c?w=1200&h=1200&fit=crop&q=80",
-      cloudinaryId: "shopster/ads/demo-lamp-001",
+      mediaType: MediaType.IMAGE,
+      imageUrl: electronicsProduct.images[0].url,
+      status: AdStatus.COMPLETED,
+    },
+    // Video ads using backend asset results
+    {
+      userId: demoUser.id,
+      productId: products[5]?.id || products[0].id, // Premium Product Asset 1
+      templateId: templates[0].id,
+      title: "Premium Product Video Ad - Dynamic Showcase",
+      assembledPrompt: `Create a dynamic video advertisement showcasing the premium product.
+
+Camera Movement: PAN_AND_TILT
+Motion Intensity: Smooth
+Duration: 10 seconds
+Style: Modern and elegant
+
+Highlight the product's premium features with smooth camera movements that capture every detail. Use professional lighting and clean composition.`,
+      variableValues: {
+        productName: "Premium Product",
+        cameraMovement: "PAN_AND_TILT",
+        motion: "Smooth",
+        duration: "10s",
+        style: "Modern and elegant",
+      },
+      mediaType: MediaType.VIDEO,
+      videoUrl: "/assets/ads/videos/result.mp4",
+      cloudinaryId: "shopster/ads/demo-video-001",
       status: AdStatus.COMPLETED,
       metadata: {
-        model: "dall-e-3",
+        model: "runway-gen3",
         generatedAt: new Date().toISOString(),
-        prompt_tokens: 140,
+        prompt_tokens: 180,
         quality: "hd",
+        videoType: "PAN_AND_TILT",
+        duration: "10s",
+        fps: "30",
       },
+      resultAnalysis: JSON.stringify({
+        success: true,
+        message: "Video ad generated successfully",
+        timestamp: new Date().toISOString(),
+        mediaType: "VIDEO",
+        videoAnalysis: {
+          duration: "10s",
+          fps: 30,
+          resolution: "1920x1080",
+          cameraMovement: "PAN_AND_TILT",
+          quality: "Premium HD",
+        },
+      }),
+    },
+    {
+      userId: demoUser.id,
+      productId: products[6]?.id || products[1].id, // Premium Product Asset 2
+      templateId: templates[1]?.id || templates[0].id,
+      title: "Premium Product Video Ad - Push In Effect",
+      assembledPrompt: `Create an engaging video advertisement with dramatic push-in camera movement.
+
+Camera Movement: PUSH_IN_PULL_OUT
+Motion Intensity: Dynamic
+Duration: 10 seconds
+Style: Bold and impactful
+
+Use dramatic zoom effects to draw attention to the product's key features. Create a sense of discovery and excitement.`,
+      variableValues: {
+        productName: "Premium Product",
+        cameraMovement: "PUSH_IN_PULL_OUT",
+        motion: "Dynamic",
+        duration: "10s",
+        style: "Bold and impactful",
+      },
+      mediaType: MediaType.VIDEO,
+      videoUrl: "/assets/ads/videos/result01.mp4",
+      cloudinaryId: "shopster/ads/demo-video-002",
+      status: AdStatus.COMPLETED,
+      metadata: {
+        model: "runway-gen3",
+        generatedAt: new Date().toISOString(),
+        prompt_tokens: 190,
+        quality: "hd",
+        videoType: "PUSH_IN_PULL_OUT",
+        duration: "10s",
+        fps: "30",
+      },
+      resultAnalysis: JSON.stringify({
+        success: true,
+        message: "Video ad generated successfully",
+        timestamp: new Date().toISOString(),
+        mediaType: "VIDEO",
+        videoAnalysis: {
+          duration: "10s",
+          fps: 30,
+          resolution: "1920x1080",
+          cameraMovement: "PUSH_IN_PULL_OUT",
+          quality: "Premium HD",
+        },
+      }),
     },
   ];
 

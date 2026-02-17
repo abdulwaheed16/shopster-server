@@ -6,6 +6,7 @@ import {
   ImageGenerationResult,
   ImagePromptOptions,
 } from "../../interfaces/image-generator.interface";
+import { ImageGenerationPayload } from "../../interfaces/n8n.interface";
 
 /**
  * STRATEGY: n8n Image Generation Provider
@@ -26,18 +27,44 @@ export class N8NImageProvider implements IImageGenerator {
     try {
       console.log(`[N8NImageProvider] Sending request to n8n: ${webhookUrl}`);
 
-      const response = await axios.post(webhookUrl, {
-        ...options,
+      const payload: ImageGenerationPayload = {
+        adId: options.adId,
+        userPrompt: options.userPrompt || options.prompt,
+        templatePrompt: options.templatePrompt,
+        templateImage: options.templateImage,
+        productImages: options.productImages,
+        aspectRatio: options.aspectRatio,
+        variants: options.variants || 1,
+        style: options.style,
+        color: options.color,
         mediaType: "IMAGE",
         timestamp: new Date().toISOString(),
-      });
+      };
 
-      // Expected format: array of { imageUrl: string } or an object with { images: string[] }
-      // We'll normalize it to ImageGenerationResult[]
-      const data = response.data;
+      console.log("[N8NImageProvider] Request payload:", payload);
 
-      console.log("[N8NImageProvider] Response from n8n:", data);
+      const response = await axios.post(webhookUrl, payload);
 
+      console.log("[N8NImageProvider] Response from n8n:", response.data);
+
+      // Parse n8n response using typed interface
+      const data = response.data as any;
+
+      // Handle n8n response format: { images: [{ url, content_type, ... }], description }
+      if (data.images && Array.isArray(data.images)) {
+        return data.images.map((img: any) => ({
+          imageUrl: img.url,
+          metadata: {
+            content_type: img.content_type,
+            file_name: img.file_name,
+            file_size: img.file_size,
+            width: img.width,
+            height: img.height,
+          },
+        }));
+      }
+
+      // Fallback: Handle array of URLs or objects
       if (Array.isArray(data)) {
         return data.map((item: any) => ({
           imageUrl: item.imageUrl || item.url || item,
@@ -45,28 +72,39 @@ export class N8NImageProvider implements IImageGenerator {
         }));
       }
 
-      if (data.images && Array.isArray(data.images)) {
-        return data.images.map((url: string) => ({
-          imageUrl: url,
-        }));
-      }
-
+      // Fallback: Handle single URL object
       if (data.imageUrl || data.url) {
         return [{ imageUrl: data.imageUrl || data.url }];
       }
 
-      // If it's a single URL string
+      // Fallback: Handle single URL string
       if (typeof data === "string" && data.startsWith("http")) {
         return [{ imageUrl: data }];
       }
 
       throw new Error("Invalid response format from n8n webhook");
     } catch (error: any) {
+      const is404 = error.response?.status === 404;
+      const data = error.response?.data;
+      const isTestModeError =
+        typeof data === "string" && data.includes("No workspace here");
+
+      if (is404 || isTestModeError) {
+        console.error(
+          "[N8NImageProvider] 404 Error: The n8n webhook returned 404. " +
+            (webhookUrl.includes("webhook-test")
+              ? "This usually means the n8n workflow is not in 'Test' mode. Please click 'Test Workflow' in n8n and try again."
+              : "Please check if the webhook URL is correct and the workflow is active."),
+        );
+      }
+
       console.error(
         "[N8NImageProvider] n8n webhook request failed:",
-        error.response?.data || error.message,
+        data || error.message,
       );
-      throw new Error(`n8n generation failed: ${error.message}`);
+      throw new Error(
+        `n8n generation failed: ${error.message}${isTestModeError ? " (Possible n8n test mode timeout)" : ""}`,
+      );
     }
   }
 

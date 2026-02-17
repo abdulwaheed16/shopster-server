@@ -7,12 +7,14 @@ export interface VideoPromptOptions {
   duration?: number;
   fps?: number;
   aspectRatio?: string;
-  videoType?: string;
+  scenes?: string[]; // Array of scenes for video generation
   style?: string;
   color?: string;
-  imageUrls?: string[];
-  modelId?: string;
   adId?: string;
+  productImages?: string[]; // Array of product images to showcase
+  templateImage?: string; // Reference template/style image
+  templatePrompt?: string; // Original template prompt text
+  modelImage?: string; // Actor/model image for video representation
 }
 
 export interface VideoGenerationResult {

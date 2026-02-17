@@ -28,7 +28,8 @@ export class GeminiTextProvider implements ITextGenerator {
 
     try {
       // Use the model from options if provided, otherwise default
-      const modelName = options.modelName || TEXT_MODELS.GEMINI_2_5_FLASH;
+      const modelName =
+        options.modelName || TEXT_MODELS.GEMINI_1_5_FLASH_LATEST; // Use latest version
       const model = this.genAI.getGenerativeModel({ model: modelName });
 
       const parts: any[] = [
@@ -52,7 +53,7 @@ export class GeminiTextProvider implements ITextGenerator {
                 mimeType: "image/jpeg", // Assume jpeg for now, or detect from headers
               },
             };
-          })
+          }),
         );
         parts.push(...imageParts);
       }
@@ -86,12 +87,12 @@ export class GeminiTextProvider implements ITextGenerator {
       // Handle "model not found" specific messaging to guide the user
       if (errorMessage.includes("not found")) {
         throw new Error(
-          `Gemini Error: The model '${TEXT_MODELS.GEMINI_1_5_FLASH}' might not be available for your API key or region. Try 'gemini-1.5-flash-latest'.`
+          `Gemini Error: The model '${TEXT_MODELS.GEMINI_1_5_FLASH}' might not be available for your API key or region. Try 'gemini-1.5-flash-latest'.`,
         );
       }
 
       throw new Error(
-        `${MESSAGES.AI.GEMINI_GENERATION_FAILED}: ${errorMessage}`
+        `${MESSAGES.AI.GEMINI_GENERATION_FAILED}: ${errorMessage}`,
       );
     }
   }

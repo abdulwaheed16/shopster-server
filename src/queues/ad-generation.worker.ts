@@ -13,13 +13,16 @@ export interface AdGenerationJobData {
   assembledPrompt: string;
   aspectRatio?: AspectRatio | string;
   variantsCount?: number;
-  productImage?: string;
+  productImages?: string[];
   templateImage?: string; // Reference image FOR style/layout
   templateAnalysis?: string; // Cached vision analysis (Optimization)
   style?: StylePreset | string;
   color?: string;
-  videoType?: string;
+  scenes?: string[];
   mediaType: MediaType;
+  duration?: number;
+  templatePrompt?: string;
+  modelImage?: string;
 }
 
 // Instantiate the processor with Vercel Blob (keeping Cloudinary available via DI if needed)
@@ -44,13 +47,18 @@ export const adGenerationWorker = new Worker<AdGenerationJobData>(
         assembledPrompt: job?.data?.assembledPrompt,
         aspectRatio: job?.data?.aspectRatio,
         variantsCount: job?.data?.variantsCount,
-        productImage: job?.data?.productImage,
+        productImages: job?.data?.productImages,
         templateImage: job?.data?.templateImage,
         style: job?.data?.style,
         color: job?.data?.color,
-        videoType: job?.data?.videoType,
+        scenes: job?.data?.scenes,
         mediaType: job?.data?.mediaType,
+        duration: job?.data?.duration,
+        templatePrompt: job?.data?.templatePrompt,
+        modelImage: job?.data?.modelImage,
       });
+
+      console.log("Ad Generation Worker Result: ", result);
 
       return result;
     } catch (error: any) {

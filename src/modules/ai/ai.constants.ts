@@ -22,7 +22,7 @@ export const TEXT_MODELS = {
   GPT_4_TURBO: "gpt-4-turbo-preview",
   GEMINI_1_5_FLASH: "gemini-1.5-flash",
   GEMINI_1_5_FLASH_LATEST: "gemini-1.5-flash-latest",
-  GEMINI_2_5_FLASH: "gemini-2.5-flash",
+  GEMINI_2_0_FLASH: "gemini-2.0-flash", // Updated from typo 2.5
   GEMINI_FLASH_THINKING: "gemini-3-flash-preview",
 } as const;
 

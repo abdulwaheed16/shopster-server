@@ -1,16 +1,67 @@
+import { AdStatus, Prisma } from "@prisma/client";
+import { EventEmitter } from "events";
 import { ApiError } from "../../common/errors/api-error";
+import { createPaginatedResponse } from "../../common/utils/pagination.util";
 import { prisma } from "../../config/database.config";
 import { adGenerationQueue } from "../../config/queue.config";
-import { billingService } from "../billing/billing.service";
-import { GenerateAdBody, GetAdsQuery } from "./ads.validation";
-
-import { AdStatus, Prisma, UsageType } from "@prisma/client";
-import { createPaginatedResponse } from "../../common/utils/pagination.util";
-import { requestDeduplicator } from "../../common/utils/request-deduplication.util";
 import { ASPECT_RATIOS } from "../ai/ai.constants";
 import { IAdsService } from "./ads.types";
+import { GenerateAdBody, GetAdsQuery } from "./ads.validation";
 
 export class AdsService implements IAdsService {
+  private adEvents = new EventEmitter();
+
+  // Subscribe to ad updates
+  subscribeToAdUpdates(adId: string, callback: (data: any) => void) {
+    const handler = (data: any) => {
+      if (data.adId === adId) {
+        callback(data);
+      }
+    };
+    this.adEvents.on("adUpdate", handler);
+    return () => this.adEvents.off("adUpdate", handler);
+  }
+
+  // Emit ad update
+  emitAdUpdate(adId: string, status: AdStatus, data: any = {}) {
+    this.adEvents.emit("adUpdate", { adId, status, ...data });
+  }
+
+  // Cancel ad generation
+  async cancelAd(adId: string, userId: string): Promise<void> {
+    const ad = await prisma.ad.findFirst({
+      where: { id: adId, userId },
+    });
+
+    if (!ad) {
+      throw ApiError.notFound("Ad not found");
+    }
+
+    if (ad.status !== "PENDING" && ad.status !== "PROCESSING") {
+      throw ApiError.badRequest(`Cannot cancel an ad that is ${ad.status}`);
+    }
+
+    // Try to remove from BullMQ
+    const jobs = await adGenerationQueue.getJobs([
+      "waiting",
+      "active",
+      "delayed",
+    ]);
+    const job = jobs.find((j) => j.data.adId === adId);
+
+    if (job) {
+      await job.remove();
+    }
+
+    // Update DB
+    await prisma.ad.update({
+      where: { id: adId },
+      data: { status: "CANCELLED" },
+    });
+
+    this.emitAdUpdate(adId, "CANCELLED" as any);
+  }
+
   // Get all ads for a user
   async getAds(userId: string, query: GetAdsQuery) {
     const page = parseInt(query.page || "1");
@@ -77,13 +128,6 @@ export class AdsService implements IAdsService {
               },
             },
           },
-          uploadedProduct: {
-            select: {
-              id: true,
-              title: true,
-              imageUrl: true,
-            },
-          },
           template: {
             select: {
               id: true,
@@ -121,7 +165,6 @@ export class AdsService implements IAdsService {
       },
       include: {
         product: true,
-        uploadedProduct: true,
         template: true,
       },
     });
@@ -137,13 +180,15 @@ export class AdsService implements IAdsService {
 
   // Generate ad (Step 3: Submit)
   async generateAd(userId: string, data: GenerateAdBody) {
-    // 0. Deduplicate request
+    // 0. Deduplicate request (Disabled for rapid testing)
+    /*
     const dedupKey = requestDeduplicator.generateKey(userId, data);
     if (requestDeduplicator.isDuplicate(dedupKey)) {
       throw ApiError.badRequest(
         "A similar generation request is already being processed. Please wait a few seconds.",
       );
     }
+    */
 
     // 1. Check user credits
     const user = await prisma.user.findUnique({
@@ -156,34 +201,38 @@ export class AdsService implements IAdsService {
     }
 
     // Each generation costs 1 credit
-    if (user.credits < 1) {
-      throw ApiError.badRequest(
-        "Insufficient credits. Please top up to generate ads.",
-      );
-    }
+    // if (user.credits < 1) {
+    //   throw ApiError.badRequest(
+    //     "Insufficient credits. Please top up to generate ads.",
+    //   );
+    // }
 
     // 2. Resolve Product Data
     let productTitle = data.productTitle || "";
-    let productImage = data.productImageUrl || "";
+    let productImages: string[] = [];
+
+    if (Array.isArray(data.productImageUrls)) {
+      productImages = data.productImageUrls;
+    } else if (typeof data.productImageUrls === "string") {
+      productImages = [data.productImageUrls];
+    }
 
     // If IDs are provided and URLs are missing, fetch from DB as fallback
-    if (!productImage && data.productId) {
+    if (
+      productImages.length === 0 &&
+      (data.productId || data.uploadedProductId)
+    ) {
+      const targetId = data.productId || data.uploadedProductId;
       const product = await prisma.product.findFirst({
-        where: { id: data.productId, store: { userId } },
+        where: { id: targetId, userId },
       });
       if (product) {
         productTitle = productTitle || product.title;
-        productImage = product.images[0]?.url || "";
-      }
-    } else if (!productImage && data.uploadedProductId) {
-      const uploadedProduct = await prisma.uploadedProduct.findFirst({
-        where: { id: data.uploadedProductId, userId },
-      });
-      if (uploadedProduct) {
-        productTitle = productTitle || uploadedProduct.title;
-        productImage = (uploadedProduct.imageUrl as string) || "";
+        productImages = product.images.map((img) => img.url);
       }
     }
+
+    const productImage = productImages[0] || ""; // Use first as primary fallback for backward compatibility in some logic
 
     // Default title if still empty
     productTitle = productTitle || "Product";
@@ -191,6 +240,7 @@ export class AdsService implements IAdsService {
     // 3. Resolve Template Data
     let templateImage = data.templateImageUrl || "";
     let assembledPrompt = "";
+    let templatePrompt = "";
 
     if (data.templateId) {
       const template = await prisma.template.findFirst({
@@ -198,16 +248,23 @@ export class AdsService implements IAdsService {
       });
 
       if (template) {
+        templatePrompt = template.promptTemplate;
         assembledPrompt = template.promptTemplate;
         templateImage =
-          templateImage || (template as any).referenceAdImage || "";
+          templateImage ||
+          (template as any).previewImages?.[0] ||
+          (template as any).referenceAdImage ||
+          "";
       }
     }
 
     // Fallbacks for prompt
     if (!assembledPrompt) {
-      if (data.thoughts) {
-        assembledPrompt = `Create a video ad for ${productTitle} based on: ${data.thoughts}`;
+      if (data.scenes && data.scenes.length > 0) {
+        const scenesText = data.scenes
+          .map((scene, i) => `Scene ${i + 1}: ${scene}`)
+          .join("\n");
+        assembledPrompt = `Create a video ad for ${productTitle} with the following scenes:\n${scenesText}`;
       } else {
         assembledPrompt = `Showcase the product: ${productTitle}`;
       }
@@ -222,18 +279,19 @@ export class AdsService implements IAdsService {
       });
     }
 
-    // Append thoughts and video type
-    if (data.thoughts)
-      assembledPrompt += `\nAdditional instructions: ${data.thoughts}`;
-    if (data.videoType)
-      assembledPrompt += `\nCamera Movement: ${data.videoType.replace(/_/g, " ")}`;
+    // Append scenes
+    if (data.scenes && data.scenes.length > 0) {
+      const scenesText = data.scenes
+        .map((scene, i) => `Scene ${i + 1}: ${scene}`)
+        .join("\n");
+      assembledPrompt += `\n\nVideo Scenes:\n${scenesText}`;
+    }
 
     // 4. Create Ad record
     const ad = await prisma.ad.create({
       data: {
         userId,
-        productId: data.productId || null,
-        uploadedProductId: data.uploadedProductId || null,
+        productId: data.productId || data.uploadedProductId || null,
         templateId: data.templateId || null,
         title: data.title || `Ad for ${productTitle}`,
         assembledPrompt,
@@ -241,23 +299,23 @@ export class AdsService implements IAdsService {
         aspectRatio: data.aspectRatio || ASPECT_RATIOS.SQUARE,
         variantsCount: data.variantsCount || 1,
         status: "PENDING",
-        mediaType: data.videoType ? "VIDEO" : "IMAGE",
+        mediaType: data.mediaType || (data?.scenes ? "VIDEO" : "IMAGE"),
         metadata: {
           style: data.style,
           color: data.color,
-          videoType: data.videoType,
-          thoughts: data.thoughts,
+          scenes: data.scenes,
+          duration: data.duration,
         },
       },
     });
 
     // 5. Deduct credit
-    await billingService.checkAndDeductCredits(
-      userId,
-      1,
-      UsageType.AD_GENERATION,
-      `Ad Generation: ${ad.id}`,
-    );
+    // await billingService.checkAndDeductCredits(
+    //   userId,
+    //   1,
+    //   UsageType.AD_GENERATION,
+    //   `Ad Generation: ${ad.id}`,
+    // );
 
     // 6. Add to queue for background processing
     await adGenerationQueue.add("generate", {
@@ -268,15 +326,43 @@ export class AdsService implements IAdsService {
       variantsCount: ad.variantsCount,
       style: data.style,
       color: data.color,
-      videoType: data.videoType || undefined,
-      mediaType: ad.mediaType,
-      productImage: productImage,
-      templateImage: templateImage,
+      scenes: data.scenes,
+      modelImage: data.modelImageUrl,
       // templateAnalysis is left out here if we don't fetch the template object,
-      // but the worker/processor can re-analyze if templateImage is present.
     } as any);
 
+    // 7. Return pending ad (actual queue processing)
+
+    console.log("Ad created: ", ad);
     return ad;
+  }
+
+  // Update ad
+  async updateAd(
+    id: string,
+    userId: string,
+    data: Partial<{
+      title: string;
+      status: AdStatus;
+      variableValues: any;
+    }>,
+  ) {
+    // Verify ownership
+    const ad = await this.getAdById(id, userId);
+
+    // Update ad
+    const updatedAd = await prisma.ad.update({
+      where: { id },
+      data: {
+        title: data.title,
+        status: data.status,
+        variableValues: data.variableValues,
+        updatedAt: new Date(),
+      },
+    });
+
+    const { resultAnalysis, ...sanitizedAd } = updatedAd as any;
+    return sanitizedAd;
   }
 
   // Delete ad

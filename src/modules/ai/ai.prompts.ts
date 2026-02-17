@@ -105,7 +105,7 @@ Include these descriptors: professional studio photography, commercial product s
 Output Requirements:
 Generate instructions in exact YAML format. Default to a vertical aspect ratio.
 
-YAML Structure:
+JSON Structure:
 {
   "scenes": [
     {

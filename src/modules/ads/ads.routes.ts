@@ -1,5 +1,9 @@
+import cors from "cors";
 import { Router } from "express";
-import { authenticate } from "../../common/middlewares/auth.middleware";
+import {
+  authenticate,
+  authenticateWithQuery,
+} from "../../common/middlewares/auth.middleware";
 import { validate } from "../../common/middlewares/validate.middleware";
 import * as CommonValidators from "../../common/validations/common.validation";
 import { adsController } from "./ads.controller";
@@ -11,7 +15,27 @@ import {
 
 const router = Router();
 
-// All routes require authentication
+// 1. TEST SSE ROUTE (Completely public)
+router.get("/test-sse", (req, res) => {
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+  res.write('data: { "status": "TEST_CONNECTED" }\n\n');
+  const interval = setInterval(() => {
+    res.write('data: { "status": "HEARTBEAT" }\n\n');
+  }, 2000);
+  req.on("close", () => clearInterval(interval));
+});
+
+// SSE route must be before global authenticate and should have robust CORS
+router.get(
+  "/:id/events",
+  cors({ origin: true, credentials: false }),
+  authenticateWithQuery,
+  adsController.streamAdEvents.bind(adsController),
+);
+
+// All other routes require authentication via header
 router.use(authenticate);
 
 /**
@@ -56,7 +80,7 @@ router.use(authenticate);
 router.get(
   "/",
   validate(getAdsSchema),
-  adsController.getAds.bind(adsController)
+  adsController.getAds.bind(adsController),
 );
 
 /**
@@ -102,7 +126,7 @@ router.get(
 router.post(
   "/generate",
   validate(generateAdSchema),
-  adsController.generateAd.bind(adsController)
+  adsController.generateAd.bind(adsController),
 );
 
 /**
@@ -131,7 +155,75 @@ router.post(
 router.get(
   "/:id",
   validate(CommonValidators.idSchema),
-  adsController.getAdById.bind(adsController)
+  adsController.getAdById.bind(adsController),
+);
+
+/**
+ * @swagger
+ * /ads/{id}/cancel:
+ *   post:
+ *     summary: Cancel ad generation
+ *     description: Cancels a pending or processing ad generation.
+ *     tags: [Ads]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Ad generation cancelled
+ *       404:
+ *         description: Ad not found
+ */
+router.post(
+  "/:id/cancel",
+  validate(CommonValidators.idSchema),
+  adsController.cancelAd.bind(adsController),
+);
+
+/**
+ * @swagger
+ * /ads/{id}:
+ *   patch:
+ *     summary: Update ad
+ *     description: Updates a specific ad (title, status, etc.).
+ *     tags: [Ads]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               title:
+ *                 type: string
+ *               status:
+ *                 type: string
+ *                 enum: [PENDING, PROCESSING, COMPLETED, FAILED]
+ *     responses:
+ *       200:
+ *         description: Ad updated successfully
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Ad not found
+ */
+router.patch(
+  "/:id",
+  validate(CommonValidators.idSchema),
+  adsController.updateAd.bind(adsController),
 );
 
 /**
@@ -160,7 +252,7 @@ router.get(
 router.delete(
   "/:id",
   validate(CommonValidators.idSchema),
-  adsController.deleteAd.bind(adsController)
+  adsController.deleteAd.bind(adsController),
 );
 
 /**
@@ -192,7 +284,7 @@ router.delete(
 router.post(
   "/bulk-delete",
   validate(bulkDeleteAdsSchema),
-  adsController.bulkDeleteAds.bind(adsController)
+  adsController.bulkDeleteAds.bind(adsController),
 );
 
 export default router;

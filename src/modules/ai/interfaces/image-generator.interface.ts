@@ -10,14 +10,25 @@ export interface ImagePromptOptions {
   prompt: string;
   aspectRatio?: AspectRatio | string;
   imageSize?: string;
-  numImages?: number;
+  variants?: number;
   negativePrompt?: string;
   seed?: number;
   style?: StylePreset | string;
   color?: string;
-  imageUrls?: string[]; // For image-to-image or editing (e.g., Template + Product)
-  modelId?: string; // Allow overriding the default model
+
+  // Legacy field for backward compatibility with existing workflows
+  // Prefer using the specific fields below (productImages, templateImage, modelImage)
+  imageUrls?: string[];
+
   adId?: string; // Optional context for the ad being generated
+  modelId?: string; // Allow overriding the default model
+
+  // Specific image fields for structured n8n payload
+  productImages?: string[]; // Array of product images to showcase
+  templateImage?: string; // Reference template/style image
+  templatePrompt?: string; // Original template prompt text
+  userPrompt?: string; // User's custom instructions/thoughts
+  modelImage?: string; // Actor/model image for ad representation
 }
 
 export interface ImageGenerationResult {

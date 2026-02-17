@@ -9,8 +9,19 @@ export const generateAdSchema = z.object({
       productId: objectIdSchema.optional(),
       uploadedProductId: objectIdSchema.optional(),
       templateId: objectIdSchema.optional(),
-      productImageUrl: z.string().url().optional(),
-      templateImageUrl: z.string().url().optional(),
+      productImageUrls: z
+        .union([z.string().url(), z.array(z.string().url()).min(1).max(3)])
+        .optional(),
+      templateImageUrl: z
+        .string()
+        .optional()
+        .transform((val) => (val === "" ? undefined : val))
+        .pipe(z.string().url().optional()),
+      modelImageUrl: z
+        .string()
+        .optional()
+        .transform((val) => (val === "" ? undefined : val))
+        .pipe(z.string().url().optional()),
       productTitle: z.string().optional(),
       title: z.string().optional(),
       variableValues: z.record(z.string(), z.any()).optional(), // JSON object
@@ -20,25 +31,17 @@ export const generateAdSchema = z.object({
       variantsCount: z.number().int().min(1).max(4).optional(),
       style: z.string().optional(),
       color: z.string().optional(),
-      videoType: z
-        .enum([
-          "STATIC",
-          "PAN_AND_TILT",
-          "PUSH_IN_PULL_OUT",
-          "BOOM_AND_CRANE",
-          "TRACKING_AND_TRUCKING",
-          "ARC_SHOT",
-        ])
-        .optional(),
-      thoughts: z.string().optional(),
+      scenes: z.array(z.string()).optional(),
+      duration: z.number().int().min(5).max(15).optional(),
+      mediaType: z.enum(["IMAGE", "VIDEO"]).optional(),
     })
     .refine(
       (data) => {
-        // Must have either productId, uploadedProductId, or productImageUrl
+        // Must have either productId, uploadedProductId, or productImageUrls
         if (
           !data.productId &&
           !data.uploadedProductId &&
-          !data.productImageUrl
+          !data.productImageUrls
         ) {
           return false;
         }
@@ -52,9 +55,12 @@ export const generateAdSchema = z.object({
     )
     .refine(
       (data) => {
-        // If videoType is present, it's a video ad. If not, it's an image ad.
         // Image ads REQUIRE a templateId OR a templateImageUrl.
-        if (!data.videoType && !data.templateId && !data.templateImageUrl) {
+        if (
+          data.mediaType === "IMAGE" &&
+          !data.templateId &&
+          !data.templateImageUrl
+        ) {
           return false;
         }
         return true;
