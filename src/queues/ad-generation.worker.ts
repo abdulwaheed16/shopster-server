@@ -67,7 +67,8 @@ export const adGenerationWorker = new Worker<AdGenerationJobData>(
     }
   },
   {
-    connection,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    connection: connection as any,
     concurrency: 5, // Process up to 5 jobs concurrently
     // IMPORTANT: n8n calls can take several minutes for AI generation.
     // BullMQ's default lockDuration is 30s — jobs taking longer get marked

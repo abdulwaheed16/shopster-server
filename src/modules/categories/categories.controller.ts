@@ -39,7 +39,10 @@ export class CategoriesController {
       const userId = req.user!.id;
       const { id } = req.params;
 
-      const category = await categoriesService.getCategoryById(id, userId);
+      const category = await categoriesService.getCategoryById(
+        id as string,
+        userId,
+      );
 
       sendSuccess(res, MESSAGES.CATEGORIES.FETCHED_ONE, category);
     } catch (error) {
@@ -74,7 +77,11 @@ export class CategoriesController {
       const { id } = req.params;
       const data: UpdateCategoryBody = req.body;
 
-      const category = await categoriesService.updateCategory(id, userId, data);
+      const category = await categoriesService.updateCategory(
+        id as string,
+        userId,
+        data,
+      );
 
       sendSuccess(res, MESSAGES.CATEGORIES.UPDATED, category);
     } catch (error) {
@@ -91,7 +98,7 @@ export class CategoriesController {
       const userId = req.user!.id;
       const { id } = req.params;
 
-      await categoriesService.deleteCategory(id, userId);
+      await categoriesService.deleteCategory(id as string, userId);
 
       sendSuccess(res, MESSAGES.CATEGORIES.DELETED);
     } catch (error) {

@@ -102,7 +102,7 @@ export class TemplatesController {
       const userId = req.user!.id;
       const { id } = req.params;
 
-      let template = await templatesService.getTemplateById(id, userId);
+      let template = await templatesService.getTemplateById(id as string, userId);
 
       // Prompt Privacy: Hide prompts from non-admin users
       if (req.user!.role !== "ADMIN") {
@@ -158,7 +158,7 @@ export class TemplatesController {
       const { id } = req.params;
       const data: UpdateTemplateBody = req.body;
 
-      const template = await templatesService.updateTemplate(id, userId, data);
+      const template = await templatesService.updateTemplate(id as string, userId, data);
 
       sendSuccess(res, MESSAGES.TEMPLATES.UPDATED, template);
     } catch (error) {
@@ -175,7 +175,7 @@ export class TemplatesController {
       const { id: userId } = req.user!;
       const { id } = req.params;
 
-      await templatesService.deleteTemplate(id, userId);
+      await templatesService.deleteTemplate(id as string, userId);
 
       sendSuccess(res, MESSAGES.TEMPLATES.DELETED);
     } catch (error) {
@@ -194,7 +194,7 @@ export class TemplatesController {
       const data: UpdateTemplateBody = req.body;
 
       const template = await templatesService.updateUserTemplate(
-        id,
+        id as string,
         userId,
         data,
       );
@@ -214,7 +214,7 @@ export class TemplatesController {
       const { id: userId } = req.user!;
       const { id } = req.params;
 
-      await templatesService.deleteUserTemplate(id, userId);
+      await templatesService.deleteUserTemplate(id as string, userId);
 
       sendSuccess(res, MESSAGES.TEMPLATES.DELETED);
     } catch (error) {
@@ -266,7 +266,7 @@ export class TemplatesController {
     try {
       const userId = req.user!.id;
       const { id } = req.params;
-      await templatesService.trackVisit(id, userId);
+      await templatesService.trackVisit(id as string, userId);
       sendSuccess(res, MESSAGES.TEMPLATES.TRACKED);
     } catch (error) {
       next(error);
@@ -281,7 +281,7 @@ export class TemplatesController {
     try {
       const userId = req.user!.id;
       const { id } = req.params;
-      const result = await templatesService.toggleLike(id, userId);
+      const result = await templatesService.toggleLike(id as string, userId);
       sendSuccess(
         res,
         result.liked ? "Template liked" : "Template unliked",
@@ -300,7 +300,7 @@ export class TemplatesController {
     try {
       const userId = req.user!.id;
       const { id } = req.params;
-      const result = await templatesService.toggleFavorite(id, userId);
+      const result = await templatesService.toggleFavorite(id as string, userId);
       sendSuccess(
         res,
         result.favorited ? "Template favorited" : "Template unfavorited",

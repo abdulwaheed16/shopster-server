@@ -40,7 +40,7 @@ export class FeedbackController {
       if (req.user!.role !== "ADMIN")
         throw ApiError.unauthorized("Only admins can access specific feedback");
       const { id } = req.params;
-      const feedback = await feedbackService.getFeedbackById(id);
+      const feedback = await feedbackService.getFeedbackById(id as string);
       sendSuccess(res, MESSAGES.FEEDBACK.FETCHED, feedback);
     } catch (error) {
       next(error);
@@ -53,7 +53,10 @@ export class FeedbackController {
         throw ApiError.unauthorized("Only admins can update feedback status");
       const { id } = req.params;
       const data: UpdateFeedbackStatusBody = req.body;
-      const feedback = await feedbackService.updateFeedbackStatus(id, data);
+      const feedback = await feedbackService.updateFeedbackStatus(
+        id as string,
+        data,
+      );
       sendSuccess(res, MESSAGES.FEEDBACK.UPDATED, feedback);
     } catch (error) {
       next(error);

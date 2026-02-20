@@ -215,7 +215,7 @@ export class StoresController {
       const userId = req.user!.id;
       const { id } = req.params;
 
-      const store = await storesService.getStoreById(id, userId);
+      const store = await storesService.getStoreById(id as string, userId);
 
       sendSuccess(res, MESSAGES.STORES.FETCHED_ONE, store);
     } catch (error) {
@@ -250,7 +250,7 @@ export class StoresController {
       const { id } = req.params;
       const data: UpdateStoreBody = req.body;
 
-      const store = await storesService.updateStore(id, userId, data);
+      const store = await storesService.updateStore(id as string, userId, data);
 
       sendSuccess(res, MESSAGES.STORES.UPDATED, store);
     } catch (error) {
@@ -267,7 +267,7 @@ export class StoresController {
       const userId = req.user!.id;
       const { id } = req.params;
 
-      await storesService.deleteStore(id, userId);
+      await storesService.deleteStore(id as string, userId);
 
       sendSuccess(res, MESSAGES.STORES.DELETED);
     } catch (error) {
@@ -284,7 +284,7 @@ export class StoresController {
       const userId = req.user!.id;
       const { id } = req.params;
 
-      const result = await storesService.syncStore(id, userId);
+      const result = await storesService.syncStore(id as string, userId);
 
       sendSuccess(res, result.message);
     } catch (error) {
@@ -302,7 +302,7 @@ export class StoresController {
       const { id } = req.params;
 
       // 1. Get store and verify ownership
-      const store = await storesService.getStoreById(id, userId);
+      const store = await storesService.getStoreById(id as string, userId);
 
       if (!store.shopifyDomain || !store.accessToken) {
         throw new Error("Store is not properly configured for Shopify");
@@ -310,7 +310,7 @@ export class StoresController {
 
       // 2. Update sync status
       await prisma.store.update({
-        where: { id },
+        where: { id: id as string },
         data: { syncStatus: "SYNCING", lastSyncAt: new Date() },
       });
 
@@ -326,7 +326,7 @@ export class StoresController {
 
       // 4. Map and save products
       const productsToSync = shopifyProducts.map((sp: any) => ({
-        storeId: id,
+        storeId: id as string,
         categoryIds: sp.categoryIds || [],
         externalId: sp.id.toString(),
         productSource: "STORE" as const,
@@ -365,7 +365,7 @@ export class StoresController {
 
       // 5. Update sync status to COMPLETED
       await prisma.store.update({
-        where: { id },
+        where: { id: id as string },
         data: { syncStatus: "COMPLETED" },
       });
 
@@ -374,7 +374,7 @@ export class StoresController {
       // 6. Fetch and return products from database
       const products = await storeProductsService.getProducts(userId, {
         source: "STORE",
-        storeId: id,
+        storeId: id as string,
         page: "1",
         limit: "100",
       });
@@ -389,7 +389,7 @@ export class StoresController {
       // Update sync status to FAILED
       try {
         await prisma.store.update({
-          where: { id: req.params.id },
+          where: { id: req.params.id as string },
           data: { syncStatus: "FAILED" },
         });
       } catch (updateError) {
@@ -407,7 +407,10 @@ export class StoresController {
       const userId = req.user!.id;
       const { id } = req.params;
 
-      const categories = await storesService.getStoreCategories(id, userId);
+      const categories = await storesService.getStoreCategories(
+        id as string,
+        userId,
+      );
 
       sendSuccess(res, MESSAGES.CATEGORIES.FETCHED, categories);
     } catch (error) {

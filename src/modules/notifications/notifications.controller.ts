@@ -9,7 +9,7 @@ export class NotificationsController {
       const userId = req.user!.id;
       const result = await notificationsService.getUserNotifications(
         userId,
-        req.query
+        req.query,
       );
       sendPaginated(res, MESSAGES.NOTIFICATIONS.FETCHED, result);
     } catch (error) {
@@ -21,7 +21,10 @@ export class NotificationsController {
     try {
       const userId = req.user!.id;
       const { id } = req.params;
-      const notification = await notificationsService.markAsRead(id, userId);
+      const notification = await notificationsService.markAsRead(
+        id as string,
+        userId,
+      );
       sendSuccess(res, MESSAGES.NOTIFICATIONS.READ, notification);
     } catch (error) {
       next(error);

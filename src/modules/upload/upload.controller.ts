@@ -77,7 +77,7 @@ export class UploadController {
   ): Promise<void> {
     try {
       // publicId comes as URL parameter, decode it
-      const publicId = decodeURIComponent(req.params.publicId);
+      const publicId = decodeURIComponent(req.params.publicId as string);
 
       const result = await uploadService.deleteImage(publicId);
 

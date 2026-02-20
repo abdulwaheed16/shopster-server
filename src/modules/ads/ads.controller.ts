@@ -34,7 +34,7 @@ export class AdsController {
       const userId = req.user!.id;
       const { id } = req.params;
 
-      const ad = await adsService.getAdById(id, userId);
+      const ad = await adsService.getAdById(id as string, userId);
 
       sendSuccess(res, MESSAGES.ADS.FETCHED_ONE, ad);
     } catch (error) {
@@ -69,7 +69,7 @@ export class AdsController {
       const { id } = req.params;
       const data = req.body;
 
-      const ad = await adsService.updateAd(id, userId, data);
+      const ad = await adsService.updateAd(id as string, userId, data);
 
       sendSuccess(res, MESSAGES.ADS.UPDATED, ad);
     } catch (error) {
@@ -86,7 +86,7 @@ export class AdsController {
       const userId = req.user!.id;
       const { id } = req.params;
 
-      await adsService.deleteAd(id, userId);
+      await adsService.deleteAd(id as string, userId);
 
       sendSuccess(res, MESSAGES.ADS.DELETED);
     } catch (error) {

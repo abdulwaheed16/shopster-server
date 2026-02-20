@@ -112,7 +112,7 @@ export class BillingController {
     next: NextFunction,
   ): Promise<void> {
     try {
-      const result = await billingService.getPlanById(req.params.id);
+      const result = await billingService.getPlanById(req.params.id as string);
       sendSuccess(res, MESSAGES.BILLING.PLAN_FETCHED, result);
     } catch (error) {
       next(error);
@@ -180,7 +180,7 @@ export class BillingController {
   ): Promise<void> {
     try {
       const { userId } = req.params;
-      const result = await billingService.getUserUsage(userId);
+      const result = await billingService.getUserUsage(userId as string);
       sendSuccess(res, MESSAGES.BILLING.USAGE_FETCHED, result);
     } catch (error) {
       next(error);

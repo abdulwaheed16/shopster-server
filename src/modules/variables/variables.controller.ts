@@ -39,7 +39,10 @@ export class VariablesController {
       const userId = req.user!.id;
       const { id } = req.params;
 
-      const variable = await variablesService.getVariableById(id, userId);
+      const variable = await variablesService.getVariableById(
+        id as string,
+        userId,
+      );
 
       sendSuccess(res, MESSAGES.VARIABLES.FETCHED, variable);
     } catch (error) {
@@ -56,7 +59,10 @@ export class VariablesController {
       const userId = req.user!.id;
       const { id } = req.params;
 
-      const usage = await variablesService.getVariableUsage(id, userId);
+      const usage = await variablesService.getVariableUsage(
+        id as string,
+        userId,
+      );
 
       sendSuccess(res, MESSAGES.VARIABLES.USAGE_FETCHED, usage);
     } catch (error) {
@@ -91,7 +97,11 @@ export class VariablesController {
       const { id } = req.params;
       const data: UpdateVariableBody = req.body;
 
-      const variable = await variablesService.updateVariable(id, userId, data);
+      const variable = await variablesService.updateVariable(
+        id as string,
+        userId,
+        data,
+      );
 
       sendSuccess(res, MESSAGES.VARIABLES.UPDATED, variable);
     } catch (error) {
@@ -108,7 +118,7 @@ export class VariablesController {
       const userId = req.user!.id;
       const { id } = req.params;
 
-      await variablesService.deleteVariable(id, userId);
+      await variablesService.deleteVariable(id as string, userId);
 
       sendSuccess(res, MESSAGES.VARIABLES.DELETED);
     } catch (error) {

@@ -23,7 +23,7 @@ export const templatePreviewWorker = new Worker(
       job.data;
 
     console.log(
-      `Processing template preview job ${job.id} for template ${templateId}`
+      `Processing template preview job ${job.id} for template ${templateId}`,
     );
 
     try {
@@ -35,11 +35,11 @@ export const templatePreviewWorker = new Worker(
 
       if (template?.referenceAdImage && !template.referenceAnalysis) {
         console.log(
-          `[TemplateWorker] Caching reference analysis for template: ${templateId}`
+          `[TemplateWorker] Caching reference analysis for template: ${templateId}`,
         );
         try {
           const analysis = await aiService.analyzeAdTemplate(
-            template.referenceAdImage
+            template.referenceAdImage,
           );
           await prisma.template.update({
             where: { id: templateId },
@@ -48,7 +48,7 @@ export const templatePreviewWorker = new Worker(
         } catch (err: any) {
           console.warn(
             `[TemplateWorker] Failed to cache reference analysis:`,
-            err.message
+            err.message,
           );
         }
       }
@@ -68,7 +68,7 @@ export const templatePreviewWorker = new Worker(
         },
         {
           timeout: 30000, // 30 seconds timeout
-        }
+        },
       );
 
       // Extract preview URLs from response
@@ -76,12 +76,12 @@ export const templatePreviewWorker = new Worker(
 
       if (!previewImages || !Array.isArray(previewImages)) {
         throw new Error(
-          "Invalid preview images returned from generation service"
+          "Invalid preview images returned from generation service",
         );
       }
 
       console.log(
-        `Uploading ${previewImages.length} preview images to Cloudinary...`
+        `Uploading ${previewImages.length} preview images to Cloudinary...`,
       );
 
       // Upload all previews to Cloudinary
@@ -93,7 +93,7 @@ export const templatePreviewWorker = new Worker(
             public_id: `tpl_preview_${templateId}_${Date.now()}_${index}`,
           });
           return result.secure_url;
-        }
+        },
       );
 
       const secureUrls = await Promise.all(uploadPromises);
@@ -108,11 +108,11 @@ export const templatePreviewWorker = new Worker(
 
       // Post-generation Analysis (Vision) for each preview
       console.log(
-        `Analyzing ${secureUrls.length} previews for template ${templateId}`
+        `Analyzing ${secureUrls.length} previews for template ${templateId}`,
       );
       try {
         const previewAnalyses = await Promise.all(
-          secureUrls.map((url) => aiService.analyzeImage(url))
+          secureUrls.map((url) => aiService.analyzeImage(url)),
         );
 
         await prisma.template.update({
@@ -122,7 +122,7 @@ export const templatePreviewWorker = new Worker(
       } catch (analysisError: any) {
         console.warn(
           `Preview analysis failed for template ${templateId}:`,
-          analysisError.message
+          analysisError.message,
         );
       }
 
@@ -131,15 +131,16 @@ export const templatePreviewWorker = new Worker(
     } catch (error: any) {
       console.error(
         `Template preview failed for template ${templateId}:`,
-        error.message
+        error.message,
       );
       throw error; // Re-throw to mark job as failed
     }
   },
   {
-    connection,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    connection: connection as any,
     concurrency: 3, // Process up to 3 preview jobs concurrently
-  }
+  },
 );
 
 // Worker event listeners

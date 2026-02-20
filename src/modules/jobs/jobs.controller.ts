@@ -29,7 +29,7 @@ export class JobsController {
     try {
       const { id } = req.params;
 
-      const job = await jobsService.getJobById(id);
+      const job = await jobsService.getJobById(id as string);
 
       sendSuccess(res, MESSAGES.JOBS.FETCHED_ONE, job);
     } catch (error) {

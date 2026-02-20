@@ -24,7 +24,7 @@ export class UsersController {
     next: NextFunction,
   ): Promise<void> {
     try {
-      const user = await usersService.getUserById(req.params.id);
+      const user = await usersService.getUserById(req.params.id as string);
       sendSuccess(res, MESSAGES.USERS.FETCHED_ONE, user);
     } catch (error) {
       next(error);
@@ -37,7 +37,10 @@ export class UsersController {
     next: NextFunction,
   ): Promise<void> {
     try {
-      const user = await usersService.updateUser(req.params.id, req.body);
+      const user = await usersService.updateUser(
+        req.params.id as string,
+        req.body,
+      );
       sendSuccess(res, MESSAGES.USERS.UPDATED, user);
     } catch (error) {
       next(error);
@@ -50,7 +53,7 @@ export class UsersController {
     next: NextFunction,
   ): Promise<void> {
     try {
-      await usersService.deleteUser(req.params.id);
+      await usersService.deleteUser(req.params.id as string);
       sendSuccess(res, MESSAGES.USERS.DELETED);
     } catch (error) {
       next(error);
@@ -91,7 +94,7 @@ export class UsersController {
     try {
       const { id } = req.params;
       const { role } = req.body;
-      const user = await usersService.updateUserRole(id, role);
+      const user = await usersService.updateUserRole(id as string, role);
       sendSuccess(res, MESSAGES.USERS.UPDATED, user);
     } catch (error) {
       next(error);

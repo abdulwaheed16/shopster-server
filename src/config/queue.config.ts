@@ -28,7 +28,8 @@ export const QUEUE_NAMES = {
 
 // Create queues
 export const adGenerationQueue = new Queue(QUEUE_NAMES.AD_GENERATION, {
-  connection,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  connection: connection as any,
   defaultJobOptions: {
     attempts: 3,
     backoff: {
@@ -46,7 +47,8 @@ export const adGenerationQueue = new Queue(QUEUE_NAMES.AD_GENERATION, {
 });
 
 export const templatePreviewQueue = new Queue(QUEUE_NAMES.TEMPLATE_PREVIEW, {
-  connection,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  connection: connection as any,
   defaultJobOptions: {
     attempts: 3,
     backoff: {
@@ -64,7 +66,8 @@ export const templatePreviewQueue = new Queue(QUEUE_NAMES.TEMPLATE_PREVIEW, {
 });
 
 export const shopifySyncQueue = new Queue(QUEUE_NAMES.SHOPIFY_SYNC, {
-  connection,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  connection: connection as any,
   defaultJobOptions: {
     attempts: 2,
     backoff: {

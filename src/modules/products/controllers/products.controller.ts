@@ -54,7 +54,7 @@ export class ProductsController {
       const { id } = req.params;
 
       const service = this.getService(req);
-      const product = await service.getProductById(id, userId);
+      const product = await service.getProductById(id as string, userId);
 
       sendSuccess(res, MESSAGES.PRODUCTS.FETCHED_ONE, product);
     } catch (error) {
@@ -92,7 +92,11 @@ export class ProductsController {
       const data = req.body;
 
       const service = this.getService(req);
-      const product = await service.updateProduct(productId, userId, data);
+      const product = await service.updateProduct(
+        productId as string,
+        userId,
+        data,
+      );
 
       sendSuccess(res, MESSAGES.PRODUCTS.UPDATED, product);
     } catch (error) {
@@ -110,7 +114,7 @@ export class ProductsController {
       const { id: productId } = req.params;
 
       const service = this.getService(req);
-      await service.deleteProduct(productId, userId);
+      await service.deleteProduct(productId as string, userId);
 
       sendSuccess(res, MESSAGES.PRODUCTS.DELETED);
     } catch (error) {
