@@ -1,3 +1,9 @@
+import { config as envConfig } from "dotenv";
+import path from "path";
+
+// Load environment variables as early as possible with absolute path
+envConfig({ path: path.join(process.cwd(), ".env") });
+
 import { createApp } from "./app";
 import {
   handleUncaughtException,
