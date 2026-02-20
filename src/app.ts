@@ -60,6 +60,8 @@ export const createApp = (): Application => {
     helmet({
       crossOriginResourcePolicy: { policy: "cross-origin" },
       contentSecurityPolicy: false,
+      crossOriginOpenerPolicy: false,
+      crossOriginEmbedderPolicy: false,
     }),
   );
 
