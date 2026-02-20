@@ -20,17 +20,6 @@ export const createApp = (): Application => {
   // Trust Proxy for Ngrok/Cloudinary/Heroku
   app.set("trust proxy", 1);
 
-  // Debugging middleware for SSE
-  app.use((req, res, next) => {
-    if (req.url.includes("/events") || req.url.includes("/test-sse")) {
-      console.log(
-        `[EARLY-SSE-DEBUG] Incoming ${req.method} request to ${req.url}`,
-      );
-      console.log(`[EARLY-SSE-DEBUG] Headers:`, JSON.stringify(req.headers));
-    }
-    next();
-  });
-
   // CORS configuration
   app.use(
     cors({
@@ -45,7 +34,9 @@ export const createApp = (): Application => {
           origin.endsWith("ngrok-free.app") ||
           origin.endsWith("ngrok.io")
         ) {
-          callback(null, true);
+          // Reflect the origin back if it's allowed, or use the first allowed origin
+          // instead of returning 'true' which can default to '*'
+          callback(null, origin || allowedOrigins[0]);
         } else {
           console.warn(`[CORS] Origin ${origin} is REJECTED`);
           callback(new Error("Not allowed by CORS"));
@@ -64,11 +55,11 @@ export const createApp = (): Application => {
     }),
   );
 
-  // 2. Security middleware
+  // Security middleware
   app.use(
     helmet({
       crossOriginResourcePolicy: { policy: "cross-origin" },
-      contentSecurityPolicy: false, // Disable CSP for debugging if it interferes
+      contentSecurityPolicy: false,
     }),
   );
 
@@ -120,7 +111,6 @@ export const createApp = (): Application => {
   // API routes
   app.use(routes);
 
-  // 404 handler (must be after all routes)
   app.use((req, res) => {
     res.status(404).json({
       status: "fail",
@@ -128,9 +118,7 @@ export const createApp = (): Application => {
     });
   });
 
-  // Error handler (must be last)
   app.use(errorHandler);
 
   return app;
 };
-

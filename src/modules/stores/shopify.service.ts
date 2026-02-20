@@ -1,6 +1,7 @@
 import axios from "axios";
 import crypto from "crypto";
 import { ApiError } from "../../common/errors/api-error";
+import Logger from "../../common/logging/logger";
 import { config } from "../../config/env.config";
 
 import { IShopifyService } from "./stores.types";
@@ -18,8 +19,8 @@ export class ShopifyService implements IShopifyService {
     this.callbackUrl = config.shopify.callbackUrl || "";
 
     if (!this.apiKey || !this.apiSecret || !this.callbackUrl) {
-      console.warn(
-        "Shopify API credentials are not fully configured in environment variables."
+      Logger.warn(
+        "Shopify API credentials are not fully configured in environment variables.",
       );
     }
   }
@@ -66,12 +67,12 @@ export class ShopifyService implements IShopifyService {
       return response.data.access_token;
       // @ts-ignore
     } catch (error: any) {
-      console.error(
+      Logger.error(
         "Shopify token exchange error:",
-        error.response?.data || error.message
+        error.response?.data || error.message,
       );
       throw ApiError.badRequest(
-        "Failed to exchange Shopify authorization code for access token"
+        "Failed to exchange Shopify authorization code for access token",
       );
     }
   }
@@ -91,9 +92,9 @@ export class ShopifyService implements IShopifyService {
       return response.data.products as unknown[];
       // @ts-ignore
     } catch (error: any) {
-      console.error(
+      Logger.error(
         "Shopify fetch products error:",
-        error.response?.data || error.message
+        error.response?.data || error.message,
       );
       throw ApiError.badRequest("Failed to fetch products from Shopify");
     }
@@ -122,18 +123,18 @@ export class ShopifyService implements IShopifyService {
             headers: {
               "X-Shopify-Access-Token": accessToken,
             },
-          }
+          },
         );
-        console.log(`Registered Shopify webhook: ${webhook.topic}`);
+        Logger.info(`Registered Shopify webhook: ${webhook.topic}`);
         // @ts-ignore
       } catch (error: any) {
         // Shopify returns 422 if webhook already exists
         if (error.response?.status === 422) {
-          console.log(`Webhook already exists: ${webhook.topic}`);
+          Logger.info(`Webhook already exists: ${webhook.topic}`);
         } else {
-          console.error(
+          Logger.error(
             `Failed to register Shopify webhook ${webhook.topic}:`,
-            error.response?.data || error.message
+            error.response?.data || error.message,
           );
         }
       }

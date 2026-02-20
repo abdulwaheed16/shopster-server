@@ -13,24 +13,8 @@ import { IStorageService } from "../upload/interfaces/storage.interface";
 import { STORAGE_PROVIDERS } from "../upload/upload.constants";
 import { adsService } from "./ads.service";
 
-/**
- * Orchestrates: AI Generation -> Storage (Buffer) -> DB
- */
 export class AdProcessorService {
-  // Dependency Injection
   constructor(private readonly storageService: IStorageService) {}
-
-  /**
-   * Complete Execution Flow:
-   * 1. Status -> PROCESSING
-   * 2. (Optional) Vision Analysis of Template
-   * 3. (Optional) Prompt Engineering
-   * 4. AI Generation
-   * 5. Download URLs to Buffers
-   * 6. Upload Result via StorageService
-   * 7. Post-generation Analysis (Vision)
-   * 8. Update DB -> COMPLETED
-   */
 
   async processGeneration(data: {
     adId: string;
@@ -133,70 +117,78 @@ export class AdProcessorService {
         `[AdProcessorService] Generating media via provider----------------: ${provider}`,
       );
 
+      const imageAdPayload = {
+        adId,
+        prompt: finalPrompt,
+        aspectRatio: finalAspectRatio as string,
+        scenes,
+        style,
+        color,
+        modelId,
+        duration,
+        productImages,
+        templateImage,
+        templatePrompt,
+        modelImage,
+      };
+
+      const videoAdPayload = {
+        adId,
+        prompt: finalPrompt,
+        aspectRatio: finalAspectRatio as string,
+        scenes,
+        style,
+        color,
+        modelId,
+        duration,
+        productImages,
+        templateImage,
+        templatePrompt,
+        modelImage,
+      };
+
       const generationResults =
         mediaType === MediaType.VIDEO
           ? [
               await aiService
-                .generateVideo(
-                  {
-                    adId,
-                    prompt: finalPrompt,
-                    aspectRatio: finalAspectRatio as string,
-                    scenes,
-                    style,
-                    color,
-                    modelId,
-                    duration,
-                    productImages,
-                    templateImage,
-                    templatePrompt,
-                    modelImage,
-                  } as any,
-                  provider,
-                )
+                .generateVideo(videoAdPayload, provider)
                 .then((res) => ({
                   url: res?.videoUrl,
                   metadata: res?.metadata,
+                  pending: (res?.metadata as any)?.pending,
                 })),
             ]
-          : await aiService.generateImage(
-              {
-                adId,
-                prompt: finalPrompt,
-                aspectRatio: finalAspectRatio,
-                variants: variantsCount || 1,
-                style,
-                color,
-                modelId,
-                productImages,
-                templateImage,
-                templatePrompt,
-                userPrompt: scenes?.[0] ?? "",
-                modelImage,
-              },
-              provider,
-            );
+          : await aiService
+              .generateImage(imageAdPayload, provider)
+              .then((results) =>
+                results.map((r) => ({
+                  url: (r as any).imageUrl || (r as any).url || "",
+                  metadata: (r as any).metadata,
+                  pending: (r as any).metadata?.pending,
+                })),
+              );
 
-      // 3. Extract URLs directly from n8n response (no need to download/upload)
-      // NOTE: If you need to re-upload to your own storage in the future, uncomment below:
-      // import { downloadAndUploadMedia } from './utils/media-upload.util';
-      // const uploadResults = await downloadAndUploadMedia(
-      //   generationResults.map(r => r.imageUrl),
-      //   adId,
-      //   mediaType,
-      //   this.storageService
-      // );
+      console.log("[AdProcessorService] Provider response:", generationResults);
 
-      console.log("generationResults", generationResults);
+      // --- Async path (n8n fire-and-forget) ---
+      // If the provider returned a pending marker, n8n has acknowledged the request
+      // and will POST the result to /ads/n8n-callback when done.
+      // The BullMQ job is done here — ad stays in PROCESSING state.
+      const isPending = generationResults.some((r: any) => r.pending === true);
 
-      console.log(
-        `[AdProcessorService] Processing ${generationResults.length} variants for ad: ${adId}`,
-      );
+      if (isPending) {
+        console.log(
+          `[AdProcessorService] Ad ${adId} dispatched to n8n (async). ` +
+            `Waiting for callback at /api/ads/n8n-callback.`,
+        );
+        // Job completes quickly — callback handler will move ad to COMPLETED/FAILED
+        return { success: true, adId, async: true };
+      }
 
-      // Extract n8n URLs from the response
+      // --- Synchronous path (non-n8n providers or n8n returning result directly) ---
       const n8nUrls = generationResults
-        ?.map((res, index) => {
-          const url = (res as any)?.imageUrl || (res as any)?.url;
+        .map((res: any, index: number) => {
+          const url = res?.url;
           if (!url) {
             console.error(
               `[AdProcessorService] No URL found for variant ${index}`,
@@ -208,33 +200,25 @@ export class AdProcessorService {
         .filter(Boolean) as string[];
 
       if (n8nUrls.length === 0) {
-        throw new Error("No valid image URLs returned from n8n");
+        throw new Error("No valid image URLs returned from provider");
       }
 
       console.log(`[AdProcessorService] Extracted URLs:`, n8nUrls);
 
-      // 4. Update DB -> COMPLETED immediately with n8n URLs (show to UI instantly)
+      // Update DB -> COMPLETED with URLs
       await prisma.ad.update({
         where: { id: adId },
         data: {
           status: AdStatus.COMPLETED,
           ...(mediaType === MediaType.VIDEO
-            ? {
-                videoUrl: n8nUrls[0],
-                videoUrls: n8nUrls,
-              }
-            : {
-                imageUrl: n8nUrls[0],
-                imageUrls: n8nUrls,
-              }),
+            ? { videoUrl: n8nUrls[0], videoUrls: n8nUrls }
+            : { imageUrl: n8nUrls[0], imageUrls: n8nUrls }),
         },
       });
 
-      // Emit update to UI immediately
       adsService.emitAdUpdate(adId, AdStatus.COMPLETED, {
         url: n8nUrls[0],
         mediaType,
-        // Include variants for the frontend
         ...(mediaType === MediaType.VIDEO
           ? { videoUrls: n8nUrls }
           : { imageUrls: n8nUrls }),
@@ -244,47 +228,15 @@ export class AdProcessorService {
         `[AdProcessorService] Ad ${adId} completed and visible to user`,
       );
 
-      // 5. Background: Download and upload to our storage (non-blocking)
-      // This happens in the background and won't block the user experience
+      // Background: upload to our own storage (non-blocking)
       this.uploadToStorageInBackground(adId, n8nUrls, mediaType).catch(
         (error: any) => {
           console.warn(
             `[AdProcessorService] Background upload failed for ${adId}:`,
             error.message,
           );
-          // Don't throw - user already sees the ad with n8n URLs
         },
       );
-
-      // 6. Post-generation Analysis (Vision) - DISABLED (using mock providers)
-      // Uncomment this when you want to use Gemini for vision analysis
-      /*
-      if (mediaType === MediaType.IMAGE) {
-        console.log(`[AdProcessorService] Analyzing generated ad for: ${adId}`);
-        try {
-          const resultAnalysis = await aiService.analyzeGeneratedAd(
-            n8nUrls[0] ?? "",
-          );
-
-          // Final DB update with analysis
-          await prisma.ad.update({
-            where: { id: adId },
-            data: { resultAnalysis } as any,
-          });
-          console.log(`[AdProcessorService] Analysis complete for: ${adId}`);
-        } catch (analysisError: any) {
-          console.warn(
-            `[AdProcessorService] Analysis failed (non-critical):`,
-            analysisError.message,
-          );
-          // We don't fail the whole process if analysis fails
-        }
-      } else {
-        console.log(
-          `[AdProcessorService] Skipping vision analysis for mediaType: ${mediaType} (Ad: ${adId})`,
-        );
-      }
-      */
 
       return { success: true, adId };
     } catch (error: any) {
@@ -328,7 +280,6 @@ export class AdProcessorService {
 
   /**
    * Background: Download n8n URLs and upload to our storage
-   * This runs asynchronously and won't block the user experience
    * Includes retry logic for failed uploads
    */
   private async uploadToStorageInBackground(

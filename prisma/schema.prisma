@@ -163,6 +163,7 @@ model Product {
     sku         String?
     title       String
     description String?
+    productType String? // e.g., "Clothing", "Electronics"
 
     // Product source tracking
     productSource  ProductSource @default(STORE)

@@ -15,7 +15,6 @@ import {
 } from "./templates.validation";
 
 export class TemplatesController {
-  // Get all templates --- GET /templates
   async getTemplates(
     req: Request,
     res: Response,
@@ -40,7 +39,6 @@ export class TemplatesController {
     }
   }
 
-  // Get user's templates --- GET /templates/my
   async getMyTemplates(
     req: Request,
     res: Response,
@@ -68,7 +66,6 @@ export class TemplatesController {
     }
   }
 
-  // Get global templates --- GET /templates/general
   async getGeneralTemplates(
     req: Request,
     res: Response,
@@ -96,7 +93,6 @@ export class TemplatesController {
     }
   }
 
-  // Get template by ID --- GET /templates/:id
   async getTemplateById(
     req: Request,
     res: Response,
@@ -135,7 +131,6 @@ export class TemplatesController {
     };
   }
 
-  // Create template --- POST /templates
   async createTemplate(
     req: Request,
     res: Response,
@@ -153,7 +148,6 @@ export class TemplatesController {
     }
   }
 
-  // Update template --- PUT /templates/:id
   async updateTemplate(
     req: Request,
     res: Response,
@@ -172,7 +166,6 @@ export class TemplatesController {
     }
   }
 
-  // Delete template --- DELETE /templates/:id
   async deleteTemplate(
     req: Request,
     res: Response,
@@ -190,7 +183,6 @@ export class TemplatesController {
     }
   }
 
-  // Update MY template --- PUT /templates/my/:id
   async updateMyTemplate(
     req: Request,
     res: Response,
@@ -213,7 +205,6 @@ export class TemplatesController {
     }
   }
 
-  // Delete MY template --- DELETE /templates/my/:id
   async deleteMyTemplate(
     req: Request,
     res: Response,
@@ -231,7 +222,6 @@ export class TemplatesController {
     }
   }
 
-  // Generate preview --- POST /templates/preview
   async generatePreview(
     req: Request,
     res: Response,
@@ -249,7 +239,6 @@ export class TemplatesController {
     }
   }
 
-  // Bulk delete templates --- POST /templates/bulk-delete
   async bulkDeleteTemplates(
     req: Request,
     res: Response,
@@ -269,7 +258,6 @@ export class TemplatesController {
     }
   }
 
-  // Track visit --- POST /templates/:id/visit
   async trackVisit(
     req: Request,
     res: Response,
@@ -285,7 +273,6 @@ export class TemplatesController {
     }
   }
 
-  // Toggle like --- POST /templates/:id/like
   async toggleLike(
     req: Request,
     res: Response,
@@ -305,7 +292,6 @@ export class TemplatesController {
     }
   }
 
-  // Toggle favorite --- POST /templates/:id/favorite
   async toggleFavorite(
     req: Request,
     res: Response,
@@ -325,7 +311,6 @@ export class TemplatesController {
     }
   }
 
-  // Get admin stats --- GET /templates/admin/stats
   async getAdminStats(
     req: Request,
     res: Response,

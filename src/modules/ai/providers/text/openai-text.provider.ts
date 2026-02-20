@@ -7,9 +7,6 @@ import {
   TextPromptOptions,
 } from "../../interfaces/text-generator.interface";
 
-/**
- * CONCRETE STRATEGY: OpenAITextProvider
- */
 export class OpenAITextProvider implements ITextGenerator {
   private readonly apiKey: string;
   private readonly baseUrl = AI_BASE_URLS.OPENAI;

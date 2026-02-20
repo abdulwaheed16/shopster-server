@@ -1,20 +1,21 @@
 import { NextFunction, Request, Response } from "express";
 import { MESSAGES } from "../../common/constants/messages.constant";
+import Logger from "../../common/logging/logger";
 import {
   sendCreated,
   sendPaginated,
   sendSuccess,
 } from "../../common/utils/response.util";
+import { N8NCallbackPayload } from "../ai/interfaces/n8n-callback.types";
 import { adsService } from "./ads.service";
-import { GetAdsQuery } from "./ads.validation";
-import { GenerateAdPayload } from "./interfaces/generate-ad.interface";
+import { GenerateAdBody, GetAdsQuery } from "./ads.validation";
+import { n8nCallbackService } from "./n8n-callback.service";
 
 export class AdsController {
-  // Get all ads --- GET /ads
   async getAds(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const userId = req.user!.id;
-      const query: GetAdsQuery = req.query as any;
+      const query = req.query as unknown as GetAdsQuery;
 
       const result = await adsService.getAds(userId, query);
 
@@ -24,7 +25,6 @@ export class AdsController {
     }
   }
 
-  // Get ad by ID --- GET /ads/:id
   async getAdById(
     req: Request,
     res: Response,
@@ -42,7 +42,6 @@ export class AdsController {
     }
   }
 
-  // Generate ad --- POST /ads/generate
   async generateAd(
     req: Request,
     res: Response,
@@ -50,7 +49,7 @@ export class AdsController {
   ): Promise<void> {
     try {
       const userId = req.user!.id;
-      const data: GenerateAdPayload = req.body;
+      const data = req.body as GenerateAdBody;
 
       const ad = await adsService.generateAd(userId, data);
 
@@ -60,7 +59,6 @@ export class AdsController {
     }
   }
 
-  // Update ad --- PATCH /ads/:id
   async updateAd(
     req: Request,
     res: Response,
@@ -79,7 +77,6 @@ export class AdsController {
     }
   }
 
-  // Delete ad --- DELETE /ads/:id
   async deleteAd(
     req: Request,
     res: Response,
@@ -97,7 +94,6 @@ export class AdsController {
     }
   }
 
-  // Bulk delete ads --- POST /ads/bulk-delete
   async bulkDeleteAds(
     req: Request,
     res: Response,
@@ -117,7 +113,6 @@ export class AdsController {
     }
   }
 
-  // Cancel ad generation --- POST /ads/:id/cancel
   async cancelAd(
     req: Request,
     res: Response,
@@ -135,7 +130,6 @@ export class AdsController {
     }
   }
 
-  // Stream ad events (SSE) --- GET /ads/:id/events
   async streamAdEvents(
     req: Request,
     res: Response,
@@ -143,40 +137,47 @@ export class AdsController {
   ): Promise<void> {
     try {
       const { id } = req.params;
-      console.log(`[SSE] streamAdEvents hit for ad ${id}`);
+      Logger.info(`[SSE] streamAdEvents hit for ad ${id}`);
 
-      // Set headers explicitly and immediately
-      res.writeHead(200, {
-        "Content-Type": "text/event-stream",
-        "Cache-Control": "no-cache",
-        Connection: "keep-alive",
-        "Access-Control-Allow-Origin": req.headers.origin || "*",
-        "X-Accel-Buffering": "no",
-      });
-
-      // Send initial data immediately to "lock in" the content-type
+      // Send initial event immediately to "lock in" the content-type
       res.write(
         `data: ${JSON.stringify({ status: "CONNECTED", adId: id })}\n\n`,
       );
 
-      // Subscribe to updates
+      // Subscribe to ad-specific updates
       const unsubscribe = adsService.subscribeToAdUpdates(id, (data) => {
         res.write(`data: ${JSON.stringify(data)}\n\n`);
       });
 
-      // Keep connection alive with heartbeat
+      // Keep connection alive with a periodic heartbeat
       const heartbeat = setInterval(() => {
         res.write(": heartbeat\n\n");
-      }, 30000);
+      }, 15_000);
 
-      console.log("Ad events subscription established for ad:", id);
+      Logger.info("SSE-Heartbeat: " + heartbeat);
 
-      // Handle client disconnect
+      Logger.info(`Ad events subscription established for ad: ${id}`);
+
+      // Clean up on client disconnect
       req.on("close", () => {
         clearInterval(heartbeat);
         unsubscribe();
         res.end();
       });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async handleN8nCallback(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
+    try {
+      const payload = req.body as N8NCallbackPayload;
+      await n8nCallbackService.handleCallback(payload);
+      sendSuccess(res, "Callback received and processed");
     } catch (error) {
       next(error);
     }

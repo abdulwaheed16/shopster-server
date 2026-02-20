@@ -13,11 +13,10 @@ import {
 } from "./categories.validation";
 
 export class CategoriesController {
-  // Get all categories --- GET /categories
   async getCategories(
     req: Request,
     res: Response,
-    next: NextFunction
+    next: NextFunction,
   ): Promise<void> {
     try {
       const userId = req.user!.id;
@@ -31,11 +30,10 @@ export class CategoriesController {
     }
   }
 
-  // Get category by ID --- GET /categories/:id
   async getCategoryById(
     req: Request,
     res: Response,
-    next: NextFunction
+    next: NextFunction,
   ): Promise<void> {
     try {
       const userId = req.user!.id;
@@ -49,11 +47,10 @@ export class CategoriesController {
     }
   }
 
-  // Create category --- POST /categories
   async createCategory(
     req: Request,
     res: Response,
-    next: NextFunction
+    next: NextFunction,
   ): Promise<void> {
     try {
       const userId = req.user!.id;
@@ -67,11 +64,10 @@ export class CategoriesController {
     }
   }
 
-  // Update category --- PUT /categories/:id
   async updateCategory(
     req: Request,
     res: Response,
-    next: NextFunction
+    next: NextFunction,
   ): Promise<void> {
     try {
       const userId = req.user!.id;
@@ -86,11 +82,10 @@ export class CategoriesController {
     }
   }
 
-  // Delete category --- DELETE /categories/:id
   async deleteCategory(
     req: Request,
     res: Response,
-    next: NextFunction
+    next: NextFunction,
   ): Promise<void> {
     try {
       const userId = req.user!.id;

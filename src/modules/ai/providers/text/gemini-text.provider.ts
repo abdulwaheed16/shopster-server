@@ -8,10 +8,7 @@ import {
   TextPromptOptions,
 } from "../../interfaces/text-generator.interface";
 
-/**
- * CONCRETE STRATEGY: Gemini Text Provider
- * Implements text generation using the official Google Generative AI SDK.
- */
+
 export class GeminiTextProvider implements ITextGenerator {
   private readonly genAI: GoogleGenerativeAI;
   private readonly apiKey: string;

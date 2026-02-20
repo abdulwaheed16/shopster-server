@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import { NextFunction, Request, Response } from "express";
 import { MESSAGES } from "../../common/constants/messages.constant";
+import Logger from "../../common/logging/logger";
 import {
   sendCreated,
   sendPaginated,
@@ -20,7 +21,6 @@ import {
 } from "./stores.validation";
 
 export class StoresController {
-  // Initiate Shopify OAuth --- GET /stores/shopify/auth
   async initiateShopifyAuth(
     req: Request,
     res: Response,
@@ -51,7 +51,7 @@ export class StoresController {
       res.cookie("shopify_user_id", req.user!.id, cookieOptions);
 
       const authUrl = shopifyService.generateAuthUrl(shop, state);
-      console.log("Shopify Auth URL:", authUrl);
+      Logger.info(`Shopify Auth URL generated for shop: ${shop}`);
 
       sendSuccess(res, MESSAGES.STORES.AUTH_INITIATED, { url: authUrl });
     } catch (error) {
@@ -59,7 +59,6 @@ export class StoresController {
     }
   }
 
-  // Shopify OAuth Callback --- GET /stores/shopify/callback
   async shopifyAuthCallback(
     req: Request,
     res: Response,
@@ -124,7 +123,7 @@ export class StoresController {
       const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
       res.redirect(`${frontendUrl}/stores?status=success&storeId=${store.id}`);
     } catch (error) {
-      console.error("Shopify callback error:", error);
+      Logger.error("Shopify callback error:", error);
       const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
       res.redirect(
         `${frontendUrl}/stores?status=error&message=Authentication failed`,
@@ -132,7 +131,6 @@ export class StoresController {
     }
   }
 
-  // Shopify Webhook Handler --- POST /stores/shopify/webhooks
   async handleShopifyWebhook(
     req: Request,
     res: Response,
@@ -147,14 +145,14 @@ export class StoresController {
       // 1. Verify HMAC
       const rawBody = (req as any).rawBody;
       if (!shopifyService.verifyWebhookHmac(rawBody, hmacHeader)) {
-        console.warn(
+        Logger.warn(
           `🛑 Invalid HMAC for Shopify webhook: ${topic} from ${shop}`,
         );
         res.status(401).send("Invalid HMAC");
         return;
       }
 
-      console.log(`📦 Received Shopify webhook: ${topic} from ${shop}`);
+      Logger.info(`📦 Received Shopify webhook: ${topic} from ${shop}`);
 
       // 2. Get store details
       const store = await prisma.store.findFirst({
@@ -163,7 +161,7 @@ export class StoresController {
       });
 
       if (!store) {
-        console.warn(`Webhook received for unknown shop: ${shop}`);
+        Logger.warn(`Webhook received for unknown shop: ${shop}`);
         res.status(200).send(); // Always return 200 to Shopify
         return;
       }
@@ -181,17 +179,16 @@ export class StoresController {
             externalId,
           },
         });
-        console.log(`🗑️ Deleted product ${externalId} from store ${store.id}`);
+        Logger.info(`🗑️ Deleted product ${externalId} from store ${store.id}`);
       }
 
       res.status(200).send();
     } catch (error) {
-      console.error("Webhook processing error:", error);
+      Logger.error("Webhook processing error:", error);
       res.status(200).send(); // Always return 200 to Shopify to avoid retries on our processing errors
     }
   }
 
-  // Get all stores --- GET /stores
   async getStores(
     req: Request,
     res: Response,
@@ -209,7 +206,6 @@ export class StoresController {
     }
   }
 
-  // Get store by ID --- GET /stores/:id
   async getStoreById(
     req: Request,
     res: Response,
@@ -227,7 +223,6 @@ export class StoresController {
     }
   }
 
-  // Create store --- POST /stores
   async createStore(
     req: Request,
     res: Response,
@@ -245,7 +240,6 @@ export class StoresController {
     }
   }
 
-  // Update store --- PUT /stores/:id
   async updateStore(
     req: Request,
     res: Response,
@@ -264,7 +258,6 @@ export class StoresController {
     }
   }
 
-  // Delete store --- DELETE /stores/:id
   async deleteStore(
     req: Request,
     res: Response,
@@ -282,7 +275,6 @@ export class StoresController {
     }
   }
 
-  // Sync store --- POST /stores/:id/sync
   async syncStore(
     req: Request,
     res: Response,
@@ -300,7 +292,6 @@ export class StoresController {
     }
   }
 
-  // Sync products manually --- POST /stores/:id/sync-products
   async syncProductsManually(
     req: Request,
     res: Response,
@@ -323,7 +314,7 @@ export class StoresController {
         data: { syncStatus: "SYNCING", lastSyncAt: new Date() },
       });
 
-      console.log(`🔄 Manually syncing products for store ${id}`);
+      Logger.info(`🔄 Manually syncing products for store ${id}`);
 
       // 3. Fetch products from Shopify
       const shopifyProducts = await shopifyService.fetchProducts(
@@ -331,7 +322,7 @@ export class StoresController {
         store.accessToken,
       );
 
-      console.log(`📦 Fetched ${shopifyProducts.length} products from Shopify`);
+      Logger.info(`📦 Fetched ${shopifyProducts.length} products from Shopify`);
 
       // 4. Map and save products
       const productsToSync = shopifyProducts.map((sp: any) => ({
@@ -344,6 +335,7 @@ export class StoresController {
           shopifyVariantIds: sp.variants.map((v: any) => v.id),
         },
         sku: sp.variants[0]?.sku || null,
+        productType: sp.product_type,
         title: sp.title,
         description: sp.body_html || null,
         isActive: sp.status === "active",
@@ -377,7 +369,7 @@ export class StoresController {
         data: { syncStatus: "COMPLETED" },
       });
 
-      console.log(`✅ Successfully synced ${result.count} new products`);
+      Logger.info(`✅ Successfully synced ${result.count} new products`);
 
       // 6. Fetch and return products from database
       const products = await storeProductsService.getProducts(userId, {
@@ -393,7 +385,7 @@ export class StoresController {
         meta: products.meta,
       });
     } catch (error) {
-      console.error("Manual sync error:", error);
+      Logger.error("Manual sync error:", error);
       // Update sync status to FAILED
       try {
         await prisma.store.update({
@@ -401,11 +393,28 @@ export class StoresController {
           data: { syncStatus: "FAILED" },
         });
       } catch (updateError) {
-        console.error("Failed to update sync status:", updateError);
+        Logger.error("Failed to update sync status:", updateError);
       }
       next(error);
     }
   }
+  async getStoreCategories(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
+    try {
+      const userId = req.user!.id;
+      const { id } = req.params;
+
+      const categories = await storesService.getStoreCategories(id, userId);
+
+      sendSuccess(res, MESSAGES.CATEGORIES.FETCHED, categories);
+    } catch (error) {
+      next(error);
+    }
+  }
+
   // Helper to sign state for stateless OAuth
   private signState(data: unknown): string {
     const payload = Buffer.from(JSON.stringify(data)).toString("base64");

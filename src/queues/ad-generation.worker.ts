@@ -69,6 +69,12 @@ export const adGenerationWorker = new Worker<AdGenerationJobData>(
   {
     connection,
     concurrency: 5, // Process up to 5 jobs concurrently
+    // IMPORTANT: n8n calls can take several minutes for AI generation.
+    // BullMQ's default lockDuration is 30s — jobs taking longer get marked
+    // as "stalled" and retried, causing duplicate n8n calls and 524 errors.
+    // Set to 15 minutes to safely cover the 10-minute axios timeout.
+    // lockDuration: 15 * 60 * 1000, // 15 minutes
+    // stalledInterval: 60 * 1000, // Check for stalled jobs every 60s (not 30s default)
   },
 );
 

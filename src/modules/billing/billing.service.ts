@@ -1,6 +1,7 @@
 import { BillingInterval, SubscriptionStatus, UsageType } from "@prisma/client";
 import Stripe from "stripe";
 import { ApiError } from "../../common/errors/api-error";
+import Logger from "../../common/logging/logger";
 import { comparePassword } from "../../common/utils/hash.util";
 import { prisma } from "../../config/database.config";
 
@@ -183,7 +184,7 @@ export class BillingService {
         const stripeInvoices = await stripeService.listInvoices(
           user.stripeCustomerId,
         );
-        console.log(
+        Logger.info(
           `Syncing ${stripeInvoices.data.length} invoices for user ${userId}`,
         );
         if (stripeInvoices.data.length > 0) {
@@ -348,7 +349,7 @@ export class BillingService {
       user.subscription.stripeSubscriptionId !== stripeSubscriptionId
     ) {
       try {
-        console.log(
+        Logger.info(
           `Cancelling previous subscription ${user.subscription.stripeSubscriptionId} for user ${userId}`,
         );
         await stripeService.cancelSubscription(
@@ -356,7 +357,7 @@ export class BillingService {
           true, // Immediate cancellation
         );
       } catch (e) {
-        console.error(
+        Logger.error(
           `Failed to cancel old subscription ${user.subscription.stripeSubscriptionId}:`,
           e,
         );
@@ -586,7 +587,7 @@ export class BillingService {
     description?: string,
   ) {
     // PAUSED: Bypassing credit deduction per user request
-    console.log(
+    Logger.info(
       `Bypassing credit deduction for user: ${userId} (${amount} credits)`,
     );
     return;
@@ -597,7 +598,7 @@ export class BillingService {
     });
 
     if (user?.role === "ADMIN") {
-      console.log(`Skipping credit deduction for admin user: ${userId}`);
+      Logger.info(`Skipping credit deduction for admin user: ${userId}`);
       return;
     }
 

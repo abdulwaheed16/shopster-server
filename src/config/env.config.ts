@@ -63,6 +63,8 @@ const envSchema = z.object({
 
   // n8n Webhook
   N8N_WEBHOOK_URL: z.string().url().optional(),
+  N8N_CALLBACK_SECRET: z.string().optional(),
+  SERVER_BASE_URL: z.string().url().optional(),
 
   // CORS
   CORS_ORIGIN: z
@@ -134,6 +136,8 @@ export const config = {
   },
   webhook: {
     n8nUrl: env.N8N_WEBHOOK_URL,
+    n8nCallbackSecret: env.N8N_CALLBACK_SECRET,
+    serverBaseUrl: env.SERVER_BASE_URL,
   },
   shopify: {
     apiKey: env.SHOPIFY_API_KEY,

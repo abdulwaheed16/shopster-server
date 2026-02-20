@@ -4,10 +4,6 @@ import { sendSuccess } from "../../common/utils/response.util";
 import { settingsService } from "./settings.service";
 
 export class SettingsController {
-  /**
-   * Get profile settings
-   * GET /settings/profile
-   */
   async getProfile(req: Request, res: Response, next: NextFunction) {
     try {
       const profile = await settingsService.getProfile(req.user!.id);
@@ -17,15 +13,11 @@ export class SettingsController {
     }
   }
 
-  /**
-   * Update profile settings
-   * PUT /settings/profile
-   */
   async updateProfile(req: Request, res: Response, next: NextFunction) {
     try {
       const profile = await settingsService.updateProfile(
         req.user!.id,
-        req.body
+        req.body,
       );
       sendSuccess(res, MESSAGES.SETTINGS.PROFILE_UPDATED, profile);
     } catch (error) {
@@ -33,10 +25,6 @@ export class SettingsController {
     }
   }
 
-  /**
-   * Get security settings
-   * GET /settings/security
-   */
   async getSecurity(req: Request, res: Response, next: NextFunction) {
     try {
       const security = await settingsService.getSecuritySettings(req.user!.id);
@@ -46,15 +34,11 @@ export class SettingsController {
     }
   }
 
-  /**
-   * Update security settings (Password)
-   * PUT /settings/security
-   */
   async updateSecurity(req: Request, res: Response, next: NextFunction) {
     try {
       const result = await settingsService.updateSecurity(
         req.user!.id,
-        req.body
+        req.body,
       );
       sendSuccess(res, MESSAGES.SETTINGS.PASSWORD_UPDATED, result);
     } catch (error) {
@@ -62,10 +46,6 @@ export class SettingsController {
     }
   }
 
-  /**
-   * Enable 2FA
-   * POST /settings/security/2fa/enable
-   */
   async enable2FA(req: Request, res: Response, next: NextFunction) {
     try {
       const result = await settingsService.toggle2FA(req.user!.id, true);
@@ -75,10 +55,6 @@ export class SettingsController {
     }
   }
 
-  /**
-   * Disable 2FA
-   * POST /settings/security/2fa/disable
-   */
   async disable2FA(req: Request, res: Response, next: NextFunction) {
     try {
       const result = await settingsService.toggle2FA(req.user!.id, false);

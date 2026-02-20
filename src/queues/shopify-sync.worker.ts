@@ -52,8 +52,10 @@ export const shopifySyncWorker = new Worker(
         sourceMetadata: {
           shopifyProductId: sp.id,
           shopifyVariantIds: sp.variants.map((v: any) => v.id),
+          shopifyProductType: sp.product_type,
         },
         sku: sp.variants[0]?.sku || null,
+        productType: sp.product_type,
         title: sp.title,
         description: sp.body_html || null,
         isActive: sp.status === "active",

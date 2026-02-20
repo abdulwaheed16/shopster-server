@@ -20,7 +20,6 @@ export class DashboardController {
     }
   }
 
-  // Get admin stats
   async getAdminStats(
     req: Request,
     res: Response,

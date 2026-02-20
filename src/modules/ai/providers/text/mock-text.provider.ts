@@ -4,11 +4,6 @@ import {
   TextPromptOptions,
 } from "../../interfaces/text-generator.interface";
 
-/**
- * MOCK STRATEGY: Mock Text Provider
- * Returns mock text responses for testing without calling external APIs.
- * Useful for development and testing when you want to bypass Gemini/OpenAI.
- */
 export class MockTextProvider implements ITextGenerator {
   async generate(options: TextPromptOptions): Promise<string> {
     console.log("[MockTextProvider] Generating mock text response");

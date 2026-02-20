@@ -5,11 +5,10 @@ import { analyticsService } from "./analytics.service";
 import { AnalyticsQuery } from "./analytics.validation";
 
 export class AnalyticsController {
-  // Get ad analytics
   async getAdAnalytics(
     req: Request,
     res: Response,
-    next: NextFunction
+    next: NextFunction,
   ): Promise<void> {
     try {
       const userId = req.user!.id;
@@ -23,11 +22,10 @@ export class AnalyticsController {
     }
   }
 
-  // Get store analytics
   async getStoreAnalytics(
     req: Request,
     res: Response,
-    next: NextFunction
+    next: NextFunction,
   ): Promise<void> {
     try {
       const userId = req.user!.id;
@@ -41,11 +39,10 @@ export class AnalyticsController {
     }
   }
 
-  // Get product analytics
   async getProductAnalytics(
     req: Request,
     res: Response,
-    next: NextFunction
+    next: NextFunction,
   ): Promise<void> {
     try {
       const userId = req.user!.id;
@@ -53,7 +50,7 @@ export class AnalyticsController {
 
       const analytics = await analyticsService.getProductAnalytics(
         userId,
-        query
+        query,
       );
 
       sendSuccess(res, MESSAGES.ANALYTICS.PRODUCT_FETCHED, analytics);

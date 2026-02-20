@@ -1,4 +1,5 @@
 import { ApiError } from "../../common/errors/api-error";
+import Logger from "../../common/logging/logger";
 import { prisma } from "../../config/database.config";
 import { UpsertAdDraftInput } from "./ad-drafts.validation";
 
@@ -18,7 +19,7 @@ export class AdDraftsService implements IAdDraftsService {
   // Create or update draft
   async upsertDraft(userId: string, data: UpsertAdDraftInput) {
     // SUSPENDED: Paused state persistence as per requirement
-    console.log(`Ad draft update suspended for user ${userId}`);
+    Logger.info(`Ad draft update suspended for user ${userId}`);
     const existing = await this.getCurrentDraft(userId);
     return existing;
   }

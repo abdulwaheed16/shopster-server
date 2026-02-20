@@ -4,11 +4,10 @@ import { sendPaginated, sendSuccess } from "../../common/utils/response.util";
 import { usersService } from "./users.service";
 
 export class UsersController {
-  // Get all users (Admin only) --- GET /users
   async getUsers(
     req: Request,
     res: Response,
-    next: NextFunction
+    next: NextFunction,
   ): Promise<void> {
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -19,11 +18,10 @@ export class UsersController {
     }
   }
 
-  // Get user by ID --- GET /users/:id
   async getUserById(
     req: Request,
     res: Response,
-    next: NextFunction
+    next: NextFunction,
   ): Promise<void> {
     try {
       const user = await usersService.getUserById(req.params.id);
@@ -33,11 +31,10 @@ export class UsersController {
     }
   }
 
-  // Update user (Admin only) --- PUT /users/:id
   async updateUser(
     req: Request,
     res: Response,
-    next: NextFunction
+    next: NextFunction,
   ): Promise<void> {
     try {
       const user = await usersService.updateUser(req.params.id, req.body);
@@ -47,11 +44,10 @@ export class UsersController {
     }
   }
 
-  // Delete user (Admin only) --- DELETE /users/:id
   async deleteUser(
     req: Request,
     res: Response,
-    next: NextFunction
+    next: NextFunction,
   ): Promise<void> {
     try {
       await usersService.deleteUser(req.params.id);
@@ -61,11 +57,10 @@ export class UsersController {
     }
   }
 
-  // Get current user profile --- GET /users/profile
   async getProfile(
     req: Request,
     res: Response,
-    next: NextFunction
+    next: NextFunction,
   ): Promise<void> {
     try {
       const user = await usersService.getProfile(req.user!.id);
@@ -75,11 +70,10 @@ export class UsersController {
     }
   }
 
-  // Update current user profile --- PUT /users/profile
   async updateProfile(
     req: Request,
     res: Response,
-    next: NextFunction
+    next: NextFunction,
   ): Promise<void> {
     try {
       const user = await usersService.updateProfile(req.user!.id, req.body);
@@ -89,11 +83,10 @@ export class UsersController {
     }
   }
 
-  // Update user role (Admin only) --- PUT /users/:id/role
   async updateUserRole(
     req: Request,
     res: Response,
-    next: NextFunction
+    next: NextFunction,
   ): Promise<void> {
     try {
       const { id } = req.params;

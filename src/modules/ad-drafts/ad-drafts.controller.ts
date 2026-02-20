@@ -5,11 +5,10 @@ import { adDraftsService } from "./ad-drafts.service";
 import { UpsertAdDraftInput } from "./ad-drafts.validation";
 
 export class AdDraftsController {
-  // Get current draft --- GET /ad-drafts
   async getCurrentDraft(
     req: Request,
     res: Response,
-    next: NextFunction
+    next: NextFunction,
   ): Promise<void> {
     try {
       const userId = req.user!.id;
@@ -22,11 +21,10 @@ export class AdDraftsController {
     }
   }
 
-  // Create/update draft --- POST /ad-drafts
   async upsertDraft(
     req: Request,
     res: Response,
-    next: NextFunction
+    next: NextFunction,
   ): Promise<void> {
     try {
       const userId = req.user!.id;
@@ -40,11 +38,10 @@ export class AdDraftsController {
     }
   }
 
-  // Delete draft --- DELETE /ad-drafts
   async deleteDraft(
     req: Request,
     res: Response,
-    next: NextFunction
+    next: NextFunction,
   ): Promise<void> {
     try {
       const userId = req.user!.id;

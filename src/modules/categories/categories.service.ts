@@ -38,49 +38,60 @@ export class CategoriesService implements ICategoriesService {
       where.parentId = query.parentId;
     }
 
+    if (query.productSource) {
+      where.products = {
+        some: {
+          productSource: query.productSource as any,
+          // Only show categories that have at least one product of this source
+        },
+      };
+    }
+
+    // 🔍 Robust Category Filtering Logic:
+    // Since relations in MongoDB/Prisma can be one-sided (e.g., Template has categoryIds but Category.templateIds is empty),
+    // we query templates directly to find which categories actually have templates for the requested mediaType.
+
+    const templateFilter: Prisma.TemplateWhereInput = { isActive: true };
+    if (query.mediaType) {
+      templateFilter.mediaType = query.mediaType as any;
+    }
+
+    const templateMatches = await prisma.template.findMany({
+      where: templateFilter,
+      select: { categoryIds: true },
+    });
+
+    const categoryCounts: Record<string, number> = {};
+    const validCategoryIds = new Set<string>();
+
+    templateMatches.forEach((t) => {
+      t.categoryIds.forEach((id) => {
+        categoryCounts[id] = (categoryCounts[id] || 0) + 1;
+        validCategoryIds.add(id);
+      });
+    });
+
+    if (query.withTemplatesOnly) {
+      where.id = { in: Array.from(validCategoryIds) };
+    }
+
     const [categories, total] = await Promise.all([
       prisma.category.findMany({
-        // where,
+        where,
         skip,
         take: limit,
         orderBy: { name: "asc" },
-        include: {
-          _count: {
-            select: { templates: { where: { isActive: true } } },
-          },
-        },
       }),
       prisma.category.count({ where }),
     ]);
 
     // Enrichment...
-    const enrichedCategories = categories.map((category) => {
-      const { _count, ...rest } = category as any;
+    const finalCategories = categories.map((category) => {
       return {
-        ...rest,
-        templateCount: _count?.templates || 0,
+        ...category,
+        templateCount: categoryCounts[category.id] || 0,
       };
     });
-
-    const finalCategories = query.withTemplatesOnly
-      ? enrichedCategories.filter((cat) => cat.templateCount > 0)
-      : enrichedCategories;
-
-    // console.log("Categories", {
-    //   categories,
-    //   enrichedCategories,
-    //   finalCategories,
-    // });
-
-    // FALLBACK: If no categories found after filtering (and no search), return mock categories
-    // if (finalCategories.length === 0 && !query.search) {
-    //   return {
-    //     data: query.withTemplatesOnly
-    //       ? mockCategories.filter((cat) => cat.templateCount > 0)
-    //       : mockCategories,
-    //     meta: calculatePagination(mockCategories.length, page, limit),
-    //   } as any;
-    // }
 
     return {
       data: finalCategories,

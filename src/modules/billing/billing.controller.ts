@@ -1,6 +1,6 @@
 import { NextFunction, Request, Response } from "express";
-import { ApiError } from "../../common/errors/api-error";
 import { MESSAGES } from "../../common/constants/messages.constant";
+import { ApiError } from "../../common/errors/api-error";
 import { sendSuccess } from "../../common/utils/response.util";
 import { billingService } from "./billing.service";
 import {
@@ -11,11 +11,10 @@ import {
 import { subscriptionService } from "./subscription.service";
 
 export class BillingController {
-  // Create Checkout Session
   async createCheckoutSession(
     req: Request,
     res: Response,
-    next: NextFunction
+    next: NextFunction,
   ): Promise<void> {
     try {
       const userId = req.user!.id;
@@ -29,11 +28,10 @@ export class BillingController {
     }
   }
 
-  // Create Portal Session
   async createPortalSession(
     req: Request,
     res: Response,
-    next: NextFunction
+    next: NextFunction,
   ): Promise<void> {
     try {
       const userId = req.user!.id;
@@ -45,16 +43,13 @@ export class BillingController {
     }
   }
 
-  // Get Active Plans
   async getPlans(
     req: Request,
     res: Response,
-    next: NextFunction
+    next: NextFunction,
   ): Promise<void> {
     try {
       const result = await billingService.getActivePlans();
-
-      console.log("Plans: server ", result);
 
       sendSuccess(res, MESSAGES.BILLING.PLANS_FETCHED, result);
     } catch (error) {
@@ -62,11 +57,10 @@ export class BillingController {
     }
   }
 
-  // Get Current Subscription
   async getCurrentSubscription(
     req: Request,
     res: Response,
-    next: NextFunction
+    next: NextFunction,
   ): Promise<void> {
     try {
       const userId = req.user!.id;
@@ -77,11 +71,10 @@ export class BillingController {
     }
   }
 
-  // Stripe Webhook handler
   async handleWebhook(
     req: Request,
     res: Response,
-    next: NextFunction
+    next: NextFunction,
   ): Promise<void> {
     try {
       const signature = req.headers["stripe-signature"] as string;
@@ -98,11 +91,10 @@ export class BillingController {
     }
   }
 
-  // Admin: Update Custom Plan
   async updateCustomPlan(
     req: Request,
     res: Response,
-    next: NextFunction
+    next: NextFunction,
   ): Promise<void> {
     try {
       const adminId = req.user!.id;
@@ -114,11 +106,10 @@ export class BillingController {
     }
   }
 
-  // Get Single Plan
   async getPlan(
     req: Request,
     res: Response,
-    next: NextFunction
+    next: NextFunction,
   ): Promise<void> {
     try {
       const result = await billingService.getPlanById(req.params.id);
@@ -128,11 +119,10 @@ export class BillingController {
     }
   }
 
-  // Cancel Subscription
   async cancelSubscription(
     req: Request,
     res: Response,
-    next: NextFunction
+    next: NextFunction,
   ): Promise<void> {
     try {
       const userId = req.user!.id;
@@ -143,11 +133,10 @@ export class BillingController {
     }
   }
 
-  // Get Invoices
   async getInvoices(
     req: Request,
     res: Response,
-    next: NextFunction
+    next: NextFunction,
   ): Promise<void> {
     try {
       const { page, limit, status, userId: queryUserId } = req.query;
@@ -170,11 +159,10 @@ export class BillingController {
     }
   }
 
-  // Get Payment Methods
   async getPaymentMethods(
     req: Request,
     res: Response,
-    next: NextFunction
+    next: NextFunction,
   ): Promise<void> {
     try {
       const userId = req.user!.id;
@@ -185,11 +173,10 @@ export class BillingController {
     }
   }
 
-  // Admin: Get User Usage Records
   async getUserUsage(
     req: Request,
     res: Response,
-    next: NextFunction
+    next: NextFunction,
   ): Promise<void> {
     try {
       const { userId } = req.params;

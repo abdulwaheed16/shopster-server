@@ -21,10 +21,11 @@ export class ProductsController {
           (reqOrSource as Request).body?.productSource ||
           "ALL";
 
-    return source === "UPLOADED" ? uploadedProductsService : storeProductsService;
+    return source === "UPLOADED"
+      ? uploadedProductsService
+      : storeProductsService;
   }
 
-  // Get all products --- GET /products
   async getProducts(
     req: Request,
     res: Response,
@@ -43,7 +44,6 @@ export class ProductsController {
     }
   }
 
-  // Get product by ID --- GET /products/:id
   async getProductById(
     req: Request,
     res: Response,
@@ -62,7 +62,6 @@ export class ProductsController {
     }
   }
 
-  // Create product --- POST /products
   async createProduct(
     req: Request,
     res: Response,
@@ -82,7 +81,6 @@ export class ProductsController {
     }
   }
 
-  // Update product --- PATCH /products/:id
   async updateProduct(
     req: Request,
     res: Response,
@@ -102,7 +100,6 @@ export class ProductsController {
     }
   }
 
-  // Delete product --- DELETE /products/:id
   async deleteProduct(
     req: Request,
     res: Response,
@@ -121,7 +118,6 @@ export class ProductsController {
     }
   }
 
-  // Bulk create products --- POST /products/bulk
   async bulkCreateProducts(
     req: Request,
     res: Response,
@@ -141,7 +137,6 @@ export class ProductsController {
     }
   }
 
-  // Bulk delete products --- POST /products/bulk-delete
   async bulkDeleteProducts(
     req: Request,
     res: Response,
@@ -162,7 +157,6 @@ export class ProductsController {
     }
   }
 
-  // Export products --- GET /products/export
   async exportProducts(
     req: Request,
     res: Response,

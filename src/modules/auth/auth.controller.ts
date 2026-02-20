@@ -13,7 +13,6 @@ import {
 } from "./auth.validation";
 
 export class AuthController {
-  // Change password route --- POST /auth/change-password
   async changePassword(
     req: Request,
     res: Response,
@@ -31,7 +30,6 @@ export class AuthController {
     }
   }
 
-  // Register route --- POST /auth/register
   async register(
     req: Request,
     res: Response,
@@ -51,7 +49,6 @@ export class AuthController {
     }
   }
 
-  // Login route --- POST /auth/login
   async login(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const data: LoginBody = req.body;
@@ -76,7 +73,6 @@ export class AuthController {
     }
   }
 
-  // Refresh token route --- POST /auth/refresh
   async refreshToken(
     req: Request,
     res: Response,
@@ -98,7 +94,6 @@ export class AuthController {
     }
   }
 
-  // Logout route --- POST /auth/logout
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async logout(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
@@ -111,7 +106,6 @@ export class AuthController {
     }
   }
 
-  // Verify email route --- POST /auth/verify-email
   async verifyEmail(
     req: Request,
     res: Response,
@@ -127,7 +121,6 @@ export class AuthController {
     }
   }
 
-  // Request password reset route --- POST /auth/request-password-reset
   async requestPasswordReset(
     req: Request,
     res: Response,
@@ -143,7 +136,6 @@ export class AuthController {
     }
   }
 
-  // Reset password route --- POST /auth/reset-password
   async resetPassword(
     req: Request,
     res: Response,

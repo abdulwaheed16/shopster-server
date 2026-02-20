@@ -20,7 +20,7 @@ declare global {
 export const authenticate = async (
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ): Promise<void> => {
   try {
     // Get token from Authorization header
@@ -63,7 +63,7 @@ export const authenticate = async (
 export const authenticateWithQuery = async (
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ): Promise<void> => {
   try {
     let token: string | undefined;
@@ -111,7 +111,7 @@ export const authenticateWithQuery = async (
 export const optionalAuthenticate = async (
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ): Promise<void> => {
   try {
     const authHeader = req.headers.authorization;

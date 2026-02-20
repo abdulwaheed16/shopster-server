@@ -9,12 +9,13 @@ export interface N8NBasePayload {
   style?: StylePreset | string;
   color?: string;
   timestamp: string;
+  callbackUrl?: string;
 }
 
 export interface ImageGenerationPayload extends N8NBasePayload {
   mediaType: "IMAGE";
   variants: number;
-  userPrompt: string; // Keep for images if needed, or unify
+  userPrompt: string;
 }
 
 export interface VideoGenerationPayload extends N8NBasePayload {
@@ -23,10 +24,6 @@ export interface VideoGenerationPayload extends N8NBasePayload {
   duration: number;
   scenes?: string[];
 }
-
-/**
- * n8n Response Types
- */
 
 export interface N8NImageResult {
   url: string;
@@ -57,5 +54,4 @@ export interface N8NVideoResponse {
   description?: string;
 }
 
-// Union type for any n8n media response
 export type N8NMediaResponse = N8NImageResponse | N8NVideoResponse;

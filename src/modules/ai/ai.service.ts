@@ -39,10 +39,6 @@ export class AIService {
     return generator.generate(options);
   }
 
-  /**
-   * Generic Image Analysis (Vision)
-   * Uses Gemini-2.0-Flash to analyze any image with the standard ad analysis schema.
-   */
   async analyzeImage(imageUrl: string): Promise<string> {
     return this.generateText(
       {
@@ -55,25 +51,17 @@ export class AIService {
     );
   }
 
-  /**
-   * Specialized method for Ad Template Analysis (Vision)
-   * Alias for analyzeImage for better readability in context.
-   */
+
   async analyzeAdTemplate(templateImageUrl: string): Promise<string> {
     return this.analyzeImage(templateImageUrl);
   }
 
-  /**
-   * Specialized method for analyzing a generated ad result.
-   */
+
   async analyzeGeneratedAd(adImageUrl: string): Promise<string> {
     return this.analyzeImage(adImageUrl);
   }
 
-  /**
-   * Specialized method for Ad Prompt Construction
-   * Synthesizes user instructions and template analysis into a generation prompt.
-   */
+
   async constructAdPrompt(
     userInstructions: string,
     visionAnalysis: string,

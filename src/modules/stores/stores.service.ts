@@ -91,7 +91,7 @@ export class StoresService implements IStoresService {
 
     if (user._count.stores >= storesLimit) {
       throw ApiError.badRequest(
-        `Store limit reached (${storesLimit}). Please upgrade your plan.`
+        `Store limit reached (${storesLimit}). Please upgrade your plan.`,
       );
     }
 
@@ -138,7 +138,7 @@ export class StoresService implements IStoresService {
       storeUrl: string;
       shopifyDomain: string;
       accessToken: string;
-    }
+    },
   ) {
     // Check if store already connected
     const existing = await this.findByShopifyDomain(data.shopifyDomain);
@@ -176,7 +176,7 @@ export class StoresService implements IStoresService {
 
     if (user._count.stores >= storesLimit) {
       throw ApiError.badRequest(
-        `Store limit reached (${storesLimit}). Please upgrade your plan.`
+        `Store limit reached (${storesLimit}). Please upgrade your plan.`,
       );
     }
 
@@ -194,7 +194,7 @@ export class StoresService implements IStoresService {
   async updateSyncStatus(
     id: string,
     status: "PENDING" | "SYNCING" | "COMPLETED" | "FAILED",
-    lastSyncAt?: Date
+    lastSyncAt?: Date,
   ) {
     return await prisma.store.update({
       where: { id },
@@ -227,10 +227,35 @@ export class StoresService implements IStoresService {
       {
         attempts: 3,
         backoff: { type: "exponential", delay: 1000 },
-      }
+      },
     );
 
     return { message: "Sync job successfully queued" };
+  }
+
+  // Get unique product types from store products
+  async getStoreCategories(id: string, userId: string) {
+    // 1. Verify store exists and belongs to user
+    await this.getStoreById(id, userId);
+
+    // 2. Get unique product types
+    // Since we are using MongoDB, Prisma's distinct might have limitations
+    // but findMany with distinct or groupBy should work.
+    const products = await prisma.product.findMany({
+      where: { storeId: id, productSource: "STORE" },
+      select: { productType: true },
+      distinct: ["productType"],
+    });
+
+    // 3. Map to consistent Category-like format
+    return products
+      .map((p) => p.productType)
+      .filter((type): type is string => !!type)
+      .map((type) => ({
+        id: type, // Using the type name as the ID for store categories
+        name: type,
+        slug: type.toLowerCase().replace(/\s+/g, "-"),
+      }));
   }
 }
 

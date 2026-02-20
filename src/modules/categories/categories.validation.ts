@@ -39,10 +39,12 @@ export const getCategoriesSchema = z.object({
     limit: z.string().optional(),
     search: z.string().optional(),
     parentId: objectIdSchema.optional(),
+    mediaType: z.enum(["IMAGE", "VIDEO"]).optional(),
     withTemplatesOnly: z
       .string()
       .optional()
       .transform((val) => val === "true"),
+    productSource: z.enum(["STORE", "UPLOADED"]).optional(),
   }),
 });
 

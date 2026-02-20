@@ -14,9 +14,6 @@ import {
   ImagePromptOptions,
 } from "../../interfaces/image-generator.interface";
 
-/**
- * CONCRETE STRATEGY: FalAIProvider
- */
 export class FalAIProvider implements IImageGenerator {
   private readonly apiKey: string;
   private readonly baseUrl = AI_BASE_URLS.FAL_AI;

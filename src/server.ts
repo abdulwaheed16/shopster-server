@@ -3,9 +3,9 @@ import {
   handleUncaughtException,
   handleUnhandledRejection,
 } from "./common/errors/error-handler";
+import Logger from "./common/logging/logger";
 import { disconnectDatabase } from "./config/database.config";
 import { config } from "./config/env.config";
-import Logger from "./common/logging/logger";
 import { initializeWorkers, shutdownWorkers } from "./queues";
 
 // Handle uncaught exceptions
@@ -16,22 +16,6 @@ process.on("unhandledRejection", handleUnhandledRejection);
 
 const startServer = async () => {
   try {
-    // // Test database connection
-    // const isDbConnected = await testDatabaseConnection();
-
-    // if (!isDbConnected) {
-    //   console.error(chalk.red("Failed to connect to database. Exiting..."));
-    //   process.exit(1);
-    // }
-
-    // Initialize queue workers ONLY if not running in API-only mode
-    // If WORKER_MODE is 'false', we skip this (API server only)
-    // If WORKER_MODE is undefined (local dev) or 'true', we run it?
-    // Actually, for better separation:
-    // Local Dev (npm run dev): We want BOTH (Waiters + Chefs).
-    // Production PM2 (shopster-api): WORKER_MODE='false' -> Skip.
-    // Production PM2 (shopster-worker): This file is not run at all.
-
     if (process.env.WORKER_MODE !== "false") {
       initializeWorkers();
     } else {

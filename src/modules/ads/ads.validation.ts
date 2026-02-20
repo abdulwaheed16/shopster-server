@@ -10,7 +10,9 @@ export const generateAdSchema = z.object({
       uploadedProductId: objectIdSchema.optional(),
       templateId: objectIdSchema.optional(),
       productImageUrls: z
-        .union([z.string().url(), z.array(z.string().url()).min(1).max(3)])
+        .array(z.string().url())
+        .min(1, "Minimum 1 product image is required")
+        .max(3, "Maximum 3 product images are allowed")
         .optional(),
       templateImageUrl: z
         .string()
@@ -34,6 +36,7 @@ export const generateAdSchema = z.object({
       scenes: z.array(z.string()).optional(),
       duration: z.number().int().min(5).max(15).optional(),
       mediaType: z.enum(["IMAGE", "VIDEO"]).optional(),
+      prompt: z.string().optional(),
     })
     .refine(
       (data) => {
@@ -99,3 +102,17 @@ export const bulkDeleteAdsSchema = z.object({
 });
 
 export type BulkDeleteAdsBody = z.infer<typeof bulkDeleteAdsSchema>["body"];
+
+// n8n Callback schema ---- mock
+export const n8nCallbackSchema = z.object({
+  body: z.object({
+    adId: objectIdSchema,
+    videoUrl: z.string().url().optional(),
+    imageUrl: z.string().url().optional(),
+    status: z.enum(["COMPLETED", "FAILED"]).default("COMPLETED"),
+    error: z.string().optional(),
+    metadata: z.record(z.string(), z.any()).optional(),
+  }),
+});
+
+export type N8nCallbackBody = z.infer<typeof n8nCallbackSchema>["body"];

@@ -1,0 +1,1381 @@
+{
+  "name": "Generate Ad v1",
+  "nodes": [
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://queue.fal.run/fal-ai/nano-banana-pro/edit",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Key f2989125-7bcf-4cb6-a87b-13d8ff3a7dac:446630b6c13ee9e49573580ded76e071"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"prompt\": \"{{ $json.prompt }}\",\n  \"image_urls\": [\n    \"{{ $('Merge1').item.json.Template }}\",\n    \"{{ $('Merge1').item.json['Product Image'] }}\"\n  ]\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        1328,
+        592
+      ],
+      "id": "da09b267-f6ba-4ce6-9689-bd34a1caa22c",
+      "name": "Nano Banana"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        560,
+        912
+      ],
+      "id": "94c1ee3d-9926-4225-beb3-4488b04fb66f",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "kpMrA1jHPuQwyajQ",
+          "name": "Tabish Almas"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "@n8n/n8n-nodes-langchain.toolThink",
+      "typeVersion": 1.1,
+      "position": [
+        800,
+        1024
+      ],
+      "id": "0bddd716-72c7-4295-95ff-0961e77425cb",
+      "name": "Think"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-4.1-mini"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        912,
+        928
+      ],
+      "id": "0f10c6c3-a360-4261-b81c-c492e0b061a1",
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "openAiApi": {
+          "id": "iizoyALBJH8uLM4U",
+          "name": "Abdul Haadi"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "image",
+        "operation": "analyze",
+        "modelId": {
+          "__rl": true,
+          "value": "models/gemini-2.5-flash",
+          "mode": "list",
+          "cachedResultName": "models/gemini-2.5-flash"
+        },
+        "text": "=Role: Senior Computer Vision Analyst & Metadata Specialist\n\nTask: Perform a comprehensive technical analysis of the provided image. Extract visual data and map it to the following schema.\n\nOutput Format: strictly YAML. Do not include conversational text or markdown code blocks (```yaml), just the raw YAML data.\n\nAnalysis Schema: Please fill the following fields based on the image content. If a specific field is not applicable (e.g., no \"floor\" visible), mark it as \"N/A\" or describe what is actually present.\n\nYAML\n\nimage_type: # e.g., photograph, illustration, 3D render\ngenre: # e.g., fashion lifestyle, landscape, portrait\ncomposition:\n  framing: # e.g., full-body, close-up, wide shot\n  aspect_ratio: # e.g., landscape, portrait, square\n  subject_position: # e.g., rule of thirds, centered\n  pose: # Detailed description of body language\n  camera_angle: # e.g., eye-level, low-angle, high-angle\n  visual_balance: # e.g., symmetrical, asymmetrical\n  depth: # e.g., shallow depth of field, deep focus\nsubject:\n  count: # integer\n  type: # e.g., human, animal, object\n  gender_presentation:\n  age_range:\n  expression:\n  gaze: # Where are they looking?\n  emotion:\n  hair:\n    color:\n    length:\n    style:\n  accessories: # List key items like eyewear, jewelry, hats\nwardrobe:\n  top:\n    type:\n    color:\n    material:\n    fit:\n  bottom:\n    type:\n    color:\n    material:\n    length:\n  footwear:\n    type:\n    color:\n    style:\ncolor_palette:\n  dominant_colors: [] # List top 3 hex codes or color names\n  accent_colors: [] # List secondary colors\n  overall_tone: # e.g., warm, cool, muted, vibrant\nlighting:\n  type: # e.g., natural, studio, neon\n  direction: # e.g., backlit, frontal, side-lit\n  contrast: # e.g., high, low\n  shadows: # Description of shadow hardness and placement\n  highlights:\nbackground:\n  setting:\n  wall: # Texture, material, and color details\n  floor: # Texture, material, and color details\nstylistic_attributes:\n  aesthetic: # e.g., minimalist, cyberpunk, vintage\n  mood:\n  trend_alignment:\n  editorial_quality: # e.g., high-end, user-generated, stock\ntechnical_details:\n  focus:\n  lens_look: # e.g., wide-angle, telephoto, fish-eye\n  grain:\n  sharpness:\n  dynamic_range:\n  white_balance:\npost_processing:\n  color_grading:\n  contrast_adjustment:\n  clarity:\n  retouching:\nuse_cases: [] # List 3-5 potential commercial or creative uses\noverall_style_summary: # A concise paragraph synthesizing the visual elements",
+        "imageUrls": "={{ $json.Template }}",
+        "simplify": false,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.googleGemini",
+      "typeVersion": 1,
+      "position": [
+        624,
+        592
+      ],
+      "id": "96652f7e-90a1-45fe-976a-6af6f5bf780f",
+      "name": "Analyze an image",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "kpMrA1jHPuQwyajQ",
+          "name": "Tabish Almas"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "amount": 30
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1552,
+        592
+      ],
+      "id": "0a19facb-8fb9-40a3-a4ea-f1331a7105cc",
+      "name": "Wait",
+      "webhookId": "f4f5bd31-b63b-4b98-aa40-b09e3afcd836"
+    },
+    {
+      "parameters": {
+        "url": "={{   $json.response_url  }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "key f2989125-7bcf-4cb6-a87b-13d8ff3a7dac:446630b6c13ee9e49573580ded76e071"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1760,
+        592
+      ],
+      "id": "2c1d751a-8128-4031-8c48-6b87ddb51fb0",
+      "name": "Get URL of Generated Image",
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "1d2fd59d-7101-42f0-8707-8dedabf0043d",
+              "leftValue": "={{  $json.images[0].url  }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1936,
+        592
+      ],
+      "id": "83db02c8-edbf-48a8-98be-7a3ad8584ecf",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "url": "={{  $json.images[0].url  }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2160,
+        576
+      ],
+      "id": "e088e6de-e21c-4602-815c-f8f7a21cadf0",
+      "name": "Download Image"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.imgbb.com/1/upload?key=5c79cececa83606f05ed9eac7d9a0941",
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "parameterType": "formBinaryData",
+              "name": "image",
+              "inputDataFieldName": "Template"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -96,
+        496
+      ],
+      "id": "d8a1c2f6-21ed-48ce-b89e-c56da7bf3b5f",
+      "name": "Upload_Template"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "cf7525b4-2de2-4194-98a8-d43805b30899",
+              "name": "Product Image",
+              "value": "={{ $json.data.image.url }}",
+              "type": "string"
+            },
+            {
+              "id": "edb1f814-869c-4df8-9341-a8f9be512b62",
+              "name": "P_ID",
+              "value": "={{ $json.data.id }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        192,
+        736
+      ],
+      "id": "208357e8-dff2-4c69-be2a-99547c82138b",
+      "name": "Product Image"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "eba898fe-5a49-4e52-8819-87b5e13a95ec",
+              "name": "Template",
+              "value": "={{ $json.data.image.url }}",
+              "type": "string"
+            },
+            {
+              "id": "197d8bce-5cb7-41fc-b9c9-4d420c33e426",
+              "name": "T_ID",
+              "value": "={{ $json.data.id }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        160,
+        496
+      ],
+      "id": "411e8c52-d306-4ebe-95d1-8a4fa03fa39a",
+      "name": "Template"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        416,
+        592
+      ],
+      "id": "34130a34-fed9-4ae4-83a3-ef3085e11c7b",
+      "name": "Merge1"
+    },
+    {
+      "parameters": {
+        "jsCode": "return items.map(item => {\n  let rawString = item.json.output || \"\";\n\n  if (!rawString) {\n    return { json: { prompt: \"No data found\" } };\n  }\n\n  // Remove markdown fences and leading yaml keyword\n  let cleanString = rawString\n    .replace(/```json/gi, '')\n    .replace(/```yaml/gi, '')\n    .replace(/```/g, '')\n    .replace(/^yaml\\s*/i, '')\n    .trim();\n\n  try {\n    const parsedObject = JSON.parse(cleanString);\n\n    return {\n      json: {\n        prompt: parsedObject?.scenes?.[0]?.image_prompt || \"\"\n      }\n    };\n  } catch (error) {\n    // If it's not valid JSON, return cleaned text as-is\n    return {\n      json: {\n        prompt: cleanString\n      }\n    };\n  }\n});\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1136,
+        592
+      ],
+      "id": "f4456f56-1a05-4909-aad9-e856d3114502",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "name": "={{ $now }}",
+        "driveId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "My Drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "value": "18b_t129YN9MjYq1mmNRRK9-gKQxK28FL",
+          "mode": "list",
+          "cachedResultName": "Paradox - Usama",
+          "cachedResultUrl": "https://drive.google.com/drive/folders/18b_t129YN9MjYq1mmNRRK9-gKQxK28FL"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        2368,
+        576
+      ],
+      "id": "ec31b2d8-8143-4657-8d51-9a3c9e208bc1",
+      "name": "Upload file",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "pdRBsKiu7LBt3Baf",
+          "name": "Google Drive account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Primary Objective: Create 1 image prompt following system guidelines\nAccuracy Requirements:\n\nDepict reference image as accurately as possible\nEnsure all text elements are reproduced precisely\nMaintain visual fidelity to original\n\n\nInput Sources:\n\nUser Instructions: {{ $('Image AD Generation').item.json.Prompt }}\nReference Image Description: {{ $json.candidates[0].content.parts[0].text }}\nAspect Ratio: User's preferred ratio (infer from message; default to vertical if unspecified)\n\n\nProcess Steps:\n\nAnalyze user's prompt requirements\nReview reference image description thoroughly\nDetermine appropriate aspect ratio\nUse Think tool to verify output before finalizing\n\n\nOutput: Single, comprehensive image generation prompt that accurately captures all specified elements\n\nOutput Format: Just give me a Straight string\n",
+        "needsFallback": true,
+        "options": {
+          "systemMessage": "=Default Behavior\nIf user instructions lack detail, use: \"Place this (product) on a clean, solid neutral background with soft studio lighting.\"\n\nVisual Standards (Neat & Clean)\nBackground: Solid, plain, or minimalist studio backgrounds only. No clutter.\n\nLighting: Softbox lighting, high-key lighting, or balanced studio shadows.\n\nQuality: Sharp focus, 8k resolution, professional commercial photography style.\n\nFraming: Centered, balanced, and intentional. No \"amateur\" or \"uneven\" angles.\n\nSkin/Characters: If a person is included, they must look professional and well-groomed with clear skin and a high-end commercial look.\n\nText Preservation\nAll visible product text must be accurate (logos, slogans, and packaging). Do not invent new labels or claims.\n\nCamera Parameters\nInclude these descriptors: professional studio photography, commercial product shot, sharp focus, 100mm macro lens, high-end retouching, clean minimalist aesthetic, soft shadows.\n\nOutput Requirements\nGenerate instructions in exact YAML format. Default to a vertical aspect ratio.\n\nYAML\n\n{\n  \"scenes\": [\n    {\n      \"image_prompt\": \"REPLACE WITH CLEAN STUDIO PROMPT\",\n      \"aspect_ratio_image\": \"2:3\"\n    }\n  ]\n}\nQuality Control Checklist\nIs the background plain and solid?\n\nDid I remove all \"UGC\" or \"amateur\" keywords?\n\nIs the focus sharp on the product?\n\nIs the YAML valid?"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        816,
+        592
+      ],
+      "id": "ff66df65-6bc3-4b2f-95cd-4ea3978d4760",
+      "name": "Image Prompt"
+    },
+    {
+      "parameters": {
+        "formTitle": "UGC - AD Generator",
+        "formDescription": "Just Tell me what type of Images you want.",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "AD Type",
+              "fieldType": "dropdown",
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "Image AD"
+                  },
+                  {
+                    "option": "Video AD"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.3,
+      "position": [
+        -1472,
+        944
+      ],
+      "id": "e143da47-a71c-49fa-b31c-5c920363b822",
+      "name": "UGC AD Generator",
+      "webhookId": "94300359-7939-4b65-a4c5-42551c72afb9"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json['AD Type'] }}",
+                    "rightValue": "Image AD",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "56cb448c-05eb-4e95-9fad-f3ff312450ec"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Image"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "0b12908d-74cb-4e88-824d-94adfdc7ca83",
+                    "leftValue": "={{ $json['AD Type'] }}",
+                    "rightValue": "Video AD",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Video"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        -1264,
+        944
+      ],
+      "id": "d4bc853f-e3ec-45ae-a3b6-2c0337cc20b1",
+      "name": "Routing"
+    },
+    {
+      "parameters": {
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Image AD ",
+              "fieldType": "dropdown",
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "Generate AD"
+                  },
+                  {
+                    "option": "Edit AD"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.form",
+      "typeVersion": 2.3,
+      "position": [
+        -1008,
+        928
+      ],
+      "id": "55737361-0dc6-4433-b96c-18f0208295fc",
+      "name": "Image AD",
+      "webhookId": "331ff3c4-5138-4129-97ab-ee7af604d9ca"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json['Image AD '] }}",
+                    "rightValue": "Generate AD",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "e6cf3fbd-ba8f-4255-b328-6eea86f9c2e0"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "New"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "b36432c2-4cf0-42ca-b11b-fc66e37fd9e8",
+                    "leftValue": "={{ $json['Image AD '] }}",
+                    "rightValue": "Edit AD",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Edit"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        -816,
+        928
+      ],
+      "id": "a429f607-6118-4df5-8cdd-c74a0ae2ba81",
+      "name": "Routing Image AD"
+    },
+    {
+      "parameters": {
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Product Image",
+              "fieldType": "file",
+              "multipleFiles": false,
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Template",
+              "fieldType": "file",
+              "multipleFiles": false
+            },
+            {
+              "fieldLabel": "Prompt",
+              "requiredField": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.form",
+      "typeVersion": 2.3,
+      "position": [
+        -480,
+        640
+      ],
+      "id": "02a241f2-91d2-4a8c-864a-1f2a1c813080",
+      "name": "Image AD Generation",
+      "webhookId": "331ff3c4-5138-4129-97ab-ee7af604d9ca"
+    },
+    {
+      "parameters": {
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Upload AD",
+              "fieldType": "file",
+              "multipleFiles": false,
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Alterations",
+              "requiredField": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.form",
+      "typeVersion": 2.3,
+      "position": [
+        -528,
+        1024
+      ],
+      "id": "f113c21b-4c21-460c-b4f5-7a5c798ce55e",
+      "name": "Image AD Edit",
+      "webhookId": "331ff3c4-5138-4129-97ab-ee7af604d9ca"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.imgbb.com/1/upload?key=5c79cececa83606f05ed9eac7d9a0941",
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "parameterType": "formBinaryData",
+              "name": "image",
+              "inputDataFieldName": "Product_Image"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -96,
+        736
+      ],
+      "id": "5abd56e9-a927-43ca-a668-04f6d8b44d95",
+      "name": "Upload_Product Image"
+    },
+    {
+      "parameters": {
+        "amount": 15
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1776,
+        880
+      ],
+      "id": "aabd7cfd-6235-4412-958b-bbe5c757b4a8",
+      "name": "Wait2",
+      "webhookId": "45ee1dcc-67d9-485b-95c1-1a3499fb23fb"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://queue.fal.run/fal-ai/nano-banana-pro/edit",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Key f2989125-7bcf-4cb6-a87b-13d8ff3a7dac:446630b6c13ee9e49573580ded76e071"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"prompt\": \"{{ $('Image AD Edit').item.json.Alterations }}\",\n  \"image_urls\": [\n    \"{{ $('Template1').item.json.Template }}\"\n  ]\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        256,
+        1440
+      ],
+      "id": "04c6a2fb-5a74-47d6-a892-740d1bad0b03",
+      "name": "Nano Banana1"
+    },
+    {
+      "parameters": {
+        "amount": 30
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        960,
+        1296
+      ],
+      "id": "71f5549e-a8b5-4ad6-869d-58bb7e507708",
+      "name": "Wait1",
+      "webhookId": "f4f5bd31-b63b-4b98-aa40-b09e3afcd836"
+    },
+    {
+      "parameters": {
+        "url": "={{   $json.response_url  }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "key f2989125-7bcf-4cb6-a87b-13d8ff3a7dac:446630b6c13ee9e49573580ded76e071"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1168,
+        1296
+      ],
+      "id": "27d92d37-5372-4ecb-aef7-8354c8a525bd",
+      "name": "Get URL of Generated Image1",
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "1d2fd59d-7101-42f0-8707-8dedabf0043d",
+              "leftValue": "={{  $json.images[0].url  }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1344,
+        1296
+      ],
+      "id": "72ab0a9a-d6b9-4eda-aa42-5b112236ca50",
+      "name": "If1"
+    },
+    {
+      "parameters": {
+        "url": "={{  $json.images[0].url  }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1568,
+        1280
+      ],
+      "id": "0df564d7-6ef7-44af-8910-d7a740c08ee4",
+      "name": "Download Image1"
+    },
+    {
+      "parameters": {
+        "name": "={{ $now }}",
+        "driveId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "My Drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "value": "18b_t129YN9MjYq1mmNRRK9-gKQxK28FL",
+          "mode": "list",
+          "cachedResultName": "Paradox - Usama",
+          "cachedResultUrl": "https://drive.google.com/drive/folders/18b_t129YN9MjYq1mmNRRK9-gKQxK28FL"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        1776,
+        1280
+      ],
+      "id": "47e58e15-f9da-46eb-a554-523716982a95",
+      "name": "Upload file1",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "pdRBsKiu7LBt3Baf",
+          "name": "Google Drive account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "amount": 15
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1184,
+        1584
+      ],
+      "id": "cdd20a98-a619-49a4-9f48-dbf9dbc4cf9c",
+      "name": "Wait3",
+      "webhookId": "45ee1dcc-67d9-485b-95c1-1a3499fb23fb"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "eba898fe-5a49-4e52-8819-87b5e13a95ec",
+              "name": "Template",
+              "value": "={{ $json.data.image.url }}",
+              "type": "string"
+            },
+            {
+              "id": "197d8bce-5cb7-41fc-b9c9-4d420c33e426",
+              "name": "T_ID",
+              "value": "={{ $json.data.id }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -400,
+        1312
+      ],
+      "id": "2e0f2ab6-1093-4387-953d-aec46f7e0084",
+      "name": "Template1"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.imgbb.com/1/upload?key=5c79cececa83606f05ed9eac7d9a0941",
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "parameterType": "formBinaryData",
+              "name": "image",
+              "inputDataFieldName": "Upload_AD"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -592,
+        1312
+      ],
+      "id": "2ad1b84c-9f55-404b-9e29-0281c05a01a2",
+      "name": "Upload_Edit AD"
+    },
+    {
+      "parameters": {
+        "jsCode": "return items.map(item => {\n  let rawString = item.json.output || \"\";\n\n  if (!rawString) {\n    return { json: { prompt: \"No data found\" } };\n  }\n\n  // Remove markdown fences and leading yaml keyword\n  let cleanString = rawString\n    .replace(/```json/gi, '')\n    .replace(/```yaml/gi, '')\n    .replace(/```/g, '')\n    .replace(/^yaml\\s*/i, '')\n    .trim();\n\n  try {\n    const parsedObject = JSON.parse(cleanString);\n\n    return {\n      json: {\n        prompt: parsedObject?.scenes?.[0]?.image_prompt || \"\"\n      }\n    };\n  } catch (error) {\n    // If it's not valid JSON, return cleaned text as-is\n    return {\n      json: {\n        prompt: cleanString\n      }\n    };\n  }\n});\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        528,
+        1152
+      ],
+      "id": "5e9d7c42-fe68-4fb2-a48b-77e180319adf",
+      "name": "Code in JavaScript1",
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Primary Objective: Create 1 image prompt following system guidelines\nAccuracy Requirements:\n\nDepict reference image as accurately as possible\nEnsure all text elements are reproduced precisely\nMaintain visual fidelity to original\n\n\nInput Sources:\n\nUser Instructions: {{ $('Image AD Edit').item.json.Alterations }}\nReference Image Description: {{ $json.candidates[0].content.parts[0].text }}\nAspect Ratio: User's preferred ratio (infer from message; default to vertical if unspecified)\n\n\nProcess Steps:\n\nAnalyze user's prompt requirements\nReview reference image description thoroughly\nDetermine appropriate aspect ratio\nUse Think tool to verify output before finalizing\n\n\nOutput: Single, comprehensive image generation prompt that accurately captures all specified elements\n\nOutput Format: Just give me a Straight string\n",
+        "needsFallback": true,
+        "options": {
+          "systemMessage": "=Core Task\nYou receive:\n\nA YAML file that accurately describes the analyzed source image.\n\nA user instruction that specifies what must change.\n\nYour job is to apply only the explicitly requested changes to the image.\nEverything else must remain exactly the same as described in the analyzed YAML.\n\nDo not enhance, fix, beautify, or optimize anything unless the user clearly asks for it.\n\nChange Scope Rules (Critical)\n\nApply only the changes mentioned by the user.\n\nDo not modify background, lighting, framing, colors, textures, text, or objects unless directly instructed.\n\nDo not add new elements.\n\nDo not remove existing elements unless requested.\n\nDo not improve quality, realism, or style unless requested.\n\nIf a requested change conflicts with the analyzed YAML, prioritize the user instruction but keep all unrelated details unchanged.\n\nIf the user instruction is vague or incomplete, do nothing and keep the image identical to the analyzed version.\n\nText & Branding Safety\n\nPreserve all existing text exactly as-is.\n\nLogos, labels, packaging text, and symbols must remain unchanged unless the user explicitly asks to edit them.\n\nNever invent new text, claims, or branding.\n\nVisual Consistency Lock\n\nUnless the user asks otherwise, keep the following exactly the same as the analyzed image:\n\nBackground type and color\n\nLighting direction and intensity\n\nCamera angle and framing\n\nSubject position and scale\n\nSkin texture, product texture, and materials\n\nOutput Format (Strict)\n\nOutput only valid YAML.\n\nReflect the final edited image prompt after applying the requested changes.\n\nDo not include explanations, comments, or extra text.\n\nDefault Fallback (If No Clear Instruction)\n\nIf the user provides no actionable change:\n\nReturn the original image description from the analyzed YAML without modification.\n\nYAML Output Schema\nscenes:\n  - image_prompt: \"final image prompt with only the requested changes applied\"\n    aspect_ratio_image: \"2:3\"\n\nFinal Validation Checklist (Internal)\n\nDid I change only what the user asked for?\n\nIs every untouched detail preserved?\n\nIs the YAML valid and clean?\n\nDid I avoid assumptions or enhancements?\n\nIf any answer is “no”, revise before responding."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        208,
+        1152
+      ],
+      "id": "edf72020-f5f2-4d97-a028-6a4964228995",
+      "name": "Alteration Prompt",
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "resource": "image",
+        "operation": "analyze",
+        "modelId": {
+          "__rl": true,
+          "value": "models/gemini-2.5-flash",
+          "mode": "list",
+          "cachedResultName": "models/gemini-2.5-flash"
+        },
+        "text": "=Role: Senior Computer Vision Analyst & Metadata Specialist\n\nTask: Perform a comprehensive technical analysis of the provided image. Extract visual data and map it to the following schema.\n\nOutput Format: strictly YAML. Do not include conversational text or markdown code blocks (```yaml), just the raw YAML data.\n\nAnalysis Schema: Please fill the following fields based on the image content. If a specific field is not applicable (e.g., no \"floor\" visible), mark it as \"N/A\" or describe what is actually present.\n\nYAML\n\nimage_type: # e.g., photograph, illustration, 3D render\ngenre: # e.g., fashion lifestyle, landscape, portrait\ncomposition:\n  framing: # e.g., full-body, close-up, wide shot\n  aspect_ratio: # e.g., landscape, portrait, square\n  subject_position: # e.g., rule of thirds, centered\n  pose: # Detailed description of body language\n  camera_angle: # e.g., eye-level, low-angle, high-angle\n  visual_balance: # e.g., symmetrical, asymmetrical\n  depth: # e.g., shallow depth of field, deep focus\nsubject:\n  count: # integer\n  type: # e.g., human, animal, object\n  gender_presentation:\n  age_range:\n  expression:\n  gaze: # Where are they looking?\n  emotion:\n  hair:\n    color:\n    length:\n    style:\n  accessories: # List key items like eyewear, jewelry, hats\nwardrobe:\n  top:\n    type:\n    color:\n    material:\n    fit:\n  bottom:\n    type:\n    color:\n    material:\n    length:\n  footwear:\n    type:\n    color:\n    style:\ncolor_palette:\n  dominant_colors: [] # List top 3 hex codes or color names\n  accent_colors: [] # List secondary colors\n  overall_tone: # e.g., warm, cool, muted, vibrant\nlighting:\n  type: # e.g., natural, studio, neon\n  direction: # e.g., backlit, frontal, side-lit\n  contrast: # e.g., high, low\n  shadows: # Description of shadow hardness and placement\n  highlights:\nbackground:\n  setting:\n  wall: # Texture, material, and color details\n  floor: # Texture, material, and color details\nstylistic_attributes:\n  aesthetic: # e.g., minimalist, cyberpunk, vintage\n  mood:\n  trend_alignment:\n  editorial_quality: # e.g., high-end, user-generated, stock\ntechnical_details:\n  focus:\n  lens_look: # e.g., wide-angle, telephoto, fish-eye\n  grain:\n  sharpness:\n  dynamic_range:\n  white_balance:\npost_processing:\n  color_grading:\n  contrast_adjustment:\n  clarity:\n  retouching:\nuse_cases: [] # List 3-5 potential commercial or creative uses\noverall_style_summary: # A concise paragraph synthesizing the visual elements",
+        "imageUrls": "={{ $json.Template }}",
+        "simplify": false,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.googleGemini",
+      "typeVersion": 1,
+      "position": [
+        -16,
+        1152
+      ],
+      "id": "b969a3c3-d699-4ecd-ba32-633c659a4b33",
+      "name": "Analyze an image for Editing",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "kpMrA1jHPuQwyajQ",
+          "name": "Tabish Almas"
+        }
+      },
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "content": "## We Need 3 things to generate video ad from Ai\n** Vibe\n** Feeling\n** Direction\n\n\n-> Give me a 3 cinematic, high-end product image ad ideas for a hoodie. Each idea should describe a visaully stunning, professional commerical shot focusing on luxurious lighting, rich background environments, adn sphosticated composition that make the product feel premium, elgant and eye catching. Describe how elements like colour, texture, mood and props/enviormnemnts enhance the product's story and appeal\n\n\n\n-> Generate Image -> Animating it -> Voice Over -> Add Music",
+        "height": 480,
+        "width": 848,
+        "color": 3
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        1808,
+        1680
+      ],
+      "typeVersion": 1,
+      "id": "64b2263b-334b-4ef7-841c-e033b0ff59f7",
+      "name": "Sticky Note"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Image Prompt",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Think": {
+      "ai_tool": [
+        [
+          {
+            "node": "Image Prompt",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Image Prompt",
+            "type": "ai_languageModel",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Analyze an image": {
+      "main": [
+        [
+          {
+            "node": "Image Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait": {
+      "main": [
+        [
+          {
+            "node": "Get URL of Generated Image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get URL of Generated Image": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Wait2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Download Image",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload_Template": {
+      "main": [
+        [
+          {
+            "node": "Template",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Template": {
+      "main": [
+        [
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Product Image": {
+      "main": [
+        [
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge1": {
+      "main": [
+        [
+          {
+            "node": "Analyze an image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Nano Banana": {
+      "main": [
+        [
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Nano Banana",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download Image": {
+      "main": [
+        [
+          {
+            "node": "Upload file",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Image Prompt": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "UGC AD Generator": {
+      "main": [
+        [
+          {
+            "node": "Routing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Routing": {
+      "main": [
+        [
+          {
+            "node": "Image AD",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Image AD": {
+      "main": [
+        [
+          {
+            "node": "Routing Image AD",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Routing Image AD": {
+      "main": [
+        [
+          {
+            "node": "Image AD Generation",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Image AD Edit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Image AD Generation": {
+      "main": [
+        [
+          {
+            "node": "Upload_Template",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Upload_Product Image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload_Product Image": {
+      "main": [
+        [
+          {
+            "node": "Product Image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Image AD Edit": {
+      "main": [
+        [
+          {
+            "node": "Upload_Edit AD",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait2": {
+      "main": [
+        [
+          {
+            "node": "Get URL of Generated Image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Nano Banana1": {
+      "main": [
+        [
+          {
+            "node": "Wait1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait1": {
+      "main": [
+        [
+          {
+            "node": "Get URL of Generated Image1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get URL of Generated Image1": {
+      "main": [
+        [
+          {
+            "node": "If1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Wait3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If1": {
+      "main": [
+        [
+          {
+            "node": "Download Image1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Wait1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download Image1": {
+      "main": [
+        [
+          {
+            "node": "Upload file1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait3": {
+      "main": [
+        [
+          {
+            "node": "Get URL of Generated Image1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload_Edit AD": {
+      "main": [
+        [
+          {
+            "node": "Template1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Template1": {
+      "main": [
+        [
+          {
+            "node": "Nano Banana1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript1": {
+      "main": [
+        []
+      ]
+    },
+    "Alteration Prompt": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyze an image for Editing": {
+      "main": [
+        [
+          {
+            "node": "Alteration Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": false
+  },
+  "versionId": "eb47cbb4-2c2e-4390-8f5d-13a57f55dab4",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "d2c5a2957b7a4ba99e00cd93ffb2cc727e5ac9d80601965d909f3e530ccff916"
+  },
+  "id": "Q2XYWzuJqIMi2oad",
+  "tags": []
+}

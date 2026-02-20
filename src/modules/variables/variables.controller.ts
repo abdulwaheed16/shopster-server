@@ -13,11 +13,10 @@ import {
 } from "./variables.validation";
 
 export class VariablesController {
-  // Get all variables --- GET /variables
   async getVariables(
     req: Request,
     res: Response,
-    next: NextFunction
+    next: NextFunction,
   ): Promise<void> {
     try {
       const userId = req.user!.id;
@@ -31,11 +30,10 @@ export class VariablesController {
     }
   }
 
-  // Get variable by ID --- GET /variables/:id
   async getVariableById(
     req: Request,
     res: Response,
-    next: NextFunction
+    next: NextFunction,
   ): Promise<void> {
     try {
       const userId = req.user!.id;
@@ -49,11 +47,10 @@ export class VariablesController {
     }
   }
 
-  // Get variable usage --- GET /variables/:id/usage
   async getVariableUsage(
     req: Request,
     res: Response,
-    next: NextFunction
+    next: NextFunction,
   ): Promise<void> {
     try {
       const userId = req.user!.id;
@@ -67,11 +64,10 @@ export class VariablesController {
     }
   }
 
-  // Create variable --- POST /variables
   async createVariable(
     req: Request,
     res: Response,
-    next: NextFunction
+    next: NextFunction,
   ): Promise<void> {
     try {
       const userId = req.user!.id;
@@ -85,11 +81,10 @@ export class VariablesController {
     }
   }
 
-  // Update variable --- PUT /variables/:id
   async updateVariable(
     req: Request,
     res: Response,
-    next: NextFunction
+    next: NextFunction,
   ): Promise<void> {
     try {
       const userId = req.user!.id;
@@ -104,11 +99,10 @@ export class VariablesController {
     }
   }
 
-  // Delete variable --- DELETE /variables/:id
   async deleteVariable(
     req: Request,
     res: Response,
-    next: NextFunction
+    next: NextFunction,
   ): Promise<void> {
     try {
       const userId = req.user!.id;

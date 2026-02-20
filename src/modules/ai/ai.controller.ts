@@ -3,7 +3,6 @@ import { StatusCodes } from "http-status-codes";
 import { AI_PROVIDERS } from "./ai.constants";
 import { aiService } from "./ai.service";
 
-// Controller for AI module testing and internal operations.
 class AIController {
   async testGeminiText(req: Request, res: Response) {
     const { prompt, systemPrompt, maxTokens, temperature } = req.body;
@@ -23,7 +22,7 @@ class AIController {
           maxTokens: maxTokens ? parseInt(maxTokens) : undefined,
           temperature: temperature ? parseFloat(temperature) : undefined,
         },
-        AI_PROVIDERS.GEMINI
+        AI_PROVIDERS.GEMINI,
       );
 
       return res.status(StatusCodes.OK).json({
@@ -41,7 +40,6 @@ class AIController {
     }
   }
 
-  // General text generation test (can specify provider).
   async testTextGeneration(req: Request, res: Response) {
     const { prompt, provider, systemPrompt } = req.body;
 
@@ -55,7 +53,7 @@ class AIController {
     try {
       const result = await aiService.generateText(
         { prompt, systemPrompt },
-        provider || AI_PROVIDERS.GEMINI
+        provider || AI_PROVIDERS.GEMINI,
       );
 
       return res.status(StatusCodes.OK).json({

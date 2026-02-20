@@ -5,11 +5,10 @@ import { jobsService } from "./jobs.service";
 import { GetJobsQuery } from "./jobs.validation";
 
 export class JobsController {
-  // Get all jobs --- GET /jobs
   async getJobs(
     req: Request,
     res: Response,
-    next: NextFunction
+    next: NextFunction,
   ): Promise<void> {
     try {
       const query: GetJobsQuery = req.query;
@@ -22,11 +21,10 @@ export class JobsController {
     }
   }
 
-  // Get job by ID --- GET /jobs/:id
   async getJobById(
     req: Request,
     res: Response,
-    next: NextFunction
+    next: NextFunction,
   ): Promise<void> {
     try {
       const { id } = req.params;

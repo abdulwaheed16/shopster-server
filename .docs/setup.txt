@@ -1,0 +1,19 @@
+// Docker Redis commands
+
+// # Run Redis in Docker
+// docker run -d -p 6379:6379 --name shopster-redis redis:alpine
+
+// # Verify
+// docker ps | grep redis
+
+// # Start
+// docker start shopster-redis
+
+// # Stop
+// docker stop shopster-redis
+
+// # Remove
+// docker rm shopster-redis
+
+// # Inspect
+// docker inspect shopster-redis

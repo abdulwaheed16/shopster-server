@@ -5,10 +5,6 @@ import { sendSuccess } from "../../common/utils/response.util";
 import { uploadService } from "./upload.service";
 
 export class UploadController {
-  /**
-   * Upload single image
-   * POST /upload/image
-   */
   async uploadImage(
     req: Request,
     res: Response,
@@ -30,10 +26,6 @@ export class UploadController {
     }
   }
 
-  /**
-   * Upload multiple images
-   * POST /upload/images
-   */
   async uploadImages(
     req: Request,
     res: Response,
@@ -57,10 +49,6 @@ export class UploadController {
     }
   }
 
-  /**
-   * Upload single video
-   * POST /upload/video
-   */
   async uploadVideo(
     req: Request,
     res: Response,
@@ -82,10 +70,6 @@ export class UploadController {
     }
   }
 
-  /**
-   * Delete image
-   * DELETE /upload/:publicId
-   */
   async deleteImage(
     req: Request,
     res: Response,

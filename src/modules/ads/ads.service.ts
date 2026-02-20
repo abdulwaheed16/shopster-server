@@ -1,6 +1,7 @@
 import { AdStatus, Prisma } from "@prisma/client";
 import { EventEmitter } from "events";
 import { ApiError } from "../../common/errors/api-error";
+import Logger from "../../common/logging/logger";
 import { createPaginatedResponse } from "../../common/utils/pagination.util";
 import { prisma } from "../../config/database.config";
 import { adGenerationQueue } from "../../config/queue.config";
@@ -41,16 +42,24 @@ export class AdsService implements IAdsService {
       throw ApiError.badRequest(`Cannot cancel an ad that is ${ad.status}`);
     }
 
-    // Try to remove from BullMQ
-    const jobs = await adGenerationQueue.getJobs([
-      "waiting",
-      "active",
-      "delayed",
-    ]);
-    const job = jobs.find((j) => j.data.adId === adId);
+    // Try to remove from BullMQ (check all potential states)
+    try {
+      const jobs = await adGenerationQueue.getJobs([
+        "waiting",
+        "active",
+        "delayed",
+        "paused",
+      ]);
+      const job = jobs.find((j) => j.data?.adId === adId);
 
-    if (job) {
-      await job.remove();
+      if (job) {
+        await job.remove();
+        Logger.info(`[AdsService] Job for ad ${adId} removed from queue`);
+      }
+    } catch (queueError: any) {
+      Logger.warn(
+        `[AdsService] Failed to remove job for ad ${adId} from queue: ${queueError.message}`,
+      );
     }
 
     // Update DB
@@ -258,16 +267,8 @@ export class AdsService implements IAdsService {
       }
     }
 
-    // Fallbacks for prompt
-    if (!assembledPrompt) {
-      if (data.scenes && data.scenes.length > 0) {
-        const scenesText = data.scenes
-          .map((scene, i) => `Scene ${i + 1}: ${scene}`)
-          .join("\n");
-        assembledPrompt = `Create a video ad for ${productTitle} with the following scenes:\n${scenesText}`;
-      } else {
-        assembledPrompt = `Showcase the product: ${productTitle}`;
-      }
+    if (data.prompt) {
+      assembledPrompt = data.prompt;
     }
 
     // 4. Assemble Variable Values
@@ -277,14 +278,6 @@ export class AdsService implements IAdsService {
         const regex = new RegExp(`{{${key}}}`, "g");
         assembledPrompt = assembledPrompt.replace(regex, String(value));
       });
-    }
-
-    // Append scenes
-    if (data.scenes && data.scenes.length > 0) {
-      const scenesText = data.scenes
-        .map((scene, i) => `Scene ${i + 1}: ${scene}`)
-        .join("\n");
-      assembledPrompt += `\n\nVideo Scenes:\n${scenesText}`;
     }
 
     // 4. Create Ad record
@@ -327,13 +320,17 @@ export class AdsService implements IAdsService {
       style: data.style,
       color: data.color,
       scenes: data.scenes,
+      mediaType: ad.mediaType,
+      duration: data.duration,
+      templatePrompt: templatePrompt,
+      productImages,
+      templateImage,
       modelImage: data.modelImageUrl,
-      // templateAnalysis is left out here if we don't fetch the template object,
     } as any);
 
     // 7. Return pending ad (actual queue processing)
 
-    console.log("Ad created: ", ad);
+    Logger.info(`Ad created with ID: ${ad.id}`);
     return ad;
   }
 
