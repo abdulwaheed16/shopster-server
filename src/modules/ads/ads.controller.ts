@@ -122,7 +122,7 @@ export class AdsController {
       const userId = req.user!.id;
       const { id } = req.params;
 
-      await adsService.cancelAd(id, userId);
+      await adsService.cancelAd(id as string, userId);
 
       sendSuccess(res, MESSAGES.ADS.CANCELLED || "Ad generation cancelled");
     } catch (error) {
@@ -141,11 +141,11 @@ export class AdsController {
 
       // Send initial event immediately to "lock in" the content-type
       res.write(
-        `data: ${JSON.stringify({ status: "CONNECTED", adId: id })}\n\n`,
+        `data: ${JSON.stringify({ status: "CONNECTED", adId: id as string })}\n\n`,
       );
 
       // Subscribe to ad-specific updates
-      const unsubscribe = adsService.subscribeToAdUpdates(id, (data) => {
+      const unsubscribe = adsService.subscribeToAdUpdates(id as string, (data) => {
         res.write(`data: ${JSON.stringify(data)}\n\n`);
       });
 
