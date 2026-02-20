@@ -10,8 +10,8 @@ WORKDIR /usr/src/app
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies (only production for final image, but we need dev for build)
-RUN npm install
+# Install dependencies
+RUN yarn install --ignore-scripts
 
 # Copy source code
 COPY . .
@@ -20,10 +20,10 @@ COPY . .
 RUN npx prisma generate
 
 # Build TypeScript
-RUN npm run build
+RUN yarn build
 
 # Expose backend port
 EXPOSE 5000
 
 # Start the application
-CMD ["npm", "start"]
+CMD ["yarn", "start"]
