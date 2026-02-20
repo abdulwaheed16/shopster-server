@@ -112,7 +112,8 @@ export const createApp = (): Application => {
   app.use(routes);
 
   // Serve Static Frontend (Production Only)
-  const clientBuildPath = path.join(__dirname, "../client/dist");
+  const clientBuildPath = path.join(process.cwd(), "client/dist");
+  console.log(`[Static] Serving frontend from: ${clientBuildPath}`);
   app.use(express.static(clientBuildPath));
 
   // Wildcard route to serve React app for client-side routing
