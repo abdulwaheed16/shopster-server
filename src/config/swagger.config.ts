@@ -212,13 +212,15 @@ const swaggerDefinition = {
   ],
 };
 
+import path from "path";
+
 const options: swaggerJsdoc.Options = {
   definition: swaggerDefinition,
   apis: [
-    "./src/modules/**/*.routes.ts",
-    "./src/modules/**/*.controller.ts",
-    "./src/modules/**/docs/*.swagger.ts",
-    "./src/health/*.routes.ts",
+    path.join(__dirname, "../modules/**/*.routes.{ts,js}"),
+    path.join(__dirname, "../modules/**/*.controller.{ts,js}"),
+    path.join(__dirname, "../docs/swagger/*.swagger.{ts,js}"),
+    path.join(__dirname, "../health/*.routes.{ts,js}"),
   ],
 };
 

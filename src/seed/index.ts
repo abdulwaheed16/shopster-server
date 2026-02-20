@@ -4,6 +4,7 @@ import { seedAds } from "./ads.seed";
 import { seedPlans } from "./plans.seed";
 import { seedProducts } from "./products.seed";
 import { seedTemplates } from "./templates.seed";
+import { seedUsers } from "./users.seed";
 
 const prisma = new PrismaClient();
 
@@ -20,6 +21,10 @@ async function main() {
     console.log(chalk.blue("Seeding plans..."));
     await seedPlans(); // Creates standard subscription tiers
     console.log(chalk.green("Plans seeded successfully!"));
+
+    console.log(chalk.blue("Seeding users..."));
+    await seedUsers();
+    console.log(chalk.green("Users seeded successfully!"));
 
     console.log(chalk.blue("Seeding templates..."));
     await seedTemplates(); // Creates categories and templates
