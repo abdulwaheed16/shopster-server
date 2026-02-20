@@ -111,11 +111,23 @@ export const createApp = (): Application => {
   // API routes
   app.use(routes);
 
-  app.use((req, res) => {
-    res.status(404).json({
-      status: "fail",
-      message: `Route ${req.originalUrl} not found`,
-    });
+  // Serve Static Frontend (Production Only)
+  const clientBuildPath = path.join(__dirname, "../client/dist");
+  app.use(express.static(clientBuildPath));
+
+  // Wildcard route to serve React app for client-side routing
+  app.get("*", (req, res) => {
+    const isApiRequest =
+      req.path.startsWith("/api") || req.path.startsWith("/api-docs");
+
+    if (isApiRequest) {
+      return res.status(404).json({
+        status: "fail",
+        message: `Route ${req.originalUrl} not found`,
+      });
+    }
+
+    return res.sendFile(path.join(clientBuildPath, "index.html"));
   });
 
   app.use(errorHandler);

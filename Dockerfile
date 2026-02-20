@@ -6,7 +6,7 @@ RUN apt-get update && apt-get install -y openssl libssl-dev && rm -rf /var/lib/a
 
 WORKDIR /app
 
-COPY package*.json ./
+COPY package.json yarn.lock* ./
 RUN yarn install --ignore-scripts
 
 COPY . .
@@ -24,7 +24,7 @@ WORKDIR /app
 # Copy ONLY necessary files from build stage
 COPY --from=build /app/dist ./dist
 COPY --from=build /app/node_modules ./node_modules
-COPY --from=build /app/package*.json ./
+COPY --from=build /app/package.json /app/yarn.lock* ./
 COPY --from=build /app/prisma ./prisma
 
 EXPOSE 5000
