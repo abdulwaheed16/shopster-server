@@ -2,46 +2,6 @@
 
 Complete MERN stack backend built with Node.js, Express, TypeScript, Prisma, and MongoDB.
 
-## Features
-
-- ✅ **Ad Generation Engine** - Background job processing with BullMQ and Redis
-- ✅ **Shopify Integration** - Robust OAuth 2.0 flow and automated catalog synchronization
-- ✅ **Stripe Billing** - Multi-tier subscription management and automated credit refills
-- ✅ **Enterprise Admin** - Advanced user governance and custom plan overrides
-- ✅ **JWT Authentication** - Access & Refresh tokens with HTTP-only cookies
-- ✅ **Role-Based Authorization** - USER and ADMIN roles
-- ✅ **Email Verification** - Secure email verification flow
-- ✅ **Password Reset** - Forgot password functionality
-- ✅ **Swagger Documentation** - Complete API documentation at `/api-docs`
-- ✅ **Rate Limiting** - Protection against brute force attacks
-- ✅ **Error Handling** - Comprehensive error handling with custom error codes
-- ✅ **Validation** - Request validation using Zod
-- ✅ **Security** - Helmet, CORS, and other security best practices
-- ✅ **Cloudinary Integration** - Image upload and management
-- ✅ **Prisma ORM** - Type-safe database access (MongoDB)
-
-## Tech Stack
-
-- **Runtime**: Node.js 20+
-- **Framework**: Express.js
-- **Language**: TypeScript
-- **Database**: MongoDB
-- **ORM**: Prisma
-- **Validation**: Zod
-- **Authentication**: JWT (jsonwebtoken)
-- **Password Hashing**: bcryptjs
-- **File Upload**: Cloudinary
-- **Documentation**: Swagger/OpenAPI
-- **Security**: Helmet, CORS, Rate Limiting
-
-## Getting Started
-
-### Prerequisites
-
-- Node.js 20 or higher
-- MongoDB database (local or cloud)
-- Cloudinary account (for image uploads)
-
 ### Installation
 
 1. **Clone the repository**
@@ -63,7 +23,6 @@ Complete MERN stack backend built with Node.js, Express, TypeScript, Prisma, and
    ```
 
    Then edit `.env` with your configuration:
-
    - `DATABASE_URL`: MongoDB connection string
    - `JWT_ACCESS_SECRET` & `JWT_REFRESH_SECRET`: Strong secret keys (min 32 chars)
    - `CLOUDINARY_*`: Cloudinary credentials

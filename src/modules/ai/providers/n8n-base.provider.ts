@@ -21,6 +21,8 @@ export abstract class N8NBaseProvider {
     const base = config.webhook.serverBaseUrl;
     if (!base) return undefined;
 
+    Logger.info(`${this.logPrefix} Using base URL for callback: ${base}`);
+
     const url = new URL("/api/v1/ads/n8n-callback", base);
 
     // Append the shared secret so n8n can include it automatically
