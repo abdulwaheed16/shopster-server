@@ -25,7 +25,7 @@ export const optionalPasswordSchema = passwordSchema.optional();
 
 export const nameSchema = z
   .string()
-  .min(2, "Name must be at least 2 characters")
+  .min(1, "Name is required")
   .max(100, "Name must not exceed 100 characters")
   .optional();
 

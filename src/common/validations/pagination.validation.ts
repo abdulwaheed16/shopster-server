@@ -12,8 +12,8 @@ export const paginationSchema = z.object({
       .optional()
       .transform((val) => (val ? parseInt(val, 10) : 10))
       .refine(
-        (val) => val > 0 && val <= 100,
-        "Limit must be between 1 and 100"
+        (val) => val > 0 && val <= 1000,
+        "Limit must be between 1 and 1000",
       ),
     sortBy: z.string().optional(),
     sortOrder: z.enum(["asc", "desc"]).optional(),
