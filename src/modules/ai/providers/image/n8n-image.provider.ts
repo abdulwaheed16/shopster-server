@@ -32,8 +32,6 @@ export class N8NImageProvider
       timestamp: new Date().toISOString(),
     };
 
-  
-
     await this.fireAndForget(webhookUrl, payload);
 
     // Return a pending marker — the real result arrives via POST /api/ads/n8n-callback

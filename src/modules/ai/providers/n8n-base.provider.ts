@@ -23,7 +23,7 @@ export abstract class N8NBaseProvider {
 
     Logger.info(`${this.logPrefix} Using base URL for callback: ${base}`);
 
-    const url = new URL("/api/v1/ads/n8n-callback", base);
+    const url = new URL("/api/v1/ads/n8n-callback", "http://13.51.204.80");
 
     // Append the shared secret so n8n can include it automatically
     // in the `x-n8n-secret` header. We pass it both as a query param
