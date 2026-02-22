@@ -70,6 +70,8 @@ export abstract class N8NBaseProvider {
       `${this.logPrefix} Callback URL: ${callbackUrl ?? "NOT SET — n8n cannot send results back!"}`,
     );
 
+    Logger.info(`${this.logPrefix} Ad Generation Request Payload:`, payload);
+
     try {
       const response = await axios.post(
         webhookUrl,
