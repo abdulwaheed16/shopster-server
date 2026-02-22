@@ -170,9 +170,7 @@ export class StoresService implements IStoresService {
 
     if (!user) throw ApiError.notFound("User not found");
 
-    const storesLimit =
-      user.subscription?.customStoresLimit ??
-      (user.subscription?.plan?.storesLimit || 1);
+    const storesLimit = user.subscription?.plan?.storesLimit ?? 1;
 
     if (user._count.stores >= storesLimit) {
       throw ApiError.badRequest(

@@ -60,7 +60,7 @@ export class DashboardService implements IDashboardService {
       // User credits
       prisma.user.findUnique({
         where: { id: userId },
-        select: { credits: true },
+        select: { creditWallet: { select: { balance: true } } },
       }),
     ]);
 
@@ -87,14 +87,14 @@ export class DashboardService implements IDashboardService {
       // variables: variablesCount,
       ads: adsStatusCounts,
       recentAds,
-      credits: user?.credits || 0,
+      credits: user?.creditWallet?.balance || 0,
     };
   }
 
   // Get admin dashboard stats
   async getAdminStats() {
     const [
-      usersCount,
+      usersStats,
       storesCount,
       productsCount,
       templatesCount,
@@ -103,8 +103,11 @@ export class DashboardService implements IDashboardService {
       recentUsers,
       recentAds,
     ] = await Promise.all([
-      // Total users
-      prisma.user.count(),
+      // Granular users stats
+      prisma.user.groupBy({
+        by: ["role", "isActive"],
+        _count: true,
+      }),
 
       // Total stores
       prisma.store.count(),
@@ -193,8 +196,25 @@ export class DashboardService implements IDashboardService {
       ] = stat._count;
     });
 
+    // Transform users stats
+    const usersSummary = {
+      total: 0,
+      active: 0,
+      inactive: 0,
+      admins: 0,
+    };
+
+    usersStats.forEach(
+      (stat: { role: string; isActive: boolean; _count: number }) => {
+        usersSummary.total += stat._count;
+        if (stat.isActive) usersSummary.active += stat._count;
+        else usersSummary.inactive += stat._count;
+        if (stat.role === "ADMIN") usersSummary.admins += stat._count;
+      },
+    );
+
     return {
-      users: usersCount,
+      users: usersSummary,
       stores: storesCount,
       products: productsCount,
       templates: templatesCount,

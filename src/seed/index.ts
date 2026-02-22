@@ -1,9 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 import chalk from "chalk";
-import { seedAds } from "./ads.seed";
 import { seedPlans } from "./plans.seed";
-import { seedProducts } from "./products.seed";
-import { seedTemplates } from "./templates.seed";
 import { seedUsers } from "./users.seed";
 
 const prisma = new PrismaClient();
@@ -26,17 +23,17 @@ async function main() {
     await seedUsers();
     console.log(chalk.green("Users seeded successfully!"));
 
-    console.log(chalk.blue("Seeding templates..."));
-    await seedTemplates(); // Creates categories and templates
-    console.log(chalk.green("Templates seeded successfully!"));
+    // console.log(chalk.blue("Seeding templates..."));
+    // await seedTemplates(); // Creates categories and templates
+    // console.log(chalk.green("Templates seeded successfully!"));
 
-    console.log(chalk.blue("Seeding products..."));
-    await seedProducts(); // Creates user, store, and products
-    console.log(chalk.green("Products seeded successfully!"));
+    // console.log(chalk.blue("Seeding products..."));
+    // await seedProducts(); // Creates user, store, and products
+    // console.log(chalk.green("Products seeded successfully!"));
 
-    console.log(chalk.blue("Seeding ads..."));
-    await seedAds(); // Creates ads (depends on products and templates)
-    console.log(chalk.green("Ads seeded successfully!"));
+    // console.log(chalk.blue("Seeding ads..."));
+    // await seedAds(); // Creates ads (depends on products and templates)
+    // console.log(chalk.green("Ads seeded successfully!"));
 
     console.log(chalk.green("🎉 All seeding completed successfully!"));
   } catch (error) {

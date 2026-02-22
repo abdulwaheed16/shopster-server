@@ -7,6 +7,7 @@ import {
   CreateCheckoutSessionBody,
   CreatePortalSessionBody,
   UpdateCustomPlanBody,
+  VerifyPasswordBody,
 } from "./billing.validation";
 import { subscriptionService } from "./subscription.service";
 
@@ -101,6 +102,21 @@ export class BillingController {
       const data: UpdateCustomPlanBody = req.body;
       const result = await billingService.updateCustomPlan(adminId, data);
       sendSuccess(res, MESSAGES.BILLING.PLAN_UPDATED, result);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async verifyPassword(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
+    try {
+      const userId = req.user!.id;
+      const data: VerifyPasswordBody = req.body;
+      const result = await billingService.verifyUserPassword(userId, data);
+      sendSuccess(res, result.message, result);
     } catch (error) {
       next(error);
     }

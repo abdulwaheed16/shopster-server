@@ -41,9 +41,9 @@ model User {
 
     // Billing & Subscriptions
     stripeCustomerId String?
-    credits          Float         @default(0) // Current available credits
     subscriptionId   String?       @db.ObjectId
     subscription     Subscription? @relation("UserSubscription")
+    creditWallet     CreditWallet?
     invoices         Invoice[]
 
     // Status
@@ -610,33 +610,60 @@ enum JobStatus {
 // Subscription & Billing System
 //--------------------------------------------------------------------
 
-model Plan {
-    id          String  @id @default(auto()) @map("_id") @db.ObjectId
-    name        String  @unique // Pro, Business, Custom
-    description String?
-    priceId     String? // Stripe Price ID (null for custom)
+// Plan type distinguishes pre-packaged plans from custom/PAYG.
+// CUSTOM plans are regular Plan records with isPublic = false.
+enum PlanType {
+    FREE
+    STARTER
+    PRO
+    BUSINESS
+    PAYG // Pay As You Go — no monthly credits, user purchases top-up packs
+    CUSTOM // Admin-created bespoke plan for a specific client
+}
 
-    // Pricing
-    price           Float?          @default(0) // Monthly price in USD (null for custom)
-    billingInterval BillingInterval @default(MONTHLY)
+enum Currency {
+    USD
+    PKR
+}
+
+// Embedded per-currency, per-interval pricing (replaces flat price + billingInterval on Plan)
+type PlanPrice {
+    currency      Currency
+    interval      BillingInterval
+    amount        Float
+    stripePriceId String? // Stripe Price ID for this specific currency/interval combo
+}
+
+model Plan {
+    id          String   @id @default(auto()) @map("_id") @db.ObjectId
+    name        String   @unique
+    slug        String   @unique // URL-friendly identifier, e.g. "pro", "business"
+    type        PlanType
+    description String?
+
+    // Pricing — one entry per (currency × interval) combination
+    prices              PlanPrice[]
+    yearlyDiscountPct   Float?      // Display hint, e.g. 20 = "Save 20%"
 
     // Limits
-    creditsPerMonth Float
-    storesLimit     Int
+    creditsPerMonth Float // 0 for PAYG
+    storesLimit     Int   // Use 9999 for "unlimited"
 
-    // Features (e.g., premiumTemplates, highQualityAds)
+    // Features (flexible key-value flags, e.g. { premiumTemplates: true })
     features Json?
 
     isActive Boolean @default(true)
+    isPublic Boolean @default(true) // false for CUSTOM plans (not shown on pricing page)
 
     // Relations
     subscriptions Subscription[]
+    invoices      Invoice[]
 
-    createdAt DateTime  @default(now())
-    updatedAt DateTime  @updatedAt
-    invoices  Invoice[]
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
 
     @@index([isActive])
+    @@index([type])
     @@map("plans")
 }
 
@@ -647,16 +674,13 @@ model Subscription {
 
     stripeSubscriptionId String?            @unique
     status               SubscriptionStatus @default(INCOMPLETE)
-    interval             BillingInterval    @default(MONTHLY)
+    interval             BillingInterval    @default(MONTHLY) // What the user is billed on
 
     currentPeriodStart DateTime?
     currentPeriodEnd   DateTime?
     cancelAtPeriodEnd  Boolean   @default(false)
 
-    // Overrides for custom plans
-    customCreditsPerMonth Float?
-    customStoresLimit     Int?
-
+    // Scheduled plan change (at period end). Admin sets this when downgrading.
     pendingPlanId String? @db.ObjectId
 
     // Relations
@@ -681,12 +705,56 @@ enum SubscriptionStatus {
     PAUSED
 }
 
-model UsageRecord {
+// CreditWallet replaces the flat User.credits field.
+// One wallet per user — created automatically on registration.
+model CreditWallet {
     id     String @id @default(auto()) @map("_id") @db.ObjectId
-    userId String @db.ObjectId
+    userId String @unique @db.ObjectId
+
+    balance        Float @default(0) // Current spendable credits
+    lifetimeEarned Float @default(0) // All-time credits granted (for analytics)
+    lifetimeSpent  Float @default(0) // All-time credits consumed (for analytics)
+
+    user   User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+    topUps CreditTopUp[]
+
+    updatedAt DateTime @updatedAt
+
+    @@map("credit_wallets")
+}
+
+// Captures one-time credit purchases (PAYG packs or ad-hoc top-ups).
+model CreditTopUp {
+    id       String @id @default(auto()) @map("_id") @db.ObjectId
+    walletId String @db.ObjectId
+
+    credits                Float     // Credits granted
+    amount                 Float     // Amount paid
+    currency               Currency
+    stripePaymentIntentId  String?   @unique
+    status                 TopUpStatus @default(PENDING)
+
+    wallet    CreditWallet @relation(fields: [walletId], references: [id], onDelete: Cascade)
+    createdAt DateTime     @default(now())
+
+    @@index([walletId])
+    @@map("credit_top_ups")
+}
+
+enum TopUpStatus {
+    PENDING
+    COMPLETED
+    FAILED
+    REFUNDED
+}
+
+model UsageRecord {
+    id       String @id @default(auto()) @map("_id") @db.ObjectId
+    userId   String @db.ObjectId
+    walletId String? @db.ObjectId // Link to the wallet for easy balance reconciliation
 
     type         UsageType
-    creditAmount Float // Negative for deduction, positive for refill
+    creditAmount Float     // Negative for deduction, positive for refill
     description  String?
 
     // Context (optional)
@@ -696,7 +764,7 @@ model UsageRecord {
     createdAt DateTime @default(now())
 
     @@index([userId])
-    @@index([userId, createdAt]) // Optimized for history queries
+    @@index([userId, createdAt])
     @@map("usage_records")
 }
 
@@ -704,7 +772,7 @@ enum UsageType {
     AD_GENERATION
     TEMPLATE_PREVIEW
     MONTHLY_REFILL
-    ONE_TIME_PURCHASE
+    TOPUP_PURCHASE
     REFUND
     ADMIN_ADJUSTMENT
 }

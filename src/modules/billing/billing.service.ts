@@ -1,14 +1,21 @@
-import { BillingInterval, SubscriptionStatus, UsageType } from "@prisma/client";
+import {
+  BillingInterval,
+  PlanType,
+  SubscriptionStatus,
+  UsageType,
+} from "@prisma/client";
 import Stripe from "stripe";
 import { ApiError } from "../../common/errors/api-error";
 import Logger from "../../common/logging/logger";
 import { comparePassword } from "../../common/utils/hash.util";
 import { prisma } from "../../config/database.config";
 
+import { usersService } from "../users/users.service";
 import {
   CreateCheckoutSessionBody,
   CreatePortalSessionBody,
   UpdateCustomPlanBody,
+  VerifyPasswordBody,
 } from "./billing.validation";
 import { checkoutItemResolver } from "./checkout-item.strategy";
 import { creditsService } from "./credits.service";
@@ -56,64 +63,66 @@ export class BillingService {
     const currentSub = user.subscription;
     if (currentSub && currentSub.status === "ACTIVE") {
       const isSamePlan = currentSub.planId === data.planId;
-      const isSameInterval =
-        (currentSub as any).interval ===
-        (data.interval || currentSub.plan.billingInterval);
+      const requestedInterval = data.interval || "MONTHLY";
+      const isSameInterval = currentSub.interval === requestedInterval;
 
       if (isSamePlan && isSameInterval && !currentSub.cancelAtPeriodEnd) {
         throw ApiError.badRequest("You are already subscribed to this plan.");
       }
 
-      // Detect Downgrade
-      // Upgrade = Higher price OR Higher credits
-      const currentPrice =
-        currentSub.interval === "YEARLY"
-          ? (currentSub.plan.price || 0) * 12 * 0.8
-          : currentSub.plan.price || 0;
-      const requestedPrice =
-        (data.interval || plan.billingInterval) === "YEARLY"
-          ? Math.floor((plan.price || 0) * 12 * 0.8)
-          : plan.price || 0;
+      // Detect Downgrade logic (simplified: compare USD monthly prices)
+      const getMonthlyUsd = (p: any, interval: BillingInterval) => {
+        const price = p.prices.find(
+          (pr: any) => pr.interval === interval && pr.currency === "USD",
+        );
+        if (!price) return 0;
+        return interval === "YEARLY" ? price.amount / 12 : price.amount;
+      };
+
+      const currentPrice = getMonthlyUsd(currentSub.plan, currentSub.interval);
+      const requestedPrice = getMonthlyUsd(plan, requestedInterval);
 
       const isDowngrade = requestedPrice < currentPrice;
 
       if (isDowngrade && currentSub.stripeSubscriptionId) {
         // Schedule Downgrade for next cycle
-        const stripeSub = await stripeService.updateSubscription(
-          currentSub.stripeSubscriptionId,
-          {
-            items: [
-              {
-                id: (
-                  (await stripeService.retrieveSubscription(
-                    currentSub.stripeSubscriptionId,
-                  )) as any
-                ).items.data[0].id,
-                price: plan.priceId || undefined, // Use priceId if exists, else we'd need to create one. For simplicity, assuming standard plans have priceIds or we use ad-hoc.
-                // If ad-hoc, we might need a different approach. But typically downgrades are between standard plans.
-              },
-            ],
-            proration_behavior: "none", // Do not charge or refund now
-            // Stripe automatically aligns this to the next period if scheduled via update with specific flags or just update.
-            // Actually, 'none' proration with change of price usually takes effect at the end of the current period if we use 'billing_cycle_anchor: uncharged'?
-            // No, 'none' means keep current until end, then switch.
-          } as any,
+        const requestedPriceEntry = plan.prices.find(
+          (p: any) => p.interval === requestedInterval && p.currency === "USD",
         );
 
-        await subscriptionService.updateSubscriptionPeriod(
-          currentSub.stripeSubscriptionId,
-          {
-            cancelAtPeriodEnd: false, // Ensure it's not canceled, just scheduled for change
-            pendingPlanId: plan.id, // Track what it will change to
-          } as any,
-        );
+        if (requestedPriceEntry?.stripePriceId) {
+          await stripeService.updateSubscription(
+            currentSub.stripeSubscriptionId,
+            {
+              items: [
+                {
+                  id: (
+                    (await stripeService.retrieveSubscription(
+                      currentSub.stripeSubscriptionId,
+                    )) as any
+                  ).items.data[0].id,
+                  price: requestedPriceEntry.stripePriceId,
+                },
+              ],
+              proration_behavior: "none",
+            } as any,
+          );
 
-        return { url: `${process.env.FRONTEND_URL}/billing?scheduled=true` };
+          await subscriptionService.updateSubscriptionPeriod(
+            currentSub.stripeSubscriptionId,
+            {
+              cancelAtPeriodEnd: false,
+              pendingPlanId: plan.id,
+            } as any,
+          );
+
+          return { url: `${process.env.FRONTEND_URL}/billing?scheduled=true` };
+        }
       }
     }
 
-    // 1. Resolve the line item strategy based on plan data (SOLID Principle)
-    const strategy = checkoutItemResolver.resolve(plan);
+    // 1. Resolve the line item strategy (passing interval)
+    const strategy = checkoutItemResolver.resolve(plan, data.interval);
     const lineItem = strategy.createLineItem(plan, data.interval);
 
     // 2. Ensure Stripe Customer exists
@@ -144,13 +153,13 @@ export class BillingService {
       metadata: {
         userId: user.id,
         planId: plan.id,
-        interval: data.interval || plan.billingInterval,
+        interval: data.interval || "MONTHLY",
       },
       subscription_data: {
         metadata: {
           userId: user.id,
           planId: plan.id,
-          interval: data.interval || plan.billingInterval,
+          interval: data.interval || "MONTHLY",
         },
       },
     });
@@ -375,7 +384,7 @@ export class BillingService {
       planId,
       stripeSubscriptionId,
       status: stripeSub.status.toUpperCase() as SubscriptionStatus,
-      interval: interval || plan.billingInterval,
+      interval: interval || "MONTHLY",
       currentPeriodStart: new Date(stripeSub.current_period_start * 1000),
       currentPeriodEnd: new Date(stripeSub.current_period_end * 1000),
       cancelAtPeriodEnd: stripeSub.cancel_at_period_end,
@@ -421,9 +430,8 @@ export class BillingService {
       cancelAtPeriodEnd: stripeSub.cancel_at_period_end,
     });
 
-    // Refill monthly credits (Priority: Custom > Plan)
-    const refillAmount =
-      (sub as any).customCreditsPerMonth ?? sub.plan.creditsPerMonth;
+    // Refill monthly credits
+    const refillAmount = sub.plan.creditsPerMonth;
     await creditsService.addCredits(
       sub.userId,
       refillAmount,
@@ -514,39 +522,53 @@ export class BillingService {
 
   /**
    * Admin: Assign a custom deal to a user
-   * Fulfills: "if package is custom deal it accordingly using best practices"
+   * Refactored to use dedicated custom plans (SOLID)
    */
   async updateCustomPlan(adminId: string, data: UpdateCustomPlanBody) {
-    // 1. Security Check: Verify Admin
+    // 1. Security Check: Verify Admin (Permission only, password handled externally)
     const admin = await prisma.user.findUnique({ where: { id: adminId } });
-    if (!admin || admin.role !== "ADMIN" || !admin.password) {
+    if (!admin || admin.role !== "ADMIN") {
       throw ApiError.unauthorized("Admin authorization required");
     }
 
-    const isPasswordValid = await comparePassword(
-      data.adminPassword,
-      admin.password,
-    );
-    if (!isPasswordValid)
-      throw ApiError.unauthorized("Invalid admin credentials");
+    // 2. Create or Update a dedicated CUSTOM plan for this user
+    // We use a unique slug/name for this user's custom deal
+    const customPlanName = data.name || `Custom Deal - ${data.userId}`;
+    const customPlanSlug = `custom-${data.userId}`;
 
-    // 2. Find "Custom" Plan
-    const customPlan = await prisma.plan.findUnique({
-      where: { name: "Custom" },
+    const plan = await prisma.plan.upsert({
+      where: { slug: customPlanSlug },
+      update: {
+        name: data.name,
+        description: data.description,
+        creditsPerMonth: data.creditsPerMonth,
+        storesLimit: data.storesLimit,
+        isActive: data.isActive ?? true,
+        isPublic: false,
+        features: data.features as Record<string, boolean>,
+      },
+      create: {
+        name: customPlanName,
+        slug: customPlanSlug,
+        type: PlanType.CUSTOM,
+        description: data.description,
+        creditsPerMonth: data.creditsPerMonth || 0,
+        storesLimit: data.storesLimit || 1,
+        isActive: data.isActive ?? true,
+        isPublic: false,
+        prices: [],
+        features: data.features as Record<string, boolean>,
+      },
     });
-    if (!customPlan)
-      throw ApiError.notFound(
-        "Custom plan definition not found. Please run seeds.",
-      );
 
-    // 3. Create or update user's subscription with custom plan
+    // 3. Update user's subscription to this custom plan
     const subscription = await subscriptionService.upsertSubscription({
       userId: data.userId,
-      planId: customPlan.id,
+      planId: plan.id,
       status: SubscriptionStatus.ACTIVE,
     });
 
-    // 4. Store custom limits on the subscription
+    // 4. Update the period if it's already linked to Stripe
     if (subscription.stripeSubscriptionId) {
       await subscriptionService.updateSubscriptionPeriod(
         subscription.stripeSubscriptionId,
@@ -555,26 +577,42 @@ export class BillingService {
           currentPeriodEnd:
             subscription.currentPeriodEnd ||
             new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-          customCreditsPerMonth: data.credits,
-          customStoresLimit: data.storesLimit,
         } as any,
       );
     }
 
-    // 5. Set initial credits
-    await creditsService.setCredits(
-      data.userId,
-      data.credits,
-      `Custom plan assigned: ${data.credits} credits/month, ${data.storesLimit} stores limit`,
-    );
+    // 5. Sync initial credits to the wallet if provided
+    if (data.creditsPerMonth !== undefined) {
+      await creditsService.setCredits(
+        data.userId,
+        data.creditsPerMonth,
+        `Custom deal assigned: ${data.creditsPerMonth} cr/mo`,
+      );
+    }
 
     return {
-      message: "Custom plan assigned successfully",
+      message: "Custom deal assigned successfully",
       details: {
-        creditsPerMonth: data.credits,
-        storesLimit: data.storesLimit,
+        planId: plan.id,
+        creditsPerMonth: plan.creditsPerMonth,
+        storesLimit: plan.storesLimit,
       },
     };
+  }
+
+  /**
+   * Generic password verification for management actions
+   */
+  async verifyUserPassword(userId: string, data: VerifyPasswordBody) {
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user || !user.password) {
+      throw ApiError.unauthorized("User authorization required");
+    }
+
+    const isPasswordValid = await comparePassword(data.password, user.password);
+    if (!isPasswordValid) throw ApiError.unauthorized("Invalid credentials");
+
+    return { success: true, message: "Verification successful" };
   }
 
   /**
@@ -586,16 +624,7 @@ export class BillingService {
     type: UsageType,
     description?: string,
   ) {
-    // PAUSED: Bypassing credit deduction per user request
-    Logger.info(
-      `Bypassing credit deduction for user: ${userId} (${amount} credits)`,
-    );
-    return;
-
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { role: true },
-    });
+    const user = await usersService.getUserById(userId);
 
     if (user?.role === "ADMIN") {
       Logger.info(`Skipping credit deduction for admin user: ${userId}`);

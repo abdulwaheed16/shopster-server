@@ -1,29 +1,39 @@
+import { UsageType } from "@prisma/client";
 import { ApiError } from "../../common/errors/api-error";
 import { prisma } from "../../config/database.config";
 import { ICreditManager } from "./billing.types";
 
 export class CreditsService implements ICreditManager {
-  /**
-   * Add credits to a user and create a usage record
-   */
+  private async ensureWallet(userId: string) {
+    return await prisma.creditWallet.upsert({
+      where: { userId },
+      create: { userId },
+      update: {},
+    });
+  }
+
   async addCredits(
     userId: string,
-    amount: number,
-    type: any,
-    description?: string
+    creditAmount: number,
+    type: UsageType,
+    description?: string,
   ) {
+    const wallet = await this.ensureWallet(userId);
+
     return await prisma.$transaction([
-      prisma.user.update({
-        where: { id: userId },
+      prisma.creditWallet.update({
+        where: { id: wallet.id },
         data: {
-          credits: { increment: amount },
+          balance: { increment: creditAmount },
+          lifetimeEarned: { increment: creditAmount },
         },
       }),
       prisma.usageRecord.create({
         data: {
           userId,
+          walletId: wallet.id,
           type,
-          creditAmount: amount,
+          creditAmount: creditAmount,
           description,
         },
       }),
@@ -31,36 +41,34 @@ export class CreditsService implements ICreditManager {
   }
 
   /**
-   * Deduct credits from a user if they have enough balance
+   * Deduct credits from a user's wallet if the balance is sufficient.
    */
   async deductCredits(
     userId: string,
-    amount: number,
-    type: any,
-    description?: string
+    creditAmount: number,
+    type: UsageType,
+    description?: string,
   ) {
-    const user = await prisma.user.findUnique({ where: { id: userId } });
+    const wallet = await this.ensureWallet(userId);
 
-    if (!user) {
-      throw ApiError.notFound("User not found");
-    }
-
-    if (user.credits < amount) {
+    if (wallet.balance < creditAmount) {
       throw ApiError.badRequest("Insufficient credits for this operation");
     }
 
     return await prisma.$transaction([
-      prisma.user.update({
-        where: { id: userId },
+      prisma.creditWallet.update({
+        where: { id: wallet.id },
         data: {
-          credits: { decrement: amount },
+          balance: { decrement: creditAmount },
+          lifetimeSpent: { increment: creditAmount },
         },
       }),
       prisma.usageRecord.create({
         data: {
           userId,
+          walletId: wallet.id,
           type,
-          creditAmount: -amount,
+          creditAmount: -creditAmount,
           description,
         },
       }),
@@ -68,25 +76,38 @@ export class CreditsService implements ICreditManager {
   }
 
   /**
-   * Set absolute credits for a user (useful for admin adjustments)
+   * Set absolute balance for a user's wallet (admin adjustment).
    */
-  async setCredits(userId: string, amount: number, description: string) {
+  async setCredits(userId: string, creditAmount: number, description: string) {
+    const wallet = await this.ensureWallet(userId);
+    const delta = creditAmount - wallet.balance;
+
     return await prisma.$transaction([
-      prisma.user.update({
-        where: { id: userId },
+      prisma.creditWallet.update({
+        where: { id: wallet.id },
         data: {
-          credits: amount,
+          balance: creditAmount,
+          lifetimeEarned: delta > 0 ? { increment: delta } : undefined,
         },
       }),
       prisma.usageRecord.create({
         data: {
           userId,
-          type: "ADMIN_ADJUSTMENT",
-          creditAmount: amount,
+          walletId: wallet.id,
+          type: UsageType.ADMIN_ADJUSTMENT,
+          creditAmount: delta,
           description,
         },
       }),
     ]);
+  }
+
+  /**
+   * Get the current wallet balance for a user.
+   */
+  async getBalance(userId: string): Promise<number> {
+    const wallet = await this.ensureWallet(userId);
+    return wallet.balance;
   }
 }
 

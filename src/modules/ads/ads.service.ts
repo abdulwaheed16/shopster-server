@@ -1,4 +1,4 @@
-import { AdStatus, Prisma } from "@prisma/client";
+import { AdStatus, Prisma, UsageType } from "@prisma/client";
 import { EventEmitter } from "events";
 import { ApiError } from "../../common/errors/api-error";
 import Logger from "../../common/logging/logger";
@@ -6,6 +6,7 @@ import { createPaginatedResponse } from "../../common/utils/pagination.util";
 import { prisma } from "../../config/database.config";
 import { adGenerationQueue } from "../../config/queue.config";
 import { ASPECT_RATIOS } from "../ai/ai.constants";
+import { billingService } from "../billing/billing.service";
 import { IAdsService } from "./ads.types";
 import { GenerateAdBody, GetAdsQuery } from "./ads.validation";
 
@@ -202,7 +203,7 @@ export class AdsService implements IAdsService {
     // 1. Check user credits
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      select: { credits: true },
+      select: { creditWallet: { select: { balance: true } } },
     });
 
     if (!user) {
@@ -210,11 +211,11 @@ export class AdsService implements IAdsService {
     }
 
     // Each generation costs 1 credit
-    // if (user.credits < 1) {
-    //   throw ApiError.badRequest(
-    //     "Insufficient credits. Please top up to generate ads.",
-    //   );
-    // }
+    if ((user?.creditWallet?.balance || 0) < 1) {
+      throw ApiError.badRequest(
+        "Insufficient credits. Please top up to generate ads.",
+      );
+    }
 
     // 2. Resolve Product Data
     let productTitle = data.productTitle || "";
@@ -303,12 +304,12 @@ export class AdsService implements IAdsService {
     });
 
     // 5. Deduct credit
-    // await billingService.checkAndDeductCredits(
-    //   userId,
-    //   1,
-    //   UsageType.AD_GENERATION,
-    //   `Ad Generation: ${ad.id}`,
-    // );
+    await billingService.checkAndDeductCredits(
+      userId,
+      1,
+      UsageType.AD_GENERATION,
+      `Ad Generation: ${ad.id}`,
+    );
 
     // 6. Add to queue for background processing
     await adGenerationQueue.add("generate", {

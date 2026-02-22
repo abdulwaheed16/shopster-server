@@ -74,7 +74,7 @@ export class UsersService implements IUsersService {
         emailVerified: true,
         image: true,
         isActive: true,
-        credits: true,
+        creditWallet: true,
         createdAt: true,
         updatedAt: true,
         subscription: {
