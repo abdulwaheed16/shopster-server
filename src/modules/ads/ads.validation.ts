@@ -35,6 +35,12 @@ export const generateAdSchema = z.object({
       color: z.string().optional(),
       scenes: z.array(z.string()).optional(),
       duration: z.number().int().min(5).max(15).optional(),
+      videoScript: z
+        .object({
+          type: z.enum(["TEXT", "VOICE"]),
+          content: z.string().min(1, "Script content is required"),
+        })
+        .optional(),
       mediaType: z.enum(["IMAGE", "VIDEO"]).optional(),
       prompt: z.string().optional(),
     })

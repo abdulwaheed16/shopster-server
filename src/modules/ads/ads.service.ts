@@ -301,6 +301,7 @@ export class AdsService implements IAdsService {
           scenes: data.scenes,
           duration: data.duration,
         },
+        videoScript: data.videoScript as any,
       },
     });
 
@@ -324,6 +325,7 @@ export class AdsService implements IAdsService {
       style: data.style,
       color: data.color,
       scenes: data.scenes,
+      videoScript: data.videoScript,
       mediaType: ad.mediaType,
       duration: data.duration,
       templatePrompt: templatePrompt,

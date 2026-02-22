@@ -44,7 +44,9 @@ export const createPlanSchema = z.object({
     yearlyDiscountPct: z.number().min(0).max(100).optional(),
     creditsPerMonth: z.number().min(0, "Credits must be non-negative"),
     storesLimit: z.number().int().min(0, "Stores limit must be non-negative"),
-    features: z.record(z.string(), z.unknown()).optional(),
+    features: z
+      .union([z.record(z.string(), z.unknown()), z.array(z.string())])
+      .optional(),
     isActive: z.boolean().optional(),
     isPublic: z.boolean().optional(),
   }),
@@ -66,7 +68,9 @@ export const updatePlanSchema = z.object({
     yearlyDiscountPct: z.number().min(0).max(100).optional(),
     creditsPerMonth: z.number().min(0).optional(),
     storesLimit: z.number().int().min(0).optional(),
-    features: z.record(z.string(), z.unknown()).optional(),
+    features: z
+      .union([z.record(z.string(), z.unknown()), z.array(z.string())])
+      .optional(),
     isActive: z.boolean().optional(),
     isPublic: z.boolean().optional(),
   }),

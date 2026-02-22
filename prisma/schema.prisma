@@ -180,6 +180,9 @@ model Product {
     isActive Boolean @default(true)
     inStock  Boolean @default(true)
 
+    // Pricing (Multi-currency)
+    prices ProductPrice[]
+
     store       Store?     @relation(fields: [storeId], references: [id], onDelete: Cascade)
     user        User?      @relation(fields: [userId], references: [id], onDelete: Cascade)
     categoryIds String[]   @db.ObjectId
@@ -210,11 +213,16 @@ type ProductImage {
 }
 
 type ProductVariant {
-    id      String
+    id      String  @default(uuid())
     title   String
     sku     String?
     inStock Boolean @default(true)
-    options Json? // Size, Color, etc.
+    options Json? // Dynamic options
+}
+
+type ProductPrice {
+    currency Currency
+    amount   Float
 }
 
 model Category {
@@ -504,6 +512,9 @@ model Ad {
     // Metadata
     metadata Json? // Generation parameters, model used, etc.
 
+    // Video Script (Text or Voice)
+    videoScript Json?
+
     // Relations
     user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
     product       Product?       @relation(fields: [productId], references: [id])
@@ -554,6 +565,9 @@ model AdDraft {
 
     // Metadata for storing mode and manual product data
     metadata Json?
+
+    // Video Script (from customization step)
+    videoScript Json?
 
     // Expiration
     expiresAt DateTime // Auto-delete after 7 days
@@ -642,12 +656,12 @@ model Plan {
     description String?
 
     // Pricing — one entry per (currency × interval) combination
-    prices              PlanPrice[]
-    yearlyDiscountPct   Float?      // Display hint, e.g. 20 = "Save 20%"
+    prices            PlanPrice[]
+    yearlyDiscountPct Float? // Display hint, e.g. 20 = "Save 20%"
 
     // Limits
     creditsPerMonth Float // 0 for PAYG
-    storesLimit     Int   // Use 9999 for "unlimited"
+    storesLimit     Int // Use 9999 for "unlimited"
 
     // Features (flexible key-value flags, e.g. { premiumTemplates: true })
     features Json?
@@ -728,11 +742,11 @@ model CreditTopUp {
     id       String @id @default(auto()) @map("_id") @db.ObjectId
     walletId String @db.ObjectId
 
-    credits                Float     // Credits granted
-    amount                 Float     // Amount paid
-    currency               Currency
-    stripePaymentIntentId  String?   @unique
-    status                 TopUpStatus @default(PENDING)
+    credits               Float // Credits granted
+    amount                Float // Amount paid
+    currency              Currency
+    stripePaymentIntentId String?     @unique
+    status                TopUpStatus @default(PENDING)
 
     wallet    CreditWallet @relation(fields: [walletId], references: [id], onDelete: Cascade)
     createdAt DateTime     @default(now())
@@ -749,12 +763,12 @@ enum TopUpStatus {
 }
 
 model UsageRecord {
-    id       String @id @default(auto()) @map("_id") @db.ObjectId
-    userId   String @db.ObjectId
+    id       String  @id @default(auto()) @map("_id") @db.ObjectId
+    userId   String  @db.ObjectId
     walletId String? @db.ObjectId // Link to the wallet for easy balance reconciliation
 
     type         UsageType
-    creditAmount Float     // Negative for deduction, positive for refill
+    creditAmount Float // Negative for deduction, positive for refill
     description  String?
 
     // Context (optional)

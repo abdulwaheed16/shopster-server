@@ -23,7 +23,7 @@ export abstract class N8NBaseProvider {
 
     Logger.info(`${this.logPrefix} Using base URL for callback: ${base}`);
 
-    const url = new URL("/api/v1/ads/n8n-callback", "http://13.51.204.80");
+    const url = new URL("/api/v1/ads/n8n-callback", base);
 
     // Append the shared secret so n8n can include it automatically
     // in the `x-n8n-secret` header. We pass it both as a query param
@@ -53,7 +53,7 @@ export abstract class N8NBaseProvider {
    * Fires a POST request to the n8n webhook and returns immediately
    * after acknowledgement (fire-and-forget pattern).
    *
-   * n8n is expected to respond quickly with { status: "ACCEPTED" }
+   * n8n is expected to respond quickly with { status: "ACCEPTEDs" }
    * and then POST the real result to our callback endpoint when done.
    *
    * @param webhookUrl - The n8n webhook endpoint
