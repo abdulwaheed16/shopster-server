@@ -1,8 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
-import { Permission } from "../../common/constants/permissions.constant";
 import { authenticate } from "../../common/middlewares/auth.middleware";
-import { hasPermissions } from "../../common/middlewares/permission.middleware";
 import { validate } from "../../common/middlewares/validate.middleware";
 import * as CommonValidators from "../../common/validations/common.validation";
 import assetFoldersRoutes from "./asset-folders.routes";
@@ -85,7 +83,6 @@ router.get(
 
 router.patch(
   "/:id",
-  hasPermissions(Permission.EDIT_PRODUCT),
   validate(CommonValidators.idSchema),
   (req, res, next) => {
     const isUploaded = req.query.source === "UPLOADED";
@@ -97,7 +94,6 @@ router.patch(
 
 router.delete(
   "/:id",
-  hasPermissions(Permission.DELETE_PRODUCT),
   validate(CommonValidators.idSchema),
   productsController.deleteProduct.bind(productsController),
 );

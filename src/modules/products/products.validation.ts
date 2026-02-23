@@ -101,6 +101,7 @@ export const createManualProductSchema = z.object({
     imageUrl: z.string().url().optional().nullable(),
     images: z.array(productImageSchema).optional(),
     categoryIds: z.array(objectIdSchema).default([]),
+    productSource: z.literal("UPLOADED").optional().default("UPLOADED"),
     isActive: z.boolean().default(true),
   }),
 });
@@ -120,6 +121,7 @@ export const bulkCsvImportSchema = z.object({
         }),
       )
       .min(1, "At least one product is required"),
+    productSource: z.literal("UPLOADED").optional().default("UPLOADED"),
   }),
 });
 
@@ -131,6 +133,7 @@ export const updateManualProductSchema = z.object({
     imageUrl: z.string().url().optional(),
     images: z.array(productImageSchema).optional(),
     categoryIds: z.array(objectIdSchema).optional(),
+    productSource: z.literal("UPLOADED").optional().default("UPLOADED"),
     folderId: objectIdSchema.optional().nullable(),
     isActive: z.boolean().optional(),
   }),
