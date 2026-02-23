@@ -66,6 +66,24 @@ router.post(
 );
 
 router.get(
+  "/export",
+  productsController.exportProducts.bind(productsController),
+);
+
+// Backward compatibility or categorized routes if you prefer to keep them
+router.get(
+  "/store",
+  validate(getProductsSchema),
+  productsController.getProducts.bind(productsController),
+);
+router.get(
+  "/manual",
+  validate(getProductsSchema),
+  productsController.getProducts.bind(productsController),
+);
+
+// Dynamic Parameter Routes
+router.get(
   "/:id",
   validate(CommonValidators.idSchema),
   productsController.getProductById.bind(productsController),
@@ -86,23 +104,6 @@ router.delete(
   "/:id",
   validate(CommonValidators.idSchema),
   productsController.deleteProduct.bind(productsController),
-);
-
-router.get(
-  "/export",
-  productsController.exportProducts.bind(productsController),
-);
-
-// Backward compatibility or categorized routes if you prefer to keep them
-router.get(
-  "/store",
-  validate(getProductsSchema),
-  productsController.getProducts.bind(productsController),
-);
-router.get(
-  "/manual",
-  validate(getProductsSchema),
-  productsController.getProducts.bind(productsController),
 );
 
 export default router;

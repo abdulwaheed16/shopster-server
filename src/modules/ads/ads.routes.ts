@@ -46,6 +46,12 @@ router.get(
   adsController.getAds.bind(adsController),
 );
 
+router.post(
+  "/bulk-delete",
+  validate(bulkDeleteAdsSchema),
+  adsController.bulkDeleteAds.bind(adsController),
+);
+
 router.get(
   "/:id",
   validate(CommonValidators.idSchema),
@@ -68,12 +74,6 @@ router.delete(
   "/:id",
   validate(CommonValidators.idSchema),
   adsController.deleteAd.bind(adsController),
-);
-
-router.post(
-  "/bulk-delete",
-  validate(bulkDeleteAdsSchema),
-  adsController.bulkDeleteAds.bind(adsController),
 );
 
 export default router;
