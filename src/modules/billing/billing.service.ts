@@ -626,10 +626,11 @@ export class BillingService {
   ) {
     const user = await usersService.getUserById(userId);
 
-    if (user?.role === "ADMIN") {
-      Logger.info(`Skipping credit deduction for admin user: ${userId}`);
-      return;
-    }
+    // ADMIN users now also required to use credits as per latest requirement
+    // if (user?.role === "ADMIN") {
+    //   Logger.info(`Skipping credit deduction for admin user: ${userId}`);
+    //   return;
+    // }
 
     return await creditsService.deductCredits(
       userId,

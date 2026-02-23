@@ -38,7 +38,6 @@ router.use(authenticate);
 
 router.post(
   "/generate",
-  hasPermissions(Permission.GENERATE_ADS),
   validate(generateAdSchema),
   adsController.generateAd.bind(adsController),
 );

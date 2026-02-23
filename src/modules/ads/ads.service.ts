@@ -223,24 +223,46 @@ export class AdsService implements IAdsService {
 
   // Generate ad (Step 3: Submit)
   async generateAd(userId: string, data: GenerateAdBody) {
-    // 0. Credit Check (Verify balance before starting)
-    const userBalance = await creditsService.getBalance(userId);
+    // 0. Credit & Subscription Check
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      select: { role: true },
+      include: { subscription: true },
     });
 
+    if (!user) throw ApiError.notFound("User not found");
+
+    // Enforce active subscription for everyone (including ADMIN)
+    const isActiveSubscription =
+      user.subscription &&
+      (user.subscription.status === "ACTIVE" ||
+        user.subscription.status === "TRIALING");
+
+    if (!isActiveSubscription) {
+      throw ApiError.forbidden(
+        "An active subscription is required to generate ads. Please subscribe to a plan.",
+      );
+    }
+
+    const userBalance = await creditsService.getBalance(userId);
     const adCost = AD_COSTS[data.mediaType];
 
-    if (user?.role !== "ADMIN" && userBalance < adCost) {
+    if (userBalance < adCost) {
       throw ApiError.forbidden(
         `Insufficient credits to generate a ${data.mediaType.toLowerCase()} ad. This operation requires ${adCost} credit${adCost > 1 ? "s" : ""}. Please refill your balance.`,
       );
     }
 
-    // 1. Resolve product images from IDs
+    // 1. Resolve product images from IDs (Admins can access everything)
+    const productWhere: Prisma.ProductWhereInput = {
+      id: { in: data.productIds },
+    };
+
+    if (user.role !== "ADMIN") {
+      productWhere.userId = userId;
+    }
+
     const products = await prisma.product.findMany({
-      where: { id: { in: data.productIds }, userId },
+      where: productWhere,
       select: { id: true, title: true, images: true },
     });
 

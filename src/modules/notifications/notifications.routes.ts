@@ -1,7 +1,5 @@
 import { Router } from "express";
-import { Permission } from "../../common/constants/permissions.constant";
 import { authenticate } from "../../common/middlewares/auth.middleware";
-import { hasPermissions } from "../../common/middlewares/permission.middleware";
 import { validate } from "../../common/middlewares/validate.middleware";
 import { notificationsController } from "./notifications.controller";
 import {

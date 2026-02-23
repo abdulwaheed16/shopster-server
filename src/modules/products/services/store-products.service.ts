@@ -126,18 +126,29 @@ export class StoreProductsService {
 
   // Create single product
   async createProduct(userId: string, data: CreateProductBody) {
-    // 1. Verify store exists and belongs to user
-    const store = await prisma.store.findFirst({
-      where: { id: data.storeId, userId },
+    // 1. Verify store exists
+    const store = await prisma.store.findUnique({
+      where: { id: data.storeId },
     });
 
     if (!store) {
-      throw ApiError.notFound("Store not found or you don't have access");
+      throw ApiError.notFound("Store not found");
     }
 
-    // 2. Prepare data
+    // 2. Ownership Check: Only bypass for ADMIN
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { role: true },
+    });
+
+    if (user?.role !== "ADMIN" && store.userId !== userId) {
+      throw ApiError.forbidden("You don't have access to this store");
+    }
+
+    // 3. Prepare data
     const productData = {
       ...data,
+      userId: store.userId, // Map product to the store owner
       externalId:
         data.externalId ||
         `manual-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
