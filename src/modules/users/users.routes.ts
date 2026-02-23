@@ -1,8 +1,8 @@
 import { Router } from "express";
-import { UserRole } from "../../common/constants/roles.constant";
+import { Permission } from "../../common/constants/permissions.constant";
 import { auditLogger } from "../../common/middlewares/audit-logger.middleware";
 import { authenticate } from "../../common/middlewares/auth.middleware";
-import { authorize } from "../../common/middlewares/role.middleware";
+import { hasPermissions } from "../../common/middlewares/permission.middleware";
 import { validate } from "../../common/middlewares/validate.middleware";
 import { usersController } from "./users.controller";
 import {
@@ -26,7 +26,7 @@ router.put("/profile", usersController.updateProfile.bind(usersController));
 
 router.get(
   "/",
-  authorize(UserRole.ADMIN),
+  hasPermissions(Permission.VIEW_USERS),
   validate(getUsersSchema),
   usersController.getUsers.bind(usersController),
 );
@@ -40,7 +40,7 @@ router.get(
 // Update user (Admin only)
 router.put(
   "/:id",
-  authorize(UserRole.ADMIN),
+  hasPermissions(Permission.EDIT_USER),
   validate(updateUserSchema),
   auditLogger("UPDATE_USER", "User"),
   usersController.updateUser.bind(usersController),
@@ -49,7 +49,7 @@ router.put(
 // Delete user (Admin only)
 router.delete(
   "/:id",
-  authorize(UserRole.ADMIN),
+  hasPermissions(Permission.DELETE_USER),
   validate(deleteUserSchema),
   auditLogger("DELETE_USER", "User"),
   usersController.deleteUser.bind(usersController),
@@ -58,7 +58,7 @@ router.delete(
 // Update user role (Admin only)
 router.put(
   "/:id/role",
-  authorize(UserRole.ADMIN),
+  hasPermissions(Permission.CHANGE_USER_ROLE),
   validate(updateUserRoleSchema),
   auditLogger("UPDATE_USER_ROLE", "User"),
   usersController.updateUserRole.bind(usersController),
@@ -67,7 +67,7 @@ router.put(
 // Create user (Admin only)
 router.post(
   "/",
-  authorize(UserRole.ADMIN),
+  hasPermissions(Permission.CREATE_USER),
   validate(createUserSchema),
   auditLogger("CREATE_USER", "User"),
   usersController.createUser.bind(usersController),
@@ -76,7 +76,7 @@ router.post(
 // Change user password (Admin only)
 router.put(
   "/:id/password",
-  authorize(UserRole.ADMIN),
+  hasPermissions(Permission.CHANGE_USER_PASSWORD),
   validate(adminChangePasswordSchema),
   auditLogger("CHANGE_USER_PASSWORD", "User"),
   usersController.adminChangePassword.bind(usersController),

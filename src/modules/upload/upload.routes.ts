@@ -7,18 +7,15 @@ import { deleteImageSchema } from "./upload.validation";
 
 const router = Router();
 
-// All routes require authentication
 router.use(authenticate);
 
-// Configure multer for MEMORY storage only (no disk writes)
 const upload = multer({
-  storage: multer.memoryStorage(), // Store in memory, not disk
+  storage: multer.memoryStorage(),
   limits: {
     fileSize: 10 * 1024 * 1024, // 10MB max file size
-    files: 10, // Max 10 files at once
+    files: 10,
   },
   fileFilter: (req, file, cb) => {
-    // Only allow image files
     if (file.mimetype.startsWith("image/")) {
       cb(null, true);
     } else {
@@ -27,14 +24,12 @@ const upload = multer({
   },
 });
 
-// Configure multer for VIDEO uploads
 const videoUpload = multer({
   storage: multer.memoryStorage(),
   limits: {
     fileSize: 50 * 1024 * 1024, // 50MB max file size
   },
   fileFilter: (req, file, cb) => {
-    // Only allow video files
     if (file.mimetype.startsWith("video/")) {
       cb(null, true);
     } else {
@@ -45,24 +40,28 @@ const videoUpload = multer({
 
 router.post(
   "/image",
+  // hasPermissions(Permission.UPLOAD_IMAGES),
   upload.single("image"),
   uploadController.uploadImage.bind(uploadController),
 );
 
 router.post(
   "/images",
+  // hasPermissions(Permission.UPLOAD_IMAGES),
   upload.array("images", 10),
   uploadController.uploadImages.bind(uploadController),
 );
 
 router.post(
   "/video",
+  // hasPermissions(Permission.UPLOAD_VIDEOS),
   videoUpload.single("video"),
   uploadController.uploadVideo.bind(uploadController),
 );
 
 router.delete(
   "/:publicId",
+  // hasPermissions(Permission.DELETE_UPLOAD),
   validate(deleteImageSchema),
   uploadController.deleteImage.bind(uploadController),
 );

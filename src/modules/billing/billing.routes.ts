@@ -1,7 +1,9 @@
 import { Router } from "express";
+import { Permission } from "../../common/constants/permissions.constant";
 import { UserRole } from "../../common/constants/roles.constant";
 import { auditLogger } from "../../common/middlewares/audit-logger.middleware";
 import { authenticate } from "../../common/middlewares/auth.middleware";
+import { hasPermissions } from "../../common/middlewares/permission.middleware";
 import { authorize } from "../../common/middlewares/role.middleware";
 import { validate } from "../../common/middlewares/validate.middleware";
 import { adminBillingController } from "./admin-billing.controller";
@@ -92,7 +94,7 @@ router.get(
 router.post(
   "/admin/plans",
   authenticate,
-  authorize(UserRole.ADMIN),
+  hasPermissions(Permission.CREATE_PLAN),
   validate(createPlanSchema),
   auditLogger("CREATE_PLAN", "Plan"),
   adminBillingController.createPlan.bind(adminBillingController),
@@ -101,7 +103,7 @@ router.post(
 router.put(
   "/admin/plans/:id",
   authenticate,
-  authorize(UserRole.ADMIN),
+  hasPermissions(Permission.EDIT_PLAN),
   validate(updatePlanSchema),
   auditLogger("UPDATE_PLAN", "Plan"),
   adminBillingController.updatePlan.bind(adminBillingController),
@@ -110,7 +112,7 @@ router.put(
 router.delete(
   "/admin/plans/:id",
   authenticate,
-  authorize(UserRole.ADMIN),
+  hasPermissions(Permission.DELETE_PLAN),
   auditLogger("DELETE_PLAN", "Plan"),
   adminBillingController.deletePlan.bind(adminBillingController),
 );
@@ -141,7 +143,7 @@ router.get(
 router.post(
   "/admin/subscriptions",
   authenticate,
-  authorize(UserRole.ADMIN),
+  hasPermissions(Permission.CREATE_SUBSCRIPTION),
   validate(createSubscriptionSchema),
   auditLogger("CREATE_SUBSCRIPTION", "Subscription"),
   adminBillingController.createSubscription.bind(adminBillingController),
@@ -150,7 +152,7 @@ router.post(
 router.put(
   "/admin/subscriptions/:id",
   authenticate,
-  authorize(UserRole.ADMIN),
+  hasPermissions(Permission.EDIT_SUBSCRIPTION),
   validate(updateSubscriptionSchema),
   auditLogger("UPDATE_SUBSCRIPTION", "Subscription"),
   adminBillingController.updateSubscription.bind(adminBillingController),
@@ -159,7 +161,7 @@ router.put(
 router.delete(
   "/admin/subscriptions/:id",
   authenticate,
-  authorize(UserRole.ADMIN),
+  hasPermissions(Permission.CANCEL_SUBSCRIPTION_ADMIN),
   auditLogger("CANCEL_SUBSCRIPTION", "Subscription"),
   adminBillingController.cancelSubscription.bind(adminBillingController),
 );
@@ -169,7 +171,7 @@ router.delete(
 router.post(
   "/admin/users/:userId/credits",
   authenticate,
-  authorize(UserRole.ADMIN),
+  hasPermissions(Permission.ADJUST_USER_CREDITS),
   validate(adjustCreditsSchema),
   auditLogger("ADJUST_CREDITS", "CreditWallet"),
   adminBillingController.adjustCredits.bind(adminBillingController),
@@ -178,7 +180,7 @@ router.post(
 router.get(
   "/admin/users/:userId/credits",
   authenticate,
-  authorize(UserRole.ADMIN),
+  hasPermissions(Permission.VIEW_USER_CREDITS),
   adminBillingController.getUserCredits.bind(adminBillingController),
 );
 

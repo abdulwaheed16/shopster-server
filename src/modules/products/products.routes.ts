@@ -1,6 +1,8 @@
 import { Router } from "express";
 import { z } from "zod";
+import { Permission } from "../../common/constants/permissions.constant";
 import { authenticate } from "../../common/middlewares/auth.middleware";
+import { hasPermissions } from "../../common/middlewares/permission.middleware";
 import { validate } from "../../common/middlewares/validate.middleware";
 import * as CommonValidators from "../../common/validations/common.validation";
 import assetFoldersRoutes from "./asset-folders.routes";
@@ -17,27 +19,23 @@ import {
 
 const router = Router();
 
-// All routes require authentication
 router.use(authenticate);
 
-// --------------------------------------------------------------------------
 // Asset Folder Routes
-// --------------------------------------------------------------------------
 router.use("/folders", assetFoldersRoutes);
 
-// --------------------------------------------------------------------------
 // Unified Product Routes
-// --------------------------------------------------------------------------
 
 router.get(
   "/",
+  hasPermissions(Permission.VIEW_PRODUCTS),
   validate(getProductsSchema),
   productsController.getProducts.bind(productsController),
 );
 
 router.post(
   "/",
-  // Simple check to decide which schema to use, or we could unify the schema too
+  hasPermissions(Permission.CREATE_PRODUCT),
   (req, res, next) => {
     const schema =
       req.body.productSource === "UPLOADED"
@@ -50,47 +48,52 @@ router.post(
 
 router.post(
   "/bulk",
+  hasPermissions(Permission.IMPORT_PRODUCTS_CSV),
   (req, res, next) => {
-    // Basic dispatcher for bulk import vs sync
     const schema =
-      req.body.productSource === "UPLOADED" ? bulkCsvImportSchema : z.any(); // simplified
-    return next(); // validate if needed
+      req.body.productSource === "UPLOADED" ? bulkCsvImportSchema : z.any();
+    return next();
   },
   productsController.bulkCreateProducts.bind(productsController),
 );
 
 router.post(
   "/bulk-delete",
+  hasPermissions(Permission.BULK_DELETE_PRODUCTS),
   validate(bulkDeleteProductsSchema),
   productsController.bulkDeleteProducts.bind(productsController),
 );
 
 router.get(
   "/export",
+  hasPermissions(Permission.EXPORT_PRODUCTS),
   productsController.exportProducts.bind(productsController),
 );
 
-// Backward compatibility or categorized routes if you prefer to keep them
 router.get(
   "/store",
-  validate(getProductsSchema),
-  productsController.getProducts.bind(productsController),
-);
-router.get(
-  "/manual",
+  hasPermissions(Permission.VIEW_PRODUCTS),
   validate(getProductsSchema),
   productsController.getProducts.bind(productsController),
 );
 
-// Dynamic Parameter Routes
+router.get(
+  "/manual",
+  hasPermissions(Permission.VIEW_PRODUCTS),
+  validate(getProductsSchema),
+  productsController.getProducts.bind(productsController),
+);
+
 router.get(
   "/:id",
+  hasPermissions(Permission.VIEW_PRODUCTS),
   validate(CommonValidators.idSchema),
   productsController.getProductById.bind(productsController),
 );
 
 router.patch(
   "/:id",
+  hasPermissions(Permission.EDIT_PRODUCT),
   validate(CommonValidators.idSchema),
   (req, res, next) => {
     const isUploaded = req.query.source === "UPLOADED";
@@ -102,6 +105,7 @@ router.patch(
 
 router.delete(
   "/:id",
+  hasPermissions(Permission.DELETE_PRODUCT),
   validate(CommonValidators.idSchema),
   productsController.deleteProduct.bind(productsController),
 );

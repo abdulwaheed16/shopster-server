@@ -1,7 +1,7 @@
 import { Router } from "express";
-import { UserRole } from "../../common/constants/roles.constant";
+import { Permission } from "../../common/constants/permissions.constant";
 import { authenticate } from "../../common/middlewares/auth.middleware";
-import { authorize } from "../../common/middlewares/role.middleware";
+import { hasPermissions } from "../../common/middlewares/permission.middleware";
 import { validate } from "../../common/middlewares/validate.middleware";
 import * as CommonValidators from "../../common/validations/common.validation";
 import { templatesController } from "./templates.controller";
@@ -50,14 +50,14 @@ router.get(
 
 router.post(
   "/",
-  authorize(UserRole.ADMIN),
+  hasPermissions(Permission.CREATE_TEMPLATE),
   validate(createTemplateSchema),
   templatesController.createTemplate.bind(templatesController),
 );
 
 router.put(
   "/:id",
-  authorize(UserRole.ADMIN),
+  hasPermissions(Permission.EDIT_TEMPLATE),
   validate(CommonValidators.idSchema),
   validate(updateTemplateSchema),
   templatesController.updateTemplate.bind(templatesController),
@@ -72,7 +72,7 @@ router.put(
 
 router.delete(
   "/:id",
-  authorize(UserRole.ADMIN),
+  hasPermissions(Permission.DELETE_TEMPLATE),
   validate(CommonValidators.idSchema),
   templatesController.deleteTemplate.bind(templatesController),
 );
@@ -85,7 +85,7 @@ router.delete(
 
 router.post(
   "/bulk-delete",
-  authorize(UserRole.ADMIN),
+  hasPermissions(Permission.BULK_DELETE_TEMPLATES),
   validate(bulkDeleteTemplatesSchema),
   templatesController.bulkDeleteTemplates.bind(templatesController),
 );
@@ -112,7 +112,7 @@ router.post(
 // Admin Routes
 router.get(
   "/admin/stats",
-  authorize(UserRole.ADMIN),
+  hasPermissions(Permission.VIEW_TEMPLATE_ADMIN_STATS),
   templatesController.getAdminStats.bind(templatesController),
 );
 
