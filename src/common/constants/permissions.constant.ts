@@ -192,15 +192,64 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
   ],
 
   [UserRole.GUEST]: [
-    // Read-only subset — no billing, no write actions
+    // Dashboard
     Permission.VIEW_USER_DASHBOARD,
+
+    // Ads
+    Permission.GENERATE_ADS,
     Permission.VIEW_ADS,
-    Permission.VIEW_PRODUCTS,
+    Permission.EDIT_AD,
+    Permission.DELETE_AD,
+    Permission.BULK_DELETE_ADS,
+    Permission.CANCEL_AD_GENERATION,
+
+    // Stores
     Permission.VIEW_STORES,
+    Permission.CREATE_STORE,
+    Permission.EDIT_STORE,
+    Permission.DELETE_STORE,
+    Permission.SYNC_STORE,
+
+    // Products
+    Permission.VIEW_PRODUCTS,
+    Permission.CREATE_PRODUCT,
+    Permission.EDIT_PRODUCT,
+    Permission.DELETE_PRODUCT,
+    Permission.BULK_DELETE_PRODUCTS,
+    Permission.IMPORT_PRODUCTS_CSV,
+    Permission.EXPORT_PRODUCTS,
+    Permission.MANAGE_ASSET_FOLDERS,
+    Permission.UPLOAD_IMAGES,
+    Permission.UPLOAD_VIDEOS,
+    Permission.DELETE_UPLOAD,
+
+    // Templates
     Permission.VIEW_TEMPLATES,
+    Permission.MANAGE_OWN_TEMPLATES,
+
+    // // Billing — user self-service
+    // Permission.VIEW_BILLING_PAGE,
+    // Permission.VIEW_PLANS,
+    // Permission.VIEW_PRICING_PAGE,
+    // Permission.MANAGE_SUBSCRIPTION,
+    // Permission.VIEW_INVOICES,
+    // Permission.VIEW_PAYMENT_METHODS,
+    // Permission.CREATE_CHECKOUT_SESSION,
+    // Permission.CREATE_PORTAL_SESSION,
+
+    // Analytics
+    Permission.VIEW_AD_ANALYTICS,
+    Permission.VIEW_STORE_ANALYTICS,
+    Permission.VIEW_PRODUCT_ANALYTICS,
+
+    // Settings
     Permission.VIEW_PROFILE_SETTINGS,
     Permission.EDIT_PROFILE_SETTINGS,
     Permission.VIEW_SECURITY_SETTINGS,
+    Permission.EDIT_SECURITY_SETTINGS,
+    Permission.MANAGE_2FA,
+
+    // Feedback
     Permission.SUBMIT_FEEDBACK,
     Permission.VIEW_OWN_FEEDBACK,
   ],
