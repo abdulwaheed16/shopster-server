@@ -40,29 +40,44 @@ export async function seedAds() {
   }
 
   // Find specific products and templates for matching
-  const burgerProduct = products.find(p => p.title.includes("Burger")) || products[0];
-  const foodTemplate = templates.find(t => t.name.includes("Food Showcase")) || templates[0];
-  
-  const dressProduct = products.find(p => p.title.includes("Dress")) || products[1] || products[0];
-  const fashionTemplate = templates.find(t => t.name.includes("Lookbook")) || templates[1] || templates[0];
+  const burgerProduct =
+    products.find((p) => p.title.includes("Burger")) || products[0];
+  const foodTemplate =
+    templates.find((t) => t.name.includes("Food Showcase")) || templates[0];
 
-  const electronicsProduct = products.find(p => p.title.includes("Headphones")) || products[3] || products[0];
-  const electronicsTemplate = templates.find(t => t.name.includes("Tech Specs")) || templates[2] || templates[0];
+  const dressProduct =
+    products.find((p) => p.title.includes("Dress")) ||
+    products[1] ||
+    products[0];
+  const fashionTemplate =
+    templates.find((t) => t.name.includes("Lookbook")) ||
+    templates[1] ||
+    templates[0];
+
+  const electronicsProduct =
+    products.find((p) => p.title.includes("Headphones")) ||
+    products[3] ||
+    products[0];
+  const electronicsTemplate =
+    templates.find((t) => t.name.includes("Tech Specs")) ||
+    templates[2] ||
+    templates[0];
 
   // Create ads with realistic data
   const adsData = [
     {
       userId: demoUser.id,
-      productId: burgerProduct.id,
+      productIds: [burgerProduct.id],
       templateId: foodTemplate.id,
       title: "Gourmet Burger - Special Offer",
-      assembledPrompt: "Create an appetizing advertisement for Gourmet Burger Combo. Highlight fresh ingredients and special BOGO offer.",
+      assembledPrompt:
+        "Create an appetizing advertisement for Gourmet Burger Combo. Highlight fresh ingredients and special BOGO offer.",
       variableValues: {
         productName: "Gourmet Burger Combo",
         description: "Freshly grilled Angus beef burger",
         ingredients: "Angus beef, Fresh lettuce, Special sauce",
         price: "$12.99",
-        offer: "Buy 1 Get 1 Free"
+        offer: "Buy 1 Get 1 Free",
       },
       mediaType: MediaType.IMAGE,
       imageUrl: burgerProduct.images[0].url,
@@ -70,16 +85,17 @@ export async function seedAds() {
     },
     {
       userId: demoUser.id,
-      productId: dressProduct.id,
+      productIds: [dressProduct.id],
       templateId: fashionTemplate.id,
       title: "Summer Collection 2024",
-      assembledPrompt: "Design a chic lookbook advertisement for Summer Dress. Capture modern fashion trends.",
+      assembledPrompt:
+        "Design a chic lookbook advertisement for Summer Dress. Capture modern fashion trends.",
       variableValues: {
         productName: "Summer Dress",
         collection: "Summer 2024",
         style: "Flowy and elegant for hot days",
         sizes: "S - XL",
-        price: "$49"
+        price: "$49",
       },
       mediaType: MediaType.IMAGE,
       imageUrl: dressProduct.images[0].url,
@@ -87,16 +103,17 @@ export async function seedAds() {
     },
     {
       userId: demoUser.id,
-      productId: electronicsProduct.id,
+      productIds: [electronicsProduct.id],
       templateId: electronicsTemplate.id,
       title: "Tech Innovation - Wireless Audio",
-      assembledPrompt: "Create a technical showcase for Wireless Headphones. Emphasize noise cancellation.",
+      assembledPrompt:
+        "Create a technical showcase for Wireless Headphones. Emphasize noise cancellation.",
       variableValues: {
         productName: "Wireless Headphones",
         specs: "BT 5.0, Noise Cancellation, 40h battery",
         performance: "Studio quality sound",
         compatibility: "iOS, Android, Windows",
-        price: "$199"
+        price: "$199",
       },
       mediaType: MediaType.IMAGE,
       imageUrl: electronicsProduct.images[0].url,
@@ -105,7 +122,7 @@ export async function seedAds() {
     // Video ads using backend asset results
     {
       userId: demoUser.id,
-      productId: products[5]?.id || products[0].id, // Premium Product Asset 1
+      productIds: [products[5]?.id || products[0].id], // Premium Product Asset 1
       templateId: templates[0].id,
       title: "Premium Product Video Ad - Dynamic Showcase",
       assembledPrompt: `Create a dynamic video advertisement showcasing the premium product.
@@ -152,7 +169,7 @@ Highlight the product's premium features with smooth camera movements that captu
     },
     {
       userId: demoUser.id,
-      productId: products[6]?.id || products[1].id, // Premium Product Asset 2
+      productIds: [products[6]?.id || products[1].id], // Premium Product Asset 2
       templateId: templates[1]?.id || templates[0].id,
       title: "Premium Product Video Ad - Push In Effect",
       assembledPrompt: `Create an engaging video advertisement with dramatic push-in camera movement.
@@ -205,7 +222,7 @@ Use dramatic zoom effects to draw attention to the product's key features. Creat
     const existing = await prisma.ad.findFirst({
       where: {
         userId: adData.userId,
-        productId: adData.productId,
+        productIds: { hasSome: adData.productIds },
         templateId: adData.templateId,
       },
     });
