@@ -156,6 +156,9 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.IMPORT_PRODUCTS_CSV,
     Permission.EXPORT_PRODUCTS,
     Permission.MANAGE_ASSET_FOLDERS,
+    Permission.UPLOAD_IMAGES,
+    Permission.UPLOAD_VIDEOS,
+    Permission.DELETE_UPLOAD,
 
     // Templates
     Permission.VIEW_TEMPLATES,

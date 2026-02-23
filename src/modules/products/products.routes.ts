@@ -28,14 +28,12 @@ router.use("/folders", assetFoldersRoutes);
 
 router.get(
   "/",
-  hasPermissions(Permission.VIEW_PRODUCTS),
   validate(getProductsSchema),
   productsController.getProducts.bind(productsController),
 );
 
 router.post(
   "/",
-  hasPermissions(Permission.CREATE_PRODUCT),
   (req, res, next) => {
     const schema =
       req.body.productSource === "UPLOADED"
@@ -48,7 +46,6 @@ router.post(
 
 router.post(
   "/bulk",
-  hasPermissions(Permission.IMPORT_PRODUCTS_CSV),
   (req, res, next) => {
     const schema =
       req.body.productSource === "UPLOADED" ? bulkCsvImportSchema : z.any();
@@ -59,34 +56,29 @@ router.post(
 
 router.post(
   "/bulk-delete",
-  hasPermissions(Permission.BULK_DELETE_PRODUCTS),
   validate(bulkDeleteProductsSchema),
   productsController.bulkDeleteProducts.bind(productsController),
 );
 
 router.get(
   "/export",
-  hasPermissions(Permission.EXPORT_PRODUCTS),
   productsController.exportProducts.bind(productsController),
 );
 
 router.get(
   "/store",
-  hasPermissions(Permission.VIEW_PRODUCTS),
   validate(getProductsSchema),
   productsController.getProducts.bind(productsController),
 );
 
 router.get(
   "/manual",
-  hasPermissions(Permission.VIEW_PRODUCTS),
   validate(getProductsSchema),
   productsController.getProducts.bind(productsController),
 );
 
 router.get(
   "/:id",
-  hasPermissions(Permission.VIEW_PRODUCTS),
   validate(CommonValidators.idSchema),
   productsController.getProductById.bind(productsController),
 );
