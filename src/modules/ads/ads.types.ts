@@ -6,7 +6,8 @@ export interface IAdsService {
   getAds(
     userId: string,
     query: GetAdsQuery,
-  ): Promise<PaginatedResponse<unknown>>;
+    userRole: string,
+  ): Promise<PaginatedResponse<Ad>>;
   getAdById(id: string, userId: string): Promise<Ad>;
   generateAd(userId: string, data: GenerateAdBody): Promise<Ad>;
   updateAd(

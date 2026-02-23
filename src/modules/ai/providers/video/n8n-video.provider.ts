@@ -28,8 +28,11 @@ export class N8NVideoProvider
       color: options.color,
       mediaType: "VIDEO",
       duration: options.duration ?? 10,
+      videoScript: options.videoScript,
       timestamp: new Date().toISOString(),
     };
+
+    console.log("Video Generation Payload:", payload);
 
     await this.fireAndForget(webhookUrl, payload);
 

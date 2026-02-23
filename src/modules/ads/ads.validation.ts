@@ -2,83 +2,53 @@ import { z } from "zod";
 import { objectIdSchema } from "../../common/validations/common.validation";
 import { ASPECT_RATIOS } from "../ai/ai.constants";
 
-// Generate ad schema
-export const generateAdSchema = z.object({
-  body: z
+// Shared base fields for all ad types
+const baseAdSchema = z.object({
+  productIds: z
+    .array(objectIdSchema)
+    .min(1, "At least 1 product is required")
+    .max(5, "Maximum 5 products are allowed"),
+  templateId: objectIdSchema.optional(),
+  aspectRatio: z
+    .enum(Object.values(ASPECT_RATIOS) as [string, ...string[]])
+    .optional(),
+  variantsCount: z.number().int().min(1).max(4).optional(),
+  variableValues: z.record(z.string(), z.any()).optional(),
+  color: z.string().optional(),
+});
+
+// Image ad-specific fields
+const imageAdSchema = baseAdSchema.extend({
+  mediaType: z.literal("IMAGE"),
+  prompt: z.string().optional(),
+  templateImageUrl: z
+    .string()
+    .optional()
+    .transform((val) => (val === "" ? undefined : val))
+    .pipe(z.string().url().optional()),
+});
+
+// Video ad-specific fields
+const videoAdSchema = baseAdSchema.extend({
+  mediaType: z.literal("VIDEO"),
+  scenes: z.array(z.string()).optional(),
+  duration: z.number().int().min(5).max(15).optional(),
+  videoScript: z
     .object({
-      productId: objectIdSchema.optional(),
-      uploadedProductId: objectIdSchema.optional(),
-      templateId: objectIdSchema.optional(),
-      productImageUrls: z
-        .array(z.string().url())
-        .min(1, "Minimum 1 product image is required")
-        .max(3, "Maximum 3 product images are allowed")
-        .optional(),
-      templateImageUrl: z
-        .string()
-        .optional()
-        .transform((val) => (val === "" ? undefined : val))
-        .pipe(z.string().url().optional()),
-      modelImageUrl: z
-        .string()
-        .optional()
-        .transform((val) => (val === "" ? undefined : val))
-        .pipe(z.string().url().optional()),
-      productTitle: z.string().optional(),
-      title: z.string().optional(),
-      variableValues: z.record(z.string(), z.any()).optional(), // JSON object
-      aspectRatio: z
-        .enum(Object.values(ASPECT_RATIOS) as [string, ...string[]])
-        .optional(),
-      variantsCount: z.number().int().min(1).max(4).optional(),
-      style: z.string().optional(),
-      color: z.string().optional(),
-      scenes: z.array(z.string()).optional(),
-      duration: z.number().int().min(5).max(15).optional(),
-      videoScript: z
-        .object({
-          type: z.enum(["TEXT", "VOICE"]),
-          content: z.string().min(1, "Script content is required"),
-        })
-        .optional(),
-      mediaType: z.enum(["IMAGE", "VIDEO"]).optional(),
-      prompt: z.string().optional(),
+      type: z.enum(["TEXT", "VOICE"]),
+      content: z.string().min(1, "Script content is required"),
     })
-    .refine(
-      (data) => {
-        // Must have either productId, uploadedProductId, or productImageUrls
-        if (
-          !data.productId &&
-          !data.uploadedProductId &&
-          !data.productImageUrls
-        ) {
-          return false;
-        }
-        return true;
-      },
-      {
-        message:
-          "Product is required (from store, uploaded, or direct image URL)",
-        path: ["productId"],
-      },
-    )
-    .refine(
-      (data) => {
-        // Image ads REQUIRE a templateId OR a templateImageUrl.
-        if (
-          data.mediaType === "IMAGE" &&
-          !data.templateId &&
-          !data.templateImageUrl
-        ) {
-          return false;
-        }
-        return true;
-      },
-      {
-        message: "Template is required for Image Ads",
-        path: ["templateId"],
-      },
-    ),
+    .optional(),
+  modelImageUrl: z
+    .string()
+    .optional()
+    .transform((val) => (val === "" ? undefined : val))
+    .pipe(z.string().url().optional()),
+});
+
+// Discriminated union schema
+export const generateAdSchema = z.object({
+  body: z.discriminatedUnion("mediaType", [imageAdSchema, videoAdSchema]),
 });
 
 // Get ads query schema
@@ -109,7 +79,7 @@ export const bulkDeleteAdsSchema = z.object({
 
 export type BulkDeleteAdsBody = z.infer<typeof bulkDeleteAdsSchema>["body"];
 
-// n8n Callback schema ---- mock
+// n8n Callback schema
 export const n8nCallbackSchema = z.object({
   body: z.object({
     adId: objectIdSchema,

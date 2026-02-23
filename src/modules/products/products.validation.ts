@@ -64,6 +64,11 @@ export const getProductsSchema = z.object({
     search: z.string().optional(),
     isActive: z.string().optional(),
     inStock: z.string().optional(),
+    folderId: z.preprocess(
+      (val) => (val === "" ? undefined : val),
+      z.string().optional(),
+    ),
+    sortBy: z.enum(["newest", "oldest"]).optional().default("newest"),
     source: z.enum(["STORE", "UPLOADED", "ALL"]).optional().default("ALL"),
   }),
 });
@@ -126,7 +131,43 @@ export const updateManualProductSchema = z.object({
     imageUrl: z.string().url().optional(),
     images: z.array(productImageSchema).optional(),
     categoryIds: z.array(objectIdSchema).optional(),
+    folderId: objectIdSchema.optional().nullable(),
     isActive: z.boolean().optional(),
+  }),
+});
+
+// Folder Schemas
+export const createFolderSchema = z.object({
+  body: z.object({
+    name: z.string().min(1, "Folder name is required"),
+    parentId: objectIdSchema.optional(),
+  }),
+});
+
+export const renameFolderSchema = z.object({
+  body: z.object({
+    name: z.string().min(1, "Folder name is required"),
+  }),
+});
+
+export const moveProductsSchema = z.object({
+  body: z.object({
+    productIds: z
+      .array(objectIdSchema)
+      .min(1, "At least one product is required"),
+    folderId: objectIdSchema.optional().nullable(),
+  }),
+});
+
+export const moveFolderSchema = z.object({
+  body: z.object({
+    parentId: objectIdSchema.optional().nullable(),
+  }),
+});
+
+export const deleteFolderSchema = z.object({
+  query: z.object({
+    mode: z.enum(["relocate", "recursive"]).default("relocate"),
   }),
 });
 
@@ -136,6 +177,11 @@ export const getManualProductsSchema = z.object({
     page: z.string().optional(),
     limit: z.string().optional(),
     search: z.string().optional(),
+    sortBy: z.enum(["newest", "oldest"]).optional().default("newest"),
+    folderId: z.preprocess(
+      (val) => (val === "" ? undefined : val),
+      objectIdSchema.optional(),
+    ),
     isActive: z.string().optional(),
   }),
 });

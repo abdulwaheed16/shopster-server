@@ -166,6 +166,59 @@ export class UsersService implements IUsersService {
     await prisma.user.delete({ where: { id } });
   }
 
+  // Create user (Admin only)
+  async createUser(data: any) {
+    const existingUser = await prisma.user.findUnique({
+      where: { email: data.email },
+    });
+
+    if (existingUser) {
+      throw ApiError.conflict(
+        MESSAGES.AUTH.EMAIL_ALREADY_EXISTS,
+        ERROR_CODES.EMAIL_ALREADY_EXISTS,
+      );
+    }
+
+    const hashedPassword = await hashPassword(data.password);
+
+    const user = await prisma.user.create({
+      data: {
+        ...data,
+        password: hashedPassword,
+        emailVerified: new Date(), // Admin created users are verified by default
+      },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        isActive: true,
+        createdAt: true,
+      },
+    });
+
+    return user;
+  }
+
+  // Admin Change Password
+  async adminChangePassword(id: string, password: string) {
+    const user = await prisma.user.findUnique({ where: { id } });
+
+    if (!user) {
+      throw ApiError.notFound(
+        MESSAGES.USERS.NOT_FOUND,
+        ERROR_CODES.USER_NOT_FOUND,
+      );
+    }
+
+    const hashedPassword = await hashPassword(password);
+
+    await prisma.user.update({
+      where: { id },
+      data: { password: hashedPassword },
+    });
+  }
+
   // Get current user profile
   async getProfile(userId: string) {
     return this.getUserById(userId);

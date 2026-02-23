@@ -1,9 +1,10 @@
-import { AdStatus } from "@prisma/client";
+import { AdStatus, UsageType } from "@prisma/client";
 import { ApiError } from "../../common/errors/api-error";
 import Logger from "../../common/logging/logger";
 import { prisma } from "../../config/database.config";
 import { N8NCallbackPayload } from "../ai/interfaces/n8n-callback.types";
 import { adsService } from "./ads.service";
+import { AD_COSTS } from "./constants/ad-costs";
 
 /**
  * N8NCallbackService — Single-Responsibility service for processing
@@ -103,6 +104,30 @@ export class N8NCallbackService {
     Logger.info(
       `[N8NCallbackService] Ad ${adId} marked COMPLETED — primaryUrl: ${primaryUrl}`,
     );
+
+    // Fetch user ID for credit deduction
+    const ad = await prisma.ad.findUnique({
+      where: { id: adId },
+      select: { userId: true },
+    });
+
+    if (ad?.userId) {
+      const adCost = AD_COSTS[mediaType || "IMAGE"];
+      const { billingService } = await import("../billing/billing.service");
+      await billingService
+        .checkAndDeductCredits(
+          ad.userId,
+          adCost,
+          UsageType.AD_GENERATION,
+          `Ad Generation (Async): ${adId}`,
+        )
+        .catch((err) => {
+          Logger.error(
+            `[N8NCallbackService] Credit deduction failed for ${ad.userId}:`,
+            err.message,
+          );
+        });
+    }
   }
 
   private async handleFailure(adId: string, errorMsg?: string): Promise<void> {

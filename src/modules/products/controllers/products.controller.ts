@@ -12,18 +12,19 @@ import { uploadedProductsService } from "../services/uploaded-products.service";
 
 export class ProductsController {
   private getService(reqOrSource: Request | string | undefined | null) {
-    if (!reqOrSource) return uploadedProductsService;
-
     const source =
       typeof reqOrSource === "string"
         ? reqOrSource
-        : (reqOrSource as Request).query?.source ||
-          (reqOrSource as Request).body?.productSource ||
+        : (reqOrSource as Request)?.query?.source ||
+          (reqOrSource as Request)?.body?.productSource ||
           "ALL";
 
-    return source === "UPLOADED"
-      ? uploadedProductsService
-      : storeProductsService;
+    if (source === "UPLOADED") {
+      return uploadedProductsService;
+    }
+
+    // For both STORE and ALL sources
+    return storeProductsService;
   }
 
   async getProducts(
@@ -36,6 +37,7 @@ export class ProductsController {
       const query: GetProductsQuery = req.query as any;
 
       const service = this.getService(req);
+
       const result = await service.getProducts(userId, query);
 
       sendPaginated(res, MESSAGES.PRODUCTS.FETCHED, result);

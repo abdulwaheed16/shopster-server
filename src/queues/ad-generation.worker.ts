@@ -23,6 +23,10 @@ export interface AdGenerationJobData {
   duration?: number;
   templatePrompt?: string;
   modelImage?: string;
+  videoScript?: {
+    type: "TEXT" | "VOICE";
+    content: string;
+  };
 }
 
 // Instantiate the processor with Vercel Blob (keeping Cloudinary available via DI if needed)
@@ -44,6 +48,7 @@ export const adGenerationWorker = new Worker<AdGenerationJobData>(
       // Delegate to the orchestrator service
       const result = await adProcessorService.processGeneration({
         adId: job?.data?.adId,
+        userId: job?.data?.userId,
         assembledPrompt: job?.data?.assembledPrompt,
         aspectRatio: job?.data?.aspectRatio,
         variantsCount: job?.data?.variantsCount,
@@ -56,6 +61,7 @@ export const adGenerationWorker = new Worker<AdGenerationJobData>(
         duration: job?.data?.duration,
         templatePrompt: job?.data?.templatePrompt,
         modelImage: job?.data?.modelImage,
+        videoScript: job?.data?.videoScript,
       });
 
       console.log("Ad Generation Worker Result: ", result);

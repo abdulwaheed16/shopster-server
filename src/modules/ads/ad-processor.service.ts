@@ -1,4 +1,4 @@
-import { AdStatus, MediaType } from "@prisma/client";
+import { AdStatus, MediaType, UsageType } from "@prisma/client";
 import axios from "axios";
 import { MESSAGES } from "../../common/constants/messages.constant";
 import { prisma } from "../../config/database.config";
@@ -9,15 +9,18 @@ import {
   StylePreset,
 } from "../ai/ai.constants";
 import { aiService } from "../ai/ai.service";
+import { billingService } from "../billing/billing.service";
 import { IStorageService } from "../upload/interfaces/storage.interface";
 import { STORAGE_PROVIDERS } from "../upload/upload.constants";
 import { adsService } from "./ads.service";
+import { AD_COSTS } from "./constants/ad-costs";
 
 export class AdProcessorService {
   constructor(private readonly storageService: IStorageService) {}
 
   async processGeneration(data: {
     adId: string;
+    userId: string;
     assembledPrompt: string;
     aspectRatio?: AspectRatio | string;
     variantsCount?: number;
@@ -31,9 +34,14 @@ export class AdProcessorService {
     duration?: number;
     templatePrompt?: string;
     modelImage?: string;
+    videoScript?: {
+      type: "TEXT" | "VOICE";
+      content: string;
+    };
   }) {
     const {
       adId,
+      userId,
       assembledPrompt,
       aspectRatio,
       variantsCount,
@@ -44,6 +52,7 @@ export class AdProcessorService {
       duration,
       templatePrompt,
       modelImage,
+      videoScript,
     } = data;
 
     // Use actual data or fallback to mock data for testing n8n flow
@@ -145,6 +154,7 @@ export class AdProcessorService {
         templateImage,
         templatePrompt,
         modelImage,
+        videoScript,
       };
 
       const generationResults =
@@ -227,6 +237,23 @@ export class AdProcessorService {
       console.log(
         `[AdProcessorService] Ad ${adId} completed and visible to user`,
       );
+
+      const adCost = AD_COSTS[mediaType];
+
+      // 5. Deduct credit on success
+      await billingService
+        .checkAndDeductCredits(
+          userId,
+          adCost,
+          UsageType.AD_GENERATION,
+          `Ad Generation: ${adId}`,
+        )
+        .catch((err) => {
+          console.error(
+            `[AdProcessorService] Credit deduction failed for ${userId}:`,
+            err.message,
+          );
+        });
 
       // Background: upload to our own storage (non-blocking)
       this.uploadToStorageInBackground(adId, n8nUrls, mediaType).catch(

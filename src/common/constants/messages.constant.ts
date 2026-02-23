@@ -18,6 +18,7 @@ export const MESSAGES = {
 
   // Users
   USERS: {
+    CREATED: "User created successfully",
     FETCHED: "Users fetched successfully",
     FETCHED_ONE: "User fetched successfully",
     UPDATED: "User updated successfully",

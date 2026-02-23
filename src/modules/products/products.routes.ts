@@ -3,6 +3,7 @@ import { z } from "zod";
 import { authenticate } from "../../common/middlewares/auth.middleware";
 import { validate } from "../../common/middlewares/validate.middleware";
 import * as CommonValidators from "../../common/validations/common.validation";
+import assetFoldersRoutes from "./asset-folders.routes";
 import { productsController } from "./controllers/products.controller";
 import {
   bulkCsvImportSchema,
@@ -18,6 +19,11 @@ const router = Router();
 
 // All routes require authentication
 router.use(authenticate);
+
+// --------------------------------------------------------------------------
+// Asset Folder Routes
+// --------------------------------------------------------------------------
+router.use("/folders", assetFoldersRoutes);
 
 // --------------------------------------------------------------------------
 // Unified Product Routes

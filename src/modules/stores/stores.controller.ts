@@ -376,6 +376,7 @@ export class StoresController {
         source: "STORE",
         storeId: id as string,
         page: "1",
+        sortBy: "newest",
         limit: "100",
       });
 

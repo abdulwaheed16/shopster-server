@@ -6,8 +6,10 @@ import { createPaginatedResponse } from "../../common/utils/pagination.util";
 import { prisma } from "../../config/database.config";
 import { adGenerationQueue } from "../../config/queue.config";
 import { ASPECT_RATIOS } from "../ai/ai.constants";
+import { creditsService } from "../billing/credits.service";
 import { IAdsService } from "./ads.types";
 import { GenerateAdBody, GetAdsQuery } from "./ads.validation";
+import { AD_COSTS } from "./constants/ad-costs";
 
 export class AdsService implements IAdsService {
   private adEvents = new EventEmitter();
@@ -72,7 +74,7 @@ export class AdsService implements IAdsService {
   }
 
   // Get all ads for a user
-  async getAds(userId: string, query: GetAdsQuery) {
+  async getAds(userId: string, query: GetAdsQuery, userRole: string) {
     const page = parseInt(query.page || "1");
     const limit = parseInt(query.limit || "20");
     const skip = query.cursor ? 1 : (page - 1) * limit; // Skip the cursor itself if present
@@ -88,24 +90,37 @@ export class AdsService implements IAdsService {
     }
 
     if (query.productId) {
-      where.productId = query.productId;
+      where.productIds = { has: query.productId };
     }
 
     if (query.templateId) {
       where.templateId = query.templateId;
     }
 
-    if (query.storeId) {
-      where.product = {
-        storeId: query.storeId,
-      };
-    }
+    // storeId filter removed (no longer a relation on Ad)
 
     if (query.search) {
       where.title = {
         contains: query.search,
         mode: "insensitive",
       };
+    }
+
+    // Apply strict filtering for non-admins
+    if (userRole !== "ADMIN") {
+      const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000);
+
+      where.AND = [
+        // 1. Never show failed ads
+        { status: { not: "FAILED" } },
+        // 2. Only show pending/processing if under 15 minutes
+        {
+          OR: [
+            { status: { notIn: ["PENDING", "PROCESSING"] } },
+            { createdAt: { gte: fifteenMinutesAgo } },
+          ],
+        },
+      ];
     }
 
     if (query.days && query.days !== "all") {
@@ -125,32 +140,31 @@ export class AdsService implements IAdsService {
         cursor: query.cursor ? { id: query.cursor } : undefined,
         orderBy,
         include: {
-          product: {
-            select: {
-              id: true,
-              title: true,
-              images: true,
-              store: {
-                select: {
-                  name: true,
-                },
-              },
-            },
-          },
           template: {
-            select: {
-              id: true,
-              name: true,
-            },
+            select: { id: true, name: true },
           },
         },
       }),
       prisma.ad.count({ where }),
     ]);
 
-    // Strip internal analysis (Optimization/Privacy)
+    // Attach product info for all ads via a single bulk query
+    const allProductIds = [...new Set(ads.flatMap((a) => a.productIds))];
+    const products =
+      allProductIds.length > 0
+        ? await prisma.product.findMany({
+            where: { id: { in: allProductIds } },
+            select: { id: true, title: true, images: true },
+          })
+        : [];
+    const productMap = Object.fromEntries(products.map((p) => [p.id, p]));
+
+    // Strip internal fields and attach products
     const sanitizedAds = ads.map((ad: any) => {
       delete ad.resultAnalysis;
+      ad.products = ad.productIds
+        .map((id: string) => productMap[id])
+        .filter(Boolean);
       return ad;
     });
 
@@ -168,88 +182,80 @@ export class AdsService implements IAdsService {
   // Get ad by ID
   async getAdById(id: string, userId: string) {
     const ad = await prisma.ad.findFirst({
-      where: {
-        id,
-        userId,
-      },
-      include: {
-        product: true,
-        template: true,
-      },
+      where: { id, userId },
+      include: { template: true },
     });
 
     if (!ad) {
       throw ApiError.notFound("Ad not found or you don't have access");
     }
 
-    const { resultAnalysis, ...sanitizedAd } = ad as any;
+    // Strict filtering for regular users
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { role: true },
+    });
 
-    return sanitizedAd;
+    if (user?.role !== "ADMIN") {
+      if (ad.status === "FAILED") {
+        throw ApiError.notFound("Ad not found or you don't have access");
+      }
+      if (ad.status === "PENDING" || ad.status === "PROCESSING") {
+        const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000);
+        if (ad.createdAt < fifteenMinutesAgo) {
+          throw ApiError.notFound("Ad not found or you don't have access");
+        }
+      }
+    }
+
+    // Fetch associated products manually (productIds is a plain array, not a Prisma relation)
+    const products =
+      ad.productIds.length > 0
+        ? await prisma.product.findMany({
+            where: { id: { in: ad.productIds } },
+            select: { id: true, title: true, images: true },
+          })
+        : [];
+
+    const { resultAnalysis, ...rest } = ad as any;
+    return { ...rest, products };
   }
 
   // Generate ad (Step 3: Submit)
   async generateAd(userId: string, data: GenerateAdBody) {
-    // 0. Deduplicate request (Disabled for rapid testing)
-    /*
-    const dedupKey = requestDeduplicator.generateKey(userId, data);
-    if (requestDeduplicator.isDuplicate(dedupKey)) {
-      throw ApiError.badRequest(
-        "A similar generation request is already being processed. Please wait a few seconds.",
-      );
-    }
-    */
-
-    /*
-    // 1. Check user credits
+    // 0. Credit Check (Verify balance before starting)
+    const userBalance = await creditsService.getBalance(userId);
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      select: { creditWallet: { select: { balance: true } } },
+      select: { role: true },
     });
 
-    if (!user) {
-      throw ApiError.notFound("User not found");
-    }
+    const adCost = AD_COSTS[data.mediaType];
 
-    // Each generation costs 1 credit
-    if ((user?.creditWallet?.balance || 0) < 1) {
-      throw ApiError.badRequest(
-        "Insufficient credits. Please top up to generate ads.",
+    if (user?.role !== "ADMIN" && userBalance < adCost) {
+      throw ApiError.forbidden(
+        `Insufficient credits to generate a ${data.mediaType.toLowerCase()} ad. This operation requires ${adCost} credit${adCost > 1 ? "s" : ""}. Please refill your balance.`,
       );
     }
-    */
 
-    // 2. Resolve Product Data
-    let productTitle = data.productTitle || "";
-    let productImages: string[] = [];
+    // 1. Resolve product images from IDs
+    const products = await prisma.product.findMany({
+      where: { id: { in: data.productIds }, userId },
+      select: { id: true, title: true, images: true },
+    });
 
-    if (Array.isArray(data.productImageUrls)) {
-      productImages = data.productImageUrls;
-    } else if (typeof data.productImageUrls === "string") {
-      productImages = [data.productImageUrls];
+    if (products.length === 0) {
+      throw ApiError.badRequest("No valid products found for the provided IDs");
     }
 
-    // If IDs are provided and URLs are missing, fetch from DB as fallback
-    if (
-      productImages.length === 0 &&
-      (data.productId || data.uploadedProductId)
-    ) {
-      const targetId = data.productId || data.uploadedProductId;
-      const product = await prisma.product.findFirst({
-        where: { id: targetId, userId },
-      });
-      if (product) {
-        productTitle = productTitle || product.title;
-        productImages = product.images.map((img) => img.url);
-      }
-    }
+    const productImages = products.flatMap((p) =>
+      p.images.map((img) => img.url),
+    );
+    const primaryProduct = products[0];
 
-    const productImage = productImages[0] || ""; // Use first as primary fallback for backward compatibility in some logic
-
-    // Default title if still empty
-    productTitle = productTitle || "Product";
-
-    // 3. Resolve Template Data
-    let templateImage = data.templateImageUrl || "";
+    // 2. Resolve Template Data
+    let templateImage =
+      data.mediaType === "IMAGE" ? (data as any).templateImageUrl || "" : "";
     let assembledPrompt = "";
     let templatePrompt = "";
 
@@ -269,11 +275,11 @@ export class AdsService implements IAdsService {
       }
     }
 
-    if (data.prompt) {
-      assembledPrompt = data.prompt;
+    if (data.mediaType === "IMAGE" && (data as any).prompt) {
+      assembledPrompt = (data as any).prompt;
     }
 
-    // 4. Assemble Variable Values
+    // 3. Assemble Variable Values into prompt
     const variableValues = data.variableValues || {};
     if (Object.keys(variableValues).length > 0) {
       Object.entries(variableValues).forEach(([key, value]) => {
@@ -286,55 +292,48 @@ export class AdsService implements IAdsService {
     const ad = await prisma.ad.create({
       data: {
         userId,
-        productId: data.productId || data.uploadedProductId || null,
+        productIds: data.productIds,
         templateId: data.templateId || null,
-        title: data.title || `Ad for ${productTitle}`,
+        title: `Ad for ${primaryProduct.title}`,
         assembledPrompt,
-        variableValues: variableValues ?? {}, // Ensure JSON compatibility
+        variableValues: variableValues ?? {},
         aspectRatio: data.aspectRatio || ASPECT_RATIOS.SQUARE,
         variantsCount: data.variantsCount || 1,
         status: "PENDING",
-        mediaType: data.mediaType || (data?.scenes ? "VIDEO" : "IMAGE"),
+        mediaType: data.mediaType,
         metadata: {
-          style: data.style,
           color: data.color,
-          scenes: data.scenes,
-          duration: data.duration,
+          ...(data.mediaType === "VIDEO"
+            ? {
+                scenes: (data as any).scenes,
+                duration: (data as any).duration,
+              }
+            : {}),
         },
-        videoScript: data.videoScript as any,
+        videoScript:
+          data.mediaType === "VIDEO" ? (data as any).videoScript : undefined,
       },
     });
 
-    /*
-    // 5. Deduct credit
-    await billingService.checkAndDeductCredits(
-      userId,
-      1,
-      UsageType.AD_GENERATION,
-      `Ad Generation: ${ad.id}`,
-    );
-    */
-
-    // 6. Add to queue for background processing
+    // 5. Add to queue
     await adGenerationQueue.add("generate", {
       adId: ad.id,
       userId,
       assembledPrompt,
       aspectRatio: ad.aspectRatio,
       variantsCount: ad.variantsCount,
-      style: data.style,
       color: data.color,
-      scenes: data.scenes,
-      videoScript: data.videoScript,
+      scenes: data.mediaType === "VIDEO" ? (data as any).scenes : undefined,
+      videoScript:
+        data.mediaType === "VIDEO" ? (data as any).videoScript : undefined,
       mediaType: ad.mediaType,
-      duration: data.duration,
-      templatePrompt: templatePrompt,
+      duration: data.mediaType === "VIDEO" ? (data as any).duration : undefined,
+      templatePrompt,
       productImages,
       templateImage,
-      modelImage: data.modelImageUrl,
+      modelImage:
+        data.mediaType === "VIDEO" ? (data as any).modelImageUrl : undefined,
     } as any);
-
-    // 7. Return pending ad (actual queue processing)
 
     Logger.info(`Ad created with ID: ${ad.id}`);
     return ad;

@@ -17,7 +17,7 @@ export class AdsController {
       const userId = req.user!.id;
       const query = req.query as unknown as GetAdsQuery;
 
-      const result = await adsService.getAds(userId, query);
+      const result = await adsService.getAds(userId, query, req.user!.role);
 
       sendPaginated(res, MESSAGES.ADS.FETCHED, result);
     } catch (error) {
@@ -145,9 +145,12 @@ export class AdsController {
       );
 
       // Subscribe to ad-specific updates
-      const unsubscribe = adsService.subscribeToAdUpdates(id as string, (data) => {
-        res.write(`data: ${JSON.stringify(data)}\n\n`);
-      });
+      const unsubscribe = adsService.subscribeToAdUpdates(
+        id as string,
+        (data) => {
+          res.write(`data: ${JSON.stringify(data)}\n\n`);
+        },
+      );
 
       // Keep connection alive with a periodic heartbeat
       const heartbeat = setInterval(() => {

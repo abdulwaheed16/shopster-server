@@ -35,6 +35,15 @@ export class StoreProductsService {
       ];
     }
 
+    const isRoot =
+      !query.folderId || query.folderId === "root" || query.folderId === "null";
+
+    if (isRoot) {
+      where.folderId = { equals: null };
+    } else {
+      where.folderId = query.folderId;
+    }
+
     if (query.storeId) {
       where.storeId = query.storeId;
     }
@@ -47,10 +56,8 @@ export class StoreProductsService {
 
     if (query.isActive !== undefined) {
       where.isActive = query.isActive === "true";
-    }
-
-    if (query.inStock !== undefined) {
-      where.inStock = query.inStock === "true";
+    } else {
+      where.isActive = true;
     }
 
     if (query.search) {
@@ -67,12 +74,16 @@ export class StoreProductsService {
       ];
     }
 
+    const orderBy: Prisma.ProductOrderByWithRelationInput = {
+      createdAt: query.sortBy === "oldest" ? "asc" : "desc",
+    };
+
     const [products, total] = await Promise.all([
       prisma.product.findMany({
         where,
         skip,
         take: limit,
-        orderBy: { createdAt: "desc" },
+        orderBy,
         include: {
           store: { select: { name: true } },
           categories: { select: { id: true, name: true } },
@@ -98,7 +109,7 @@ export class StoreProductsService {
     const product = await prisma.product.findFirst({
       where: {
         id,
-        store: { userId },
+        OR: [{ store: { userId } }, { userId }],
       },
       include: {
         store: true,
@@ -156,12 +167,13 @@ export class StoreProductsService {
     });
   }
 
-  // Delete product
+  // Delete product (Soft Delete)
   async deleteProduct(id: string, userId: string) {
     await this.getProductById(id, userId);
 
-    await prisma.product.delete({
+    await prisma.product.update({
       where: { id },
+      data: { isActive: false },
     });
   }
 
@@ -209,7 +221,7 @@ export class StoreProductsService {
     const products = await prisma.product.findMany({
       where: {
         id: { in: ids },
-        store: { userId },
+        OR: [{ store: { userId } }, { userId }],
       },
       select: { id: true },
     });
@@ -220,10 +232,11 @@ export class StoreProductsService {
       return { count: 0, message: "No valid products found to delete" };
     }
 
-    const { count } = await prisma.product.deleteMany({
+    const { count } = await prisma.product.updateMany({
       where: {
         id: { in: validatedIds },
       },
+      data: { isActive: false },
     });
 
     return {

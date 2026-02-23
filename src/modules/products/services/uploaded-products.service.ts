@@ -15,10 +15,15 @@ export class UploadedProductsService {
     const where: Prisma.ProductWhereInput = {
       userId,
       productSource: "UPLOADED",
+      isActive: query.isActive === undefined ? true : query.isActive === "true",
     };
 
-    if (query.isActive !== undefined) {
-      where.isActive = query.isActive === "true";
+    if (query.folderId) {
+      if (query.folderId === "root") {
+        where.folderId = { equals: null };
+      } else {
+        where.folderId = query.folderId;
+      }
     }
 
     if (query.search) {
@@ -28,12 +33,16 @@ export class UploadedProductsService {
       ];
     }
 
+    const orderBy: Prisma.ProductOrderByWithRelationInput = {
+      createdAt: query.sortBy === "oldest" ? "asc" : "desc",
+    };
+
     const [products, total] = await Promise.all([
       prisma.product.findMany({
         where,
         skip,
         take: limit,
-        orderBy: { createdAt: "desc" },
+        orderBy,
       }),
       prisma.product.count({ where }),
     ]);
@@ -133,12 +142,13 @@ export class UploadedProductsService {
     });
   }
 
-  // Delete uploaded product
+  // Delete uploaded product (Soft Delete)
   async deleteProduct(id: string, userId: string) {
     await this.getProductById(id, userId);
 
-    await prisma.product.delete({
+    await prisma.product.update({
       where: { id },
+      data: { isActive: false },
     });
   }
 
@@ -178,10 +188,11 @@ export class UploadedProductsService {
       return { count: 0, message: "No valid products found to delete" };
     }
 
-    const { count } = await prisma.product.deleteMany({
+    const { count } = await prisma.product.updateMany({
       where: {
         id: { in: validatedIds },
       },
+      data: { isActive: false },
     });
 
     return {

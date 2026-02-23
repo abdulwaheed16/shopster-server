@@ -23,6 +23,10 @@ export interface VideoGenerationPayload extends N8NBasePayload {
   modelImage?: string;
   duration: number;
   scenes?: string[];
+  videoScript?: {
+    type: "TEXT" | "VOICE";
+    content: string;
+  };
 }
 
 export interface N8NImageResult {

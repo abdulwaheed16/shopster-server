@@ -12,6 +12,7 @@ export const updateProfileSchema = z.object({
       name: nameSchema.optional(),
       email: emailSchema.optional(),
       image: z.string().url().optional(),
+      avatar: z.string().url().optional(),
       password: optionalPasswordSchema,
     })
     .refine((data) => Object.keys(data).length > 0, {

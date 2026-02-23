@@ -5,6 +5,7 @@ import {
   nameSchema,
   objectIdSchema,
   optionalPasswordSchema,
+  passwordSchema,
 } from "../../common/validations/common.validation";
 import { paginationSchema } from "../../common/validations/pagination.validation";
 
@@ -69,3 +70,27 @@ export type UpdateUserRoleParams = z.infer<
   typeof updateUserRoleSchema
 >["params"];
 export type UpdateUserRoleBody = z.infer<typeof updateUserRoleSchema>["body"];
+// Create user validation
+export const createUserSchema = z.object({
+  body: z.object({
+    name: nameSchema,
+    email: emailSchema,
+    password: passwordSchema,
+    role: z.nativeEnum(UserRole).default(UserRole.USER),
+  }),
+});
+
+// Admin change password validation
+export const adminChangePasswordSchema = z.object({
+  params: z.object({
+    id: objectIdSchema,
+  }),
+  body: z.object({
+    password: passwordSchema,
+  }),
+});
+
+export type CreateUserBody = z.infer<typeof createUserSchema>["body"];
+export type AdminChangePasswordBody = z.infer<
+  typeof adminChangePasswordSchema
+>["body"];

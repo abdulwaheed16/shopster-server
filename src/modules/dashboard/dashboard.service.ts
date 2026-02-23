@@ -44,12 +44,6 @@ export class DashboardService implements IDashboardService {
         take: 5,
         orderBy: { createdAt: "desc" },
         include: {
-          product: {
-            select: {
-              title: true,
-              images: true,
-            },
-          },
           template: {
             select: {
               name: true,
@@ -80,13 +74,27 @@ export class DashboardService implements IDashboardService {
       ] = stat._count;
     });
 
+    // Resolve products for recent ads
+    const recentAdsWithProducts = await Promise.all(
+      recentAds?.map(async (ad: any) => {
+        const products =
+          ad.productIds && ad.productIds.length > 0
+            ? await prisma.product.findMany({
+                where: { id: { in: ad.productIds } },
+                select: { title: true, images: true },
+              })
+            : [];
+        return { ...ad, products };
+      }),
+    );
+
     return {
       stores: storesCount,
       products: productsCount,
       templates: templatesCount,
       // variables: variablesCount,
       ads: adsStatusCounts,
-      recentAds,
+      recentAds: recentAdsWithProducts,
       credits: user?.creditWallet?.balance || 0,
     };
   }
@@ -154,11 +162,6 @@ export class DashboardService implements IDashboardService {
               email: true,
             },
           },
-          product: {
-            select: {
-              title: true,
-            },
-          },
         },
       }),
     ]);
@@ -213,6 +216,20 @@ export class DashboardService implements IDashboardService {
       },
     );
 
+    // Resolve products for recent ads
+    const recentAdsWithProducts = await Promise.all(
+      recentAds.map(async (ad: any) => {
+        const products =
+          ad.productIds && ad.productIds.length > 0
+            ? await prisma.product.findMany({
+                where: { id: { in: ad.productIds } },
+                select: { title: true },
+              })
+            : [];
+        return { ...ad, products };
+      }),
+    );
+
     return {
       users: usersSummary,
       stores: storesCount,
@@ -221,7 +238,7 @@ export class DashboardService implements IDashboardService {
       ads: adsStatusCounts,
       jobs: jobsStatusCounts,
       recentUsers,
-      recentAds,
+      recentAds: recentAdsWithProducts,
     };
   }
 }

@@ -11,6 +11,10 @@ export interface VideoPromptOptions {
   templateImage?: string;
   templatePrompt?: string;
   modelImage?: string;
+  videoScript?: {
+    type: "TEXT" | "VOICE";
+    content: string;
+  };
 }
 
 export interface VideoGenerationResult {

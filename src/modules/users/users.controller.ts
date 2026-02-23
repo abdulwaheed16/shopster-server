@@ -100,6 +100,34 @@ export class UsersController {
       next(error);
     }
   }
+
+  async createUser(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
+    try {
+      const user = await usersService.createUser(req.body);
+      sendSuccess(res, MESSAGES.USERS.CREATED, user);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async adminChangePassword(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
+    try {
+      const { id } = req.params;
+      const { password } = req.body;
+      await usersService.adminChangePassword(id as string, password);
+      sendSuccess(res, MESSAGES.USERS.UPDATED);
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 export const usersController = new UsersController();

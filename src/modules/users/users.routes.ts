@@ -6,6 +6,8 @@ import { authorize } from "../../common/middlewares/role.middleware";
 import { validate } from "../../common/middlewares/validate.middleware";
 import { usersController } from "./users.controller";
 import {
+  adminChangePasswordSchema,
+  createUserSchema,
   deleteUserSchema,
   getUserByIdSchema,
   getUsersSchema,
@@ -60,6 +62,24 @@ router.put(
   validate(updateUserRoleSchema),
   auditLogger("UPDATE_USER_ROLE", "User"),
   usersController.updateUserRole.bind(usersController),
+);
+
+// Create user (Admin only)
+router.post(
+  "/",
+  authorize(UserRole.ADMIN),
+  validate(createUserSchema),
+  auditLogger("CREATE_USER", "User"),
+  usersController.createUser.bind(usersController),
+);
+
+// Change user password (Admin only)
+router.put(
+  "/:id/password",
+  authorize(UserRole.ADMIN),
+  validate(adminChangePasswordSchema),
+  auditLogger("CHANGE_USER_PASSWORD", "User"),
+  usersController.adminChangePassword.bind(usersController),
 );
 
 export default router;
