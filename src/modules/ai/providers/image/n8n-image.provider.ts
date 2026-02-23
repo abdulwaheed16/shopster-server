@@ -32,7 +32,7 @@ export class N8NImageProvider
       timestamp: new Date().toISOString(),
     };
 
-    // console.log("Image Generation Payload:", payload);
+    console.log("Image Generation Payload:", payload);
 
     await this.fireAndForget(webhookUrl, payload);
 
