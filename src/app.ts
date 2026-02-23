@@ -68,7 +68,7 @@ export const createApp = (): Application => {
   // Body parsing middleware
   app.use(
     express.json({
-      limit: "10mb",
+      limit: "50mb",
       // @ts-ignore
       verify: (req: any, res: any, buf: Buffer) => {
         if (
@@ -81,7 +81,7 @@ export const createApp = (): Application => {
       },
     }),
   );
-  app.use(express.urlencoded({ extended: true, limit: "10mb" }));
+  app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
   // Cookie parser
   app.use(cookieParser(config.server.cookieSecret));

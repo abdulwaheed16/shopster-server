@@ -126,7 +126,12 @@ export class StoreProductsService {
 
   // Create single product
   async createProduct(userId: string, data: CreateProductBody) {
-    // 1. Verify store exists
+    // 1. Verify storeId is provided
+    if (!data.storeId) {
+      throw ApiError.badRequest("storeId is required for store products");
+    }
+
+    // 2. Verify store exists
     const store = await prisma.store.findUnique({
       where: { id: data.storeId },
     });

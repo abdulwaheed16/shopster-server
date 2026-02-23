@@ -16,14 +16,14 @@ export class ProductsController {
       typeof reqOrSource === "string"
         ? reqOrSource
         : (reqOrSource as Request)?.query?.source ||
-          (reqOrSource as Request)?.body?.productSource ||
-          "ALL";
+          (reqOrSource as Request)?.body?.productSource;
 
+    // Default to STORE if UPLOADED is not explicitly requested
     if (source === "UPLOADED") {
       return uploadedProductsService;
     }
 
-    // For both STORE and ALL sources
+    // For both STORE and ALL (or default) sources
     return storeProductsService;
   }
 
