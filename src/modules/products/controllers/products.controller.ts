@@ -19,12 +19,12 @@ export class ProductsController {
           (reqOrSource as Request)?.body?.productSource;
 
     // Default to STORE if UPLOADED is not explicitly requested
-    if (source === "UPLOADED") {
-      return uploadedProductsService;
+    if (source === "STORE") {
+      return storeProductsService;
     }
 
     // For both STORE and ALL (or default) sources
-    return storeProductsService;
+    return uploadedProductsService;
   }
 
   async getProducts(

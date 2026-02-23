@@ -1,5 +1,4 @@
 import { Router } from "express";
-import { z } from "zod";
 import { authenticate } from "../../common/middlewares/auth.middleware";
 import { validate } from "../../common/middlewares/validate.middleware";
 import * as CommonValidators from "../../common/validations/common.validation";
@@ -8,10 +7,8 @@ import { productsController } from "./controllers/products.controller";
 import {
   bulkCsvImportSchema,
   bulkDeleteProductsSchema,
-  createManualProductSchema,
   createProductSchema,
   getProductsSchema,
-  updateManualProductSchema,
   updateProductSchema,
 } from "./products.validation";
 
@@ -32,23 +29,13 @@ router.get(
 
 router.post(
   "/",
-  (req, res, next) => {
-    const schema =
-      req.body.productSource === "UPLOADED"
-        ? createManualProductSchema
-        : createProductSchema;
-    return validate(schema)(req, res, next);
-  },
+  validate(createProductSchema),
   productsController.createProduct.bind(productsController),
 );
 
 router.post(
   "/bulk",
-  (req, res, next) => {
-    const schema =
-      req.body.productSource === "UPLOADED" ? bulkCsvImportSchema : z.any();
-    return next();
-  },
+  validate(bulkCsvImportSchema),
   productsController.bulkCreateProducts.bind(productsController),
 );
 
@@ -84,11 +71,7 @@ router.get(
 router.patch(
   "/:id",
   validate(CommonValidators.idSchema),
-  (req, res, next) => {
-    const isUploaded = req.query.source === "UPLOADED";
-    const schema = isUploaded ? updateManualProductSchema : updateProductSchema;
-    return validate(schema)(req, res, next);
-  },
+  validate(updateProductSchema),
   productsController.updateProduct.bind(productsController),
 );
 
