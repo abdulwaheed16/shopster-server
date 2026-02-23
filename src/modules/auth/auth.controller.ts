@@ -2,6 +2,7 @@ import { NextFunction, Request, Response } from "express";
 import { MESSAGES } from "../../common/constants/messages.constant";
 import { sendCreated, sendSuccess } from "../../common/utils/response.util";
 import { jwtConfig } from "../../config/jwt.config";
+import { usersService } from "../users/users.service";
 import { authService } from "./auth.service";
 import {
   ChangePasswordBody,
@@ -146,6 +147,21 @@ export class AuthController {
       await authService.resetPassword(data);
 
       sendSuccess(res, MESSAGES.AUTH.PASSWORD_RESET_SUCCESS);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async getCurrentUser(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
+    try {
+      const userId = req.user!.id;
+      // Re-use usersService.getProfile to get full user details including credit wallet
+      const user = await usersService.getProfile(userId);
+      sendSuccess(res, MESSAGES.USERS.FETCHED_ONE, user);
     } catch (error) {
       next(error);
     }

@@ -61,6 +61,13 @@ router.post(
   authController.logout.bind(authController),
 );
 
+// Get current user profile
+router.get(
+  "/me",
+  authenticate,
+  authController.getCurrentUser.bind(authController),
+);
+
 router.post(
   "/change-password",
   authenticate,

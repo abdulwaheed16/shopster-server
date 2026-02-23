@@ -26,7 +26,7 @@ export const createProductSchema = z.object({
     sku: z.string().optional(),
     title: z.string().min(1, "Title is required"),
     description: z.string().optional(),
-    productSource: z.enum(["STORE", "UPLOADED"]).default("STORE"),
+    productSource: z.enum(["STORE", "UPLOADED"]).default("UPLOADED"),
     images: z.array(productImageSchema).default([]),
     variants: z.array(productVariantSchema).default([]),
     isActive: z.boolean().default(true),
