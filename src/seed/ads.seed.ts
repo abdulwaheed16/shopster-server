@@ -67,7 +67,9 @@ export async function seedAds() {
   const adsData = [
     {
       userId: demoUser.id,
-      productIds: [burgerProduct.id],
+      products: {
+        set: [{ productId: burgerProduct.id, source: "STORE" }],
+      },
       templateId: foodTemplate.id,
       title: "Gourmet Burger - Special Offer",
       assembledPrompt:
@@ -85,7 +87,9 @@ export async function seedAds() {
     },
     {
       userId: demoUser.id,
-      productIds: [dressProduct.id],
+      products: {
+        set: [{ productId: dressProduct.id, source: "STORE" }],
+      },
       templateId: fashionTemplate.id,
       title: "Summer Collection 2024",
       assembledPrompt:
@@ -103,7 +107,9 @@ export async function seedAds() {
     },
     {
       userId: demoUser.id,
-      productIds: [electronicsProduct.id],
+      products: {
+        set: [{ productId: electronicsProduct.id, source: "STORE" }],
+      },
       templateId: electronicsTemplate.id,
       title: "Tech Innovation - Wireless Audio",
       assembledPrompt:
@@ -122,7 +128,11 @@ export async function seedAds() {
     // Video ads using backend asset results
     {
       userId: demoUser.id,
-      productIds: [products[5]?.id || products[0].id], // Premium Product Asset 1
+      products: {
+        set: [
+          { productId: products[5]?.id || products[0].id, source: "STORE" },
+        ],
+      },
       templateId: templates[0].id,
       title: "Premium Product Video Ad - Dynamic Showcase",
       assembledPrompt: `Create a dynamic video advertisement showcasing the premium product.
@@ -169,7 +179,11 @@ Highlight the product's premium features with smooth camera movements that captu
     },
     {
       userId: demoUser.id,
-      productIds: [products[6]?.id || products[1].id], // Premium Product Asset 2
+      products: {
+        set: [
+          { productId: products[6]?.id || products[1].id, source: "STORE" },
+        ],
+      },
       templateId: templates[1]?.id || templates[0].id,
       title: "Premium Product Video Ad - Push In Effect",
       assembledPrompt: `Create an engaging video advertisement with dramatic push-in camera movement.
@@ -218,28 +232,28 @@ Use dramatic zoom effects to draw attention to the product's key features. Creat
 
   // Create ads
   const createdAds = [];
-  for (const adData of adsData) {
+  for (const adDataAny of adsData as any[]) {
     const existing = await prisma.ad.findFirst({
       where: {
-        userId: adData.userId,
-        productIds: { hasSome: adData.productIds },
-        templateId: adData.templateId,
+        userId: adDataAny.userId,
+        title: adDataAny.title,
+        templateId: adDataAny.templateId,
       },
     });
 
     if (existing) {
       const updated = await prisma.ad.update({
         where: { id: existing.id },
-        data: adData,
+        data: adDataAny,
       });
       createdAds.push(updated);
-      console.log(`✅ Updated ad: ${adData.title}`);
+      console.log(`✅ Updated ad: ${adDataAny.title}`);
     } else {
       const created = await prisma.ad.create({
-        data: adData,
+        data: adDataAny,
       });
       createdAds.push(created);
-      console.log(`✅ Created ad: ${adData.title}`);
+      console.log(`✅ Created ad: ${adDataAny.title}`);
     }
   }
 

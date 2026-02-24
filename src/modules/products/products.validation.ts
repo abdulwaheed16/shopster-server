@@ -18,20 +18,31 @@ const productVariantSchema = z.object({
 });
 
 // Create product schema
+const commonProductFields = {
+  categoryIds: z.array(objectIdSchema).default([]),
+  title: z.string().min(1, "Title is required"),
+  description: z.string().optional(),
+  images: z.array(productImageSchema).default([]),
+  variants: z.array(productVariantSchema).default([]),
+  isActive: z.boolean().default(true),
+  inStock: z.boolean().default(true),
+};
+
 export const createProductSchema = z.object({
-  body: z.object({
-    storeId: objectIdSchema,
-    categoryIds: z.array(objectIdSchema).default([]),
-    externalId: z.string().optional(),
-    sku: z.string().optional(),
-    title: z.string().min(1, "Title is required"),
-    description: z.string().optional(),
-    productSource: z.enum(["STORE", "UPLOADED"]).default("UPLOADED"),
-    images: z.array(productImageSchema).default([]),
-    variants: z.array(productVariantSchema).default([]),
-    isActive: z.boolean().default(true),
-    inStock: z.boolean().default(true),
-  }),
+  body: z.discriminatedUnion("productSource", [
+    z.object({
+      productSource: z.literal("STORE"),
+      storeId: objectIdSchema,
+      externalId: z.string().optional(),
+      sku: z.string().optional(),
+      ...commonProductFields,
+    }),
+    z.object({
+      productSource: z.literal("UPLOADED"),
+      storeId: objectIdSchema.optional(),
+      ...commonProductFields,
+    }),
+  ]),
 });
 
 // Update product schema

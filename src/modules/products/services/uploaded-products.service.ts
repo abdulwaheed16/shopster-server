@@ -1,6 +1,9 @@
 import { ApiError } from "../../../common/errors/api-error";
 import { prisma } from "../../../config/database.config";
-import { GetManualProductsQuery } from "../products.validation";
+import {
+  CreateProductBody,
+  GetManualProductsQuery,
+} from "../products.validation";
 
 import { Prisma } from "@prisma/client";
 import { calculatePagination } from "../../../common/utils/pagination.util";
@@ -71,10 +74,12 @@ export class UploadedProductsService {
   }
 
   // Create uploaded product
-  async createProduct(userId: string, data: any) {
-    const images =
-      data.images ||
-      (data.imageUrl ? [{ url: data.imageUrl, position: 0 }] : []);
+  async createProduct(userId: string, data: CreateProductBody) {
+    if (data.productSource !== "UPLOADED") {
+      throw ApiError.badRequest("Invalid product source for uploaded service");
+    }
+
+    const images = data.images || [];
 
     return await prisma.product.create({
       data: {
@@ -85,26 +90,25 @@ export class UploadedProductsService {
         isActive: data.isActive,
         userId,
         productSource: "UPLOADED",
-        externalId:
-          data.externalId ||
-          `uploaded-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+        externalId: `uploaded-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
       },
     });
   }
 
   // Bulk create uploaded products (e.g., from CSV)
-  async bulkCreateProducts(userId: string, productsData: any[]) {
-    const products = productsData?.map((p: any) => ({
-      ...p,
-      userId,
-      productSource: "UPLOADED",
-      images:
-        p.images || (p.imageUrl ? [{ url: p.imageUrl, position: 0 }] : []),
-      imageUrl: undefined,
-      externalId:
-        p.externalId ||
-        `uploaded-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-    }));
+  async bulkCreateProducts(userId: string, productsData: CreateProductBody[]) {
+    const products = productsData?.map((p) => {
+      if (p.productSource !== "UPLOADED") {
+        throw ApiError.badRequest("Invalid product source in bulk data");
+      }
+      return {
+        ...p,
+        userId,
+        productSource: "UPLOADED" as const,
+        images: p.images || [],
+        externalId: `uploaded-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      };
+    });
 
     const result = await prisma.$transaction(
       products?.map((product: any) =>

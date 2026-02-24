@@ -90,7 +90,7 @@ export class AdsService implements IAdsService {
     }
 
     if (query.productId) {
-      where.productIds = { has: query.productId };
+      where.products = { some: { productId: query.productId } };
     }
 
     if (query.templateId) {
@@ -149,21 +149,38 @@ export class AdsService implements IAdsService {
     ]);
 
     // Attach product info for all ads via a single bulk query
-    const allProductIds = [...new Set(ads.flatMap((a) => a.productIds))];
-    const products =
-      allProductIds.length > 0
-        ? await prisma.product.findMany({
-            where: { id: { in: allProductIds } },
+    const allProductInfos = [...new Set(ads.flatMap((a) => a.products))];
+    const storeProductIds = allProductInfos
+      .filter((p) => p.source === "STORE")
+      .map((p) => p.productId);
+    const uploadedProductIds = allProductInfos
+      .filter((p) => p.source === "UPLOADED")
+      .map((p) => p.productId);
+
+    const [storeProducts, uploadedProducts] = await Promise.all([
+      storeProductIds.length > 0
+        ? prisma.product.findMany({
+            where: { id: { in: storeProductIds } },
             select: { id: true, title: true, images: true },
           })
-        : [];
-    const productMap = Object.fromEntries(products.map((p) => [p.id, p]));
+        : [],
+      uploadedProductIds.length > 0
+        ? prisma.product.findMany({
+            where: { id: { in: uploadedProductIds } },
+            select: { id: true, title: true, images: true },
+          })
+        : [],
+    ]);
+
+    const productMap = Object.fromEntries(
+      [...storeProducts, ...uploadedProducts].map((p) => [p.id, p]),
+    );
 
     // Strip internal fields and attach products
     const sanitizedAds = ads.map((ad: any) => {
       delete ad.resultAnalysis;
-      ad.products = ad.productIds
-        .map((id: string) => productMap[id])
+      ad.productDetails = ad.products
+        .map((p: any) => productMap[p.productId])
         .filter(Boolean);
       return ad;
     });
@@ -208,17 +225,39 @@ export class AdsService implements IAdsService {
       }
     }
 
-    // Fetch associated products manually (productIds is a plain array, not a Prisma relation)
-    const products =
-      ad.productIds.length > 0
-        ? await prisma.product.findMany({
-            where: { id: { in: ad.productIds } },
+    // Fetch associated products manually
+    const storeProductIds = ad.products
+      .filter((p) => p.source === "STORE")
+      .map((p) => p.productId);
+    const uploadedProductIds = ad.products
+      .filter((p) => p.source === "UPLOADED")
+      .map((p) => p.productId);
+
+    const [storeProducts, uploadedProducts] = await Promise.all([
+      storeProductIds.length > 0
+        ? prisma.product.findMany({
+            where: { id: { in: storeProductIds } },
             select: { id: true, title: true, images: true },
           })
-        : [];
+        : [],
+      uploadedProductIds.length > 0
+        ? prisma.product.findMany({
+            where: { id: { in: uploadedProductIds } },
+            select: { id: true, title: true, images: true },
+          })
+        : [],
+    ]);
+
+    const productMap = Object.fromEntries(
+      [...storeProducts, ...uploadedProducts].map((p) => [p.id, p]),
+    );
+
+    const productDetails = ad.products
+      .map((p: any) => productMap[p.productId])
+      .filter(Boolean);
 
     const { resultAnalysis, ...rest } = ad as any;
-    return { ...rest, products };
+    return { ...rest, productDetails };
   }
 
   // Generate ad (Step 3: Submit)
@@ -253,25 +292,42 @@ export class AdsService implements IAdsService {
     }
 
     // 1. Resolve product images from IDs (Admins can access everything)
-    const productWhere: Prisma.ProductWhereInput = {
-      id: { in: data.productIds },
-    };
+    const storeProductIds = data.products
+      .filter((p) => p.source === "STORE")
+      .map((p) => p.productId);
+    const uploadedProductIds = data.products
+      .filter((p) => p.source === "UPLOADED")
+      .map((p) => p.productId);
 
-    if (user.role !== "ADMIN") {
-      productWhere.userId = userId;
-    }
+    const [storeProducts, uploadedProducts] = await Promise.all([
+      storeProductIds.length > 0
+        ? prisma.product.findMany({
+            where: {
+              id: { in: storeProductIds },
+              ...(user.role !== "ADMIN" ? { store: { userId } } : {}),
+            },
+            select: { id: true, title: true, images: true },
+          })
+        : [],
+      uploadedProductIds.length > 0
+        ? prisma.product.findMany({
+            where: {
+              id: { in: uploadedProductIds },
+              ...(user.role !== "ADMIN" ? { userId } : {}),
+            },
+            select: { id: true, title: true, images: true },
+          })
+        : [],
+    ]);
 
-    const products = await prisma.product.findMany({
-      where: productWhere,
-      select: { id: true, title: true, images: true },
-    });
+    const products = [...storeProducts, ...uploadedProducts];
 
     if (products.length === 0) {
       throw ApiError.badRequest("No valid products found for the provided IDs");
     }
 
     const productImages = products.flatMap((p) =>
-      p.images.map((img) => img.url),
+      p.images.map((img: any) => img.url),
     );
     const primaryProduct = products[0];
 
@@ -314,7 +370,9 @@ export class AdsService implements IAdsService {
     const ad = await prisma.ad.create({
       data: {
         userId,
-        productIds: data.productIds,
+        products: {
+          set: data.products,
+        },
         templateId: data.templateId || null,
         title: `Ad for ${primaryProduct.title}`,
         assembledPrompt,

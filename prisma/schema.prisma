@@ -493,11 +493,11 @@ enum NotificationType {
 //--------------------------------------------------------------------
 
 model Ad {
-    id              String   @id @default(auto()) @map("_id") @db.ObjectId
-    userId          String   @db.ObjectId
-    productIds      String[] @db.ObjectId // IDs of products used in this ad
-    templateId      String?  @db.ObjectId
-    generationJobId String?  @db.ObjectId
+    id              String      @id @default(auto()) @map("_id") @db.ObjectId
+    userId          String      @db.ObjectId
+    products        AdProduct[] // IDs and sources of products used in this ad
+    templateId      String?     @db.ObjectId
+    generationJobId String?     @db.ObjectId
 
     // Ad details
     title           String?
@@ -550,6 +550,11 @@ model Ad {
     @@index([status])
     @@index([userId, status, createdAt])
     @@map("ads")
+}
+
+type AdProduct {
+    productId String        @db.ObjectId
+    source    ProductSource
 }
 
 enum MediaType {

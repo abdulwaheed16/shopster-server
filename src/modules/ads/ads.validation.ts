@@ -1,17 +1,19 @@
 import { z } from "zod";
 import { objectIdSchema } from "../../common/validations/common.validation";
-import { ASPECT_RATIOS } from "../ai/ai.constants";
 
 // Shared base fields for all ad types
 const baseAdSchema = z.object({
-  productIds: z
-    .array(objectIdSchema)
-    .min(1, "At least 1 product is required")
-    .max(5, "Maximum 5 products are allowed"),
+  products: z.array(
+    z.object({
+      productId: objectIdSchema,
+      source: z.enum(["STORE", "UPLOADED"]),
+    }),
+  ),
   templateId: objectIdSchema.optional(),
-  aspectRatio: z
-    .enum(Object.values(ASPECT_RATIOS) as [string, ...string[]])
-    .optional(),
+  title: z.string().optional(),
+  mediaType: z.enum(["IMAGE", "VIDEO"]).optional(),
+  assembledPrompt: z.string().optional(),
+  aspectRatio: z.enum(["1:1", "16:9", "9:16", "4:5"]).optional(),
   variantsCount: z.number().int().min(1).max(4).optional(),
   variableValues: z.record(z.string(), z.any()).optional(),
   color: z.string().optional(),

@@ -126,9 +126,8 @@ export class StoreProductsService {
 
   // Create single product
   async createProduct(userId: string, data: CreateProductBody) {
-    // 1. Verify storeId is provided
-    if (!data.storeId) {
-      throw ApiError.badRequest("storeId is required for store products");
+    if (data.productSource !== "STORE") {
+      throw ApiError.badRequest("Invalid product source for store service");
     }
 
     // 2. Verify store exists
@@ -201,14 +200,19 @@ export class StoreProductsService {
 
     const count = await prisma.$transaction(async (tx) => {
       let created = 0;
-      const data = productsData.map((p) => ({
-        ...p,
-        externalId:
-          p.externalId ||
-          `manual-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-        images: p.images as any,
-        variants: p.variants as any,
-      }));
+      const data = productsData.map((p) => {
+        if (p.productSource !== "STORE") {
+          throw ApiError.badRequest("Invalid product source in bulk data");
+        }
+        return {
+          ...p,
+          externalId:
+            p.externalId ||
+            `manual-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          images: p.images as any,
+          variants: p.variants as any,
+        };
+      });
 
       for (const p of data) {
         await tx.product.upsert({
