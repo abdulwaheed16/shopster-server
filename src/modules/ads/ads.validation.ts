@@ -3,12 +3,15 @@ import { objectIdSchema } from "../../common/validations/common.validation";
 
 // Shared base fields for all ad types
 const baseAdSchema = z.object({
-  products: z.array(
-    z.object({
-      productId: objectIdSchema,
-      source: z.enum(["STORE", "UPLOADED"]),
-    }),
-  ),
+  products: z
+    .array(
+      z.object({
+        productId: objectIdSchema,
+        source: z.enum(["STORE", "UPLOADED"]),
+      }),
+    )
+    .min(2, "At least 2 products are required.")
+    .max(3, "A maximum of 3 products can be selected."),
   templateId: objectIdSchema.optional(),
   title: z.string().optional(),
   mediaType: z.enum(["IMAGE", "VIDEO"]).optional(),

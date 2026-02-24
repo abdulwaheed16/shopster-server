@@ -1,10 +1,13 @@
 import { Router } from "express";
 import { Permission } from "../../common/constants/permissions.constant";
+import { UserRole } from "../../common/constants/roles.constant";
 import { authenticate } from "../../common/middlewares/auth.middleware";
 import { hasPermissions } from "../../common/middlewares/permission.middleware";
+import { authorize } from "../../common/middlewares/role.middleware";
 import { validate } from "../../common/middlewares/validate.middleware";
 import { settingsController } from "./settings.controller";
 import {
+  updateAppSettingsSchema,
   updateProfileSchema,
   updateSecuritySchema,
 } from "./settings.validation";
@@ -45,10 +48,21 @@ router.post(
   settingsController.enable2FA.bind(settingsController),
 );
 
-router.post(
-  "/security/2fa/disable",
-  hasPermissions(Permission.MANAGE_2FA),
-  settingsController.disable2FA.bind(settingsController),
+router.post("/security/2fa/disable", authenticate, (req, res, next) =>
+  settingsController.disable2FA(req, res, next),
+);
+
+// Global App Settings
+router.get("/app", (req, res, next) =>
+  settingsController.getAppSettings(req, res, next),
+);
+
+router.patch(
+  "/app",
+  authenticate,
+  authorize(UserRole.ADMIN),
+  validate(updateAppSettingsSchema),
+  (req, res, next) => settingsController.updateAppSettings(req, res, next),
 );
 
 export default router;

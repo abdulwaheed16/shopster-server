@@ -30,5 +30,15 @@ export const updateSecuritySchema = z.object({
   }),
 });
 
+export const updateAppSettingsSchema = z.object({
+  body: z.object({
+    isMaintenanceMode: z.boolean().optional(),
+    maintenanceMessage: z.string().optional(),
+  }),
+});
+
 export type UpdateProfileInput = z.infer<typeof updateProfileSchema>["body"];
 export type UpdateSecurityInput = z.infer<typeof updateSecuritySchema>["body"];
+export type UpdateAppSettingsInput = z.infer<
+  typeof updateAppSettingsSchema
+>["body"];

@@ -63,6 +63,24 @@ export class SettingsController {
       next(error);
     }
   }
+
+  async getAppSettings(req: Request, res: Response, next: NextFunction) {
+    try {
+      const settings = await settingsService.getAppSettings();
+      sendSuccess(res, "App settings fetched successfully", settings);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async updateAppSettings(req: Request, res: Response, next: NextFunction) {
+    try {
+      const settings = await settingsService.updateAppSettings(req.body);
+      sendSuccess(res, "App settings updated successfully", settings);
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 export const settingsController = new SettingsController();

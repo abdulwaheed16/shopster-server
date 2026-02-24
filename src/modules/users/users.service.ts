@@ -8,6 +8,7 @@ import {
   parsePaginationParams,
 } from "../../common/utils/pagination.util";
 import { prisma } from "../../config/database.config";
+import { emailService } from "../email/email.service";
 import { IUsersService } from "./users.types";
 import { GetUsersQuery, UpdateUserBody } from "./users.validation";
 
@@ -52,6 +53,11 @@ export class UsersService implements IUsersService {
           subscription: {
             include: {
               plan: true,
+            },
+          },
+          creditWallet: {
+            select: {
+              balance: true,
             },
           },
         },
@@ -196,6 +202,16 @@ export class UsersService implements IUsersService {
         createdAt: true,
       },
     });
+
+    // Send invitation email asynchronously
+    emailService
+      .sendInvitationEmail(user.email, user.name || "User", data.password)
+      .catch((err) =>
+        console.error(
+          `[UsersService] Failed to send invite to ${user.email}:`,
+          err.message,
+        ),
+      );
 
     return user;
   }

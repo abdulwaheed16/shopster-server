@@ -16,7 +16,7 @@ export async function seedPlans() {
       slug: "guest",
       type: PlanType.FREE,
       description: "Trial plan for new users",
-      creditsPerMonth: 10,
+      creditsPerMonth: 15,
       storesLimit: 1,
       prices: [],
       isActive: true,

@@ -54,7 +54,7 @@ export class SettingsService implements ISettingsService {
 
     const isPasswordMatch = await comparePassword(
       data.currentPassword,
-      user.password
+      user.password,
     );
     if (!isPasswordMatch) {
       throw ApiError.badRequest("Incorrect current password");
@@ -84,6 +84,40 @@ export class SettingsService implements ISettingsService {
       message: `2FA ${enabled ? "enabled" : "disabled"} successfully (Mock)`,
       enabled,
     };
+  }
+
+  /**
+   * Get global app settings
+   */
+  async getAppSettings() {
+    let settings = await prisma.appSettings.findFirst();
+
+    if (!settings) {
+      settings = await prisma.appSettings.create({
+        data: {
+          isMaintenanceMode: false,
+          maintenanceMessage:
+            "System is under maintenance. Please try again later.",
+        },
+      });
+    }
+
+    return settings;
+  }
+
+  /**
+   * Update global app settings (Admin Only)
+   */
+  async updateAppSettings(data: {
+    isMaintenanceMode?: boolean;
+    maintenanceMessage?: string;
+  }) {
+    const settings = await this.getAppSettings();
+
+    return prisma.appSettings.update({
+      where: { id: settings.id },
+      data,
+    });
   }
 }
 

@@ -265,7 +265,7 @@ export class AdsService implements IAdsService {
     // 0. Credit & Subscription Check
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      include: { subscription: true },
+      include: { subscription: { include: { plan: true } } },
     });
 
     if (!user) throw ApiError.notFound("User not found");
@@ -280,6 +280,23 @@ export class AdsService implements IAdsService {
       throw ApiError.forbidden(
         "An active subscription is required to generate ads. Please subscribe to a plan.",
       );
+    }
+
+    // Guest-plan enforcement: max 10s video, max 2 scenes
+    const planName =
+      (user.subscription as any)?.plan?.name?.toLowerCase() ?? "";
+    if (planName === "guest" && data.mediaType === "VIDEO") {
+      const videoData = data as any;
+      if (videoData.duration && videoData.duration > 10) {
+        throw ApiError.forbidden(
+          "Guest accounts are limited to a maximum video duration of 10 seconds.",
+        );
+      }
+      if (videoData.scenes && videoData.scenes.length > 2) {
+        throw ApiError.forbidden(
+          "Guest accounts are limited to a maximum of 2 scenes per video ad.",
+        );
+      }
     }
 
     const userBalance = await creditsService.getBalance(userId);

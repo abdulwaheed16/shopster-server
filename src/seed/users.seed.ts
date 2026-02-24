@@ -55,8 +55,8 @@ export async function seedUsers() {
   });
 
   if (!wallet || wallet.balance === 0) {
-    await creditsService.setCredits(guestUser.id, 10, "Guest initial credits");
-    console.log(`✅ Initialized 10 credits for: ${guestEmail}`);
+    await creditsService.setCredits(guestUser.id, 15, "Guest initial credits");
+    console.log(`✅ Initialized 15 credits for: ${guestEmail}`);
   }
 
   // 4. Ensure demo user exists

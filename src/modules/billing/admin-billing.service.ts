@@ -187,47 +187,73 @@ export class SubscriptionAdminService {
     const plan = await prisma.plan.findUnique({ where: { id: data.planId } });
     if (!plan) throw ApiError.notFound("Plan not found");
 
-    // Upsert: one subscription per user
+    // Manual uniqueness check for stripeSubscriptionId (if provided)
+    if (data.stripeSubscriptionId) {
+      const existingWithStripeId = await prisma.subscription.findFirst({
+        where: {
+          stripeSubscriptionId: data.stripeSubscriptionId,
+          userId: { not: data.userId },
+        },
+      });
+      if (existingWithStripeId) {
+        throw ApiError.conflict("Stripe subscription ID is already in use by another user");
+      }
+    }
+
     const now = new Date();
     const periodEnd = data.currentPeriodEnd
       ? new Date(data.currentPeriodEnd)
       : new Date(now.getTime() + 30 * 24 * 60 * 60 * 1_000);
 
-    const subscription = await prisma.subscription.upsert({
+    // Check if user already has a subscription
+    const existingSubscription = await prisma.subscription.findUnique({
       where: { userId: data.userId },
-      create: {
-        userId: data.userId,
-        planId: data.planId,
-        interval: data.interval as any,
-        status: data.status as SubscriptionStatus,
-        currentPeriodStart: data.currentPeriodStart
-          ? new Date(data.currentPeriodStart)
-          : now,
-        currentPeriodEnd: periodEnd,
-        stripeSubscriptionId: data.stripeSubscriptionId,
-      },
-      update: {
-        planId: data.planId,
-        interval: data.interval as any,
-        status: data.status as SubscriptionStatus,
-        currentPeriodStart: data.currentPeriodStart
-          ? new Date(data.currentPeriodStart)
-          : now,
-        currentPeriodEnd: periodEnd,
-        stripeSubscriptionId: data.stripeSubscriptionId,
-        pendingPlanId: null,
-      },
-      include: { plan: true },
     });
 
-    // Grant initial credits for the new plan
-    if (plan.creditsPerMonth > 0) {
-      await creditsService.addCredits(
-        data.userId,
-        plan.creditsPerMonth,
-        UsageType.MONTHLY_REFILL,
-        `Subscription created: ${plan.name} plan`,
-      );
+    let subscription;
+    if (existingSubscription) {
+      // Update existing subscription
+      subscription = await prisma.subscription.update({
+        where: { id: existingSubscription.id },
+        data: {
+          planId: data.planId,
+          interval: data.interval as any,
+          status: data.status as SubscriptionStatus,
+          currentPeriodStart: data.currentPeriodStart
+            ? new Date(data.currentPeriodStart)
+            : now,
+          currentPeriodEnd: periodEnd,
+          stripeSubscriptionId: data.stripeSubscriptionId ?? existingSubscription.stripeSubscriptionId,
+          pendingPlanId: null,
+        },
+        include: { plan: true },
+      });
+    } else {
+      // Create new subscription
+      subscription = await prisma.subscription.create({
+        data: {
+          userId: data.userId,
+          planId: data.planId,
+          interval: data.interval as any,
+          status: data.status as SubscriptionStatus,
+          currentPeriodStart: data.currentPeriodStart
+            ? new Date(data.currentPeriodStart)
+            : now,
+          currentPeriodEnd: periodEnd,
+          stripeSubscriptionId: data.stripeSubscriptionId,
+        },
+        include: { plan: true },
+      });
+
+      // Grant initial credits ONLY for new subscriptions
+      if (plan.creditsPerMonth > 0) {
+        await creditsService.addCredits(
+          data.userId,
+          plan.creditsPerMonth,
+          UsageType.MONTHLY_REFILL,
+          `Subscription created: ${plan.name} plan`,
+        );
+      }
     }
 
     return subscription;

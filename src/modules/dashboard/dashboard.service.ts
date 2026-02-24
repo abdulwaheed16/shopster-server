@@ -1,4 +1,4 @@
-import { AdStatus, JobStatus } from "@prisma/client";
+import { AdStatus } from "@prisma/client";
 import { prisma } from "../../config/database.config";
 
 import { IDashboardService } from "./dashboard.types";
@@ -6,14 +6,18 @@ import { IDashboardService } from "./dashboard.types";
 export class DashboardService implements IDashboardService {
   // Get user dashboard stats
   async getUserStats(userId: string) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
     const [
       storesCount,
       productsCount,
       templatesCount,
-      // variablesCount,
       adsStats,
+      todayAdsCount,
       recentAds,
       user,
+      adsTrend,
     ] = await Promise.all([
       // Total stores
       prisma.store.count({ where: { userId } }),
@@ -28,14 +32,19 @@ export class DashboardService implements IDashboardService {
       // Total templates
       prisma.template.count({ where: { userId } }),
 
-      // Total variables
-      // prisma.variable.count({ where: { userId } }),
-
       // Ads stats by status
       prisma.ad.groupBy({
         by: ["status"],
         where: { userId },
         _count: true,
+      }),
+
+      // Today's ads
+      prisma.ad.count({
+        where: {
+          userId,
+          createdAt: { gte: today },
+        },
       }),
 
       // Recent ads
@@ -51,16 +60,26 @@ export class DashboardService implements IDashboardService {
           },
         },
       }),
-      // User credits
+      // User credits and subscription
       prisma.user.findUnique({
         where: { id: userId },
-        select: { creditWallet: { select: { balance: true } } },
+        select: {
+          creditWallet: { select: { balance: true } },
+          subscription: {
+            include: {
+              plan: true,
+            },
+          },
+        },
       }),
+      // Last 7 days trend
+      this.getTrendData(prisma.ad, { userId }, 7),
     ]);
 
     // Transform ads stats
     const adsStatusCounts = {
       total: 0,
+      today: todayAdsCount,
       pending: 0,
       processing: 0,
       completed: 0,
@@ -92,24 +111,32 @@ export class DashboardService implements IDashboardService {
       stores: storesCount,
       products: productsCount,
       templates: templatesCount,
-      // variables: variablesCount,
       ads: adsStatusCounts,
       recentAds: recentAdsWithProducts,
       credits: user?.creditWallet?.balance || 0,
+      subscription: user?.subscription,
+      trends: {
+        ads: adsTrend,
+      },
     };
   }
 
   // Get admin dashboard stats
-  async getAdminStats() {
+  async getAdminStats(days: number = 30) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
     const [
       usersStats,
+      todayUsersCount,
       storesCount,
-      productsCount,
-      templatesCount,
       adsStats,
-      jobsStats,
+      todayAdsCount,
+      ownAdsCount,
       recentUsers,
-      recentAds,
+      latestExecutions,
+      usersTrend,
+      adsTrend,
     ] = await Promise.all([
       // Granular users stats
       prisma.user.groupBy({
@@ -117,14 +144,15 @@ export class DashboardService implements IDashboardService {
         _count: true,
       }),
 
+      // Today's joined users
+      prisma.user.count({
+        where: {
+          createdAt: { gte: today },
+        },
+      }),
+
       // Total stores
       prisma.store.count(),
-
-      // Total products
-      prisma.product.count(),
-
-      // Total templates
-      prisma.template.count(),
 
       // Ads stats by status
       prisma.ad.groupBy({
@@ -132,10 +160,18 @@ export class DashboardService implements IDashboardService {
         _count: true,
       }),
 
-      // Jobs stats by status
-      prisma.generationJob.groupBy({
-        by: ["status"],
-        _count: true,
+      // Today's total ads
+      prisma.ad.count({
+        where: {
+          createdAt: { gte: today },
+        },
+      }),
+
+      // Admin's own ads (where user role is ADMIN)
+      prisma.ad.count({
+        where: {
+          user: { role: "ADMIN" },
+        },
       }),
 
       // Recent users
@@ -151,7 +187,7 @@ export class DashboardService implements IDashboardService {
         },
       }),
 
-      // Recent ads
+      // Latest executions (Success/Failed ads for Audit Log)
       prisma.ad.findMany({
         take: 10,
         orderBy: { createdAt: "desc" },
@@ -162,13 +198,24 @@ export class DashboardService implements IDashboardService {
               email: true,
             },
           },
+          template: {
+            select: {
+              name: true,
+            },
+          },
         },
       }),
+
+      // Trending data
+      this.getTrendData(prisma.user, {}, days),
+      this.getTrendData(prisma.ad, {}, days),
     ]);
 
     // Transform ads stats
     const adsStatusCounts = {
       total: 0,
+      today: todayAdsCount,
+      own: ownAdsCount,
       pending: 0,
       processing: 0,
       completed: 0,
@@ -182,26 +229,10 @@ export class DashboardService implements IDashboardService {
       ] = stat._count;
     });
 
-    // Transform jobs stats
-    const jobsStatusCounts = {
-      total: 0,
-      pending: 0,
-      processing: 0,
-      completed: 0,
-      failed: 0,
-      cancelled: 0,
-    };
-
-    jobsStats.forEach((stat: { status: JobStatus; _count: number }) => {
-      jobsStatusCounts.total += stat._count;
-      jobsStatusCounts[
-        stat.status.toLowerCase() as keyof typeof jobsStatusCounts
-      ] = stat._count;
-    });
-
     // Transform users stats
     const usersSummary = {
       total: 0,
+      today: todayUsersCount,
       active: 0,
       inactive: 0,
       admins: 0,
@@ -216,30 +247,55 @@ export class DashboardService implements IDashboardService {
       },
     );
 
-    // Resolve products for recent ads
-    const recentAdsWithProducts = await Promise.all(
-      recentAds.map(async (ad: any) => {
-        const products =
-          ad.productIds && ad.productIds.length > 0
-            ? await prisma.product.findMany({
-                where: { id: { in: ad.productIds } },
-                select: { title: true },
-              })
-            : [];
-        return { ...ad, products };
-      }),
-    );
-
     return {
       users: usersSummary,
       stores: storesCount,
-      products: productsCount,
-      templates: templatesCount,
       ads: adsStatusCounts,
-      jobs: jobsStatusCounts,
       recentUsers,
-      recentAds: recentAdsWithProducts,
+      latestExecutions,
+      trends: {
+        users: usersTrend,
+        ads: adsTrend,
+      },
     };
+  }
+
+  // Helper to get trend data for charts
+  private async getTrendData(model: any, where: any, days: number = 30) {
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - days);
+    startDate.setHours(0, 0, 0, 0);
+
+    const data = await model.findMany({
+      where: {
+        ...where,
+        createdAt: { gte: startDate },
+      },
+      select: { createdAt: true },
+      orderBy: { createdAt: "asc" },
+    });
+
+    // Group by date
+    const countsByDate: Record<string, number> = {};
+
+    // Initialize all dates with 0
+    for (let i = 0; i < days; i++) {
+      const date = new Date(startDate);
+      date.setDate(startDate.getDate() + i);
+      const dateStr = date.toISOString().split("T")[0];
+      countsByDate[dateStr] = 0;
+    }
+
+    data.forEach((item: any) => {
+      const dateStr = new Date(item.createdAt).toISOString().split("T")[0];
+      if (countsByDate[dateStr] !== undefined) {
+        countsByDate[dateStr]++;
+      }
+    });
+
+    return Object.entries(countsByDate)
+      .map(([date, count]) => ({ date, count }))
+      .sort((a, b) => a.date.localeCompare(b.date));
   }
 }
 

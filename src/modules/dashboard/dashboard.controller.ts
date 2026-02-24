@@ -26,7 +26,10 @@ export class DashboardController {
     next: NextFunction,
   ): Promise<void> {
     try {
-      const stats = await dashboardService.getAdminStats();
+      const { range } = req.query;
+      const days = range ? parseInt(range as string) : 30;
+
+      const stats = await dashboardService.getAdminStats(days);
 
       sendSuccess(res, MESSAGES.DASHBOARD.ADMIN_STATS_FETCHED, stats);
     } catch (error) {

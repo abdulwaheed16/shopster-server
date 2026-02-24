@@ -61,6 +61,7 @@ export class AuthService implements IAuthService {
       where: { email: data.email },
     });
 
+    // If user exists and is verified, they must log in
     if (existingUser && existingUser.emailVerified) {
       throw ApiError.conflict(
         MESSAGES.AUTH.EMAIL_ALREADY_EXISTS,

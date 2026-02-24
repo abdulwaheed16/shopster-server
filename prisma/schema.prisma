@@ -712,7 +712,7 @@ model Subscription {
     userId String @unique @db.ObjectId
     planId String @db.ObjectId
 
-    stripeSubscriptionId String?            @unique
+    stripeSubscriptionId String?
     status               SubscriptionStatus @default(INCOMPLETE)
     interval             BillingInterval    @default(MONTHLY) // What the user is billed on
 
@@ -866,4 +866,17 @@ model AuditLog {
     @@index([action])
     @@index([timestamp])
     @@map("audit_logs")
+}
+
+//--------------------------------------------------------------------
+// Global App Settings
+//--------------------------------------------------------------------
+
+model AppSettings {
+    id                 String   @id @default(auto()) @map("_id") @db.ObjectId
+    isMaintenanceMode  Boolean  @default(false)
+    maintenanceMessage String?
+    updatedAt          DateTime @updatedAt
+
+    @@map("app_settings")
 }

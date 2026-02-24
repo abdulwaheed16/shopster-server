@@ -59,7 +59,7 @@ export interface ISubscriptionService {
   updateSubscriptionStatus(
     stripeSubscriptionId: string,
     status: SubscriptionStatus,
-  ): Promise<Subscription>;
+  ): Promise<Subscription | null>;
   updateSubscriptionPeriod(
     stripeSubscriptionId: string,
     data: {
@@ -68,5 +68,5 @@ export interface ISubscriptionService {
       status?: SubscriptionStatus;
       cancelAtPeriodEnd?: boolean;
     },
-  ): Promise<Subscription>;
+  ): Promise<Subscription | null>;
 }

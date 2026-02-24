@@ -68,13 +68,20 @@ const handlePrismaError = (
   error: Prisma.PrismaClientKnownRequestError,
 ): ApiError => {
   switch (error.code) {
-    case "P2002":
+    case "P2002": {
       // Unique constraint violation
-      const field = (error.meta?.target as string[])?.join(", ") || "field";
+      // MongoDB returns meta.target as a string (index name); SQL DBs return string[].
+      const rawTarget = error.meta?.target;
+      const field = Array.isArray(rawTarget)
+        ? rawTarget.join(", ")
+        : typeof rawTarget === "string"
+          ? rawTarget
+          : "field";
       return ApiError.conflict(
         `${field} already exists`,
         ERROR_CODES.VALIDATION_ERROR,
       );
+    }
 
     case "P2025":
       // Record not found

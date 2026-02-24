@@ -8,6 +8,8 @@ import path from "path";
 import swaggerUi from "swagger-ui-express";
 
 import { errorHandler } from "./common/middlewares/error.middleware";
+import { optionalAuthenticate } from "./common/middlewares/auth.middleware";
+import { maintenanceMiddleware } from "./common/middlewares/maintenance.middleware";
 import { requestLogger } from "./common/monitoring/metrics";
 import { config } from "./config/env.config";
 import { morganStream } from "./config/logger.config";
@@ -81,7 +83,7 @@ export const createApp = (): Application => {
       },
     }),
   );
-  app.use(express.urlencoded({ extended: true, limit: "50mb" }));
+  app.use(express.urlencoded({ extended: true, limit: "100mb" }));
 
   // Cookie parser
   app.use(cookieParser(config.server.cookieSecret));
@@ -111,6 +113,8 @@ export const createApp = (): Application => {
   app.use("/assets", express.static(path.join(__dirname, "../assets")));
 
   // API routes
+  app.use(optionalAuthenticate);
+  app.use(maintenanceMiddleware);
   app.use(routes);
 
   // Serve Static Frontend (Production Only)
