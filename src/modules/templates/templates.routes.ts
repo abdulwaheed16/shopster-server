@@ -58,15 +58,13 @@ router.post(
 router.put(
   "/:id",
   hasPermissions(Permission.EDIT_TEMPLATE),
-  validate(CommonValidators.idSchema),
-  validate(updateTemplateSchema),
+  validate(updateTemplateSchema.merge(CommonValidators.idSchema)),
   templatesController.updateTemplate.bind(templatesController),
 );
 
 router.put(
   "/my/:id",
-  validate(CommonValidators.idSchema),
-  validate(updateTemplateSchema),
+  validate(updateTemplateSchema.merge(CommonValidators.idSchema)),
   templatesController.updateMyTemplate.bind(templatesController),
 );
 

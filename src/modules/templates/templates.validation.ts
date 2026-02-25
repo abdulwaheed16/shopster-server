@@ -5,7 +5,7 @@ export const createTemplateSchema = z.object({
   body: z.object({
     name: z.string().min(1, "Name is required"),
     description: z.string().optional(),
-    promptTemplate: z.string(),
+    promptTemplate: z.string().optional(),
     variableIds: z.array(z.string()).default([]),
     categoryIds: z.array(z.string()).default([]),
     referenceAdImage: z.string().optional(),
@@ -62,7 +62,15 @@ export const getTemplatesSchema = z.object({
     categoryIds: z.array(z.string()).optional(),
     isActive: z.string().optional(),
     filterType: z
-      .enum(["mine", "others", "all", "liked", "favorited", "recent"])
+      .enum([
+        "mine",
+        "others",
+        "all",
+        "liked",
+        "favorited",
+        "recent",
+        "uncategorised",
+      ])
       .default("all"),
     mediaType: z.enum(["IMAGE", "VIDEO"]).optional(),
     sortBy: z

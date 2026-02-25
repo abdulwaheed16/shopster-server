@@ -40,7 +40,7 @@ export class TemplatesService implements ITemplatesService {
         };
 
     const where: Prisma.TemplateWhereInput = {
-      isActive: true, // Only show active templates by default
+      ...(isAdmin ? {} : { isActive: true }),
       AND: [accessFilter],
     };
 
@@ -71,6 +71,8 @@ export class TemplatesService implements ITemplatesService {
       });
       const uniqueIds = Array.from(new Set(visits.map((v) => v.templateId)));
       where.id = { in: uniqueIds };
+    } else if (query.filterType === "uncategorised") {
+      where.categoryIds = { isEmpty: true };
     }
 
     // 4. Dynamic Filters (Search, Category, Media Type)
@@ -438,7 +440,15 @@ export class TemplatesService implements ITemplatesService {
     }
 
     // Clean up internal fields before creating template
-    const { variables, previewImage, categoryId, ...restData } = data as any;
+    const {
+      variables,
+      previewImage,
+      categoryId,
+      categoryIds,
+      assignedUserId,
+      assignedUserIds,
+      ...restData
+    } = data as any;
 
     // Map previewImage (singular/deprecated) to previewImages (plural/actual) if needed
     if (previewImage && !restData.previewImages) {
@@ -493,11 +503,25 @@ export class TemplatesService implements ITemplatesService {
     if (!existing)
       throw ApiError.notFound("Template not found or access denied");
 
-    const { previewImage, categoryId, ...cleanData } = data as any;
+    const { previewImage, categoryId, categoryIds, assignedUserId, ...cleanData } =
+      data as any;
     if (previewImage && !cleanData.previewImages) {
       cleanData.previewImages = Array.isArray(previewImage)
         ? previewImage
         : [previewImage];
+    }
+
+    if (categoryId) {
+      cleanData.categories = {
+        set: [{ id: categoryId }],
+      };
+    }
+
+    // Handle assigned user mapping and public status
+    if (cleanData.isPublic === true) {
+      cleanData.assignedUserIds = [];
+    } else if (assignedUserId) {
+      cleanData.assignedUserIds = [assignedUserId];
     }
 
     const updated = await prisma.template.update({
