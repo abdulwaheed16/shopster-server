@@ -16,19 +16,27 @@ export class N8NImageProvider
   async generate(
     options: ImagePromptOptions,
   ): Promise<ImageGenerationResult[]> {
-    const webhookUrl = this.resolveWebhookUrl();
+    const webhookUrl = this.resolveWebhookUrl(
+      options.taskType,
+      options.mediaType,
+    );
 
     const payload: ImageGenerationPayload = {
       adId: options.adId,
       userPrompt: options.userPrompt || options.prompt,
-      templatePrompt: options.templatePrompt,
-      templateImage: options.templateImage,
       productImages: options.productImages,
+      modelImage: options.modelImage,
+      categoryName: (options as any).category,
+      adType: (options as any).adType,
       aspectRatio: options.aspectRatio,
       variants: options.variants ?? 1,
       style: options.style,
       color: options.color,
-      mediaType: "IMAGE",
+      mediaType: options.mediaType || "IMAGE",
+      productDescription: (options as any).productDescription,
+      targetSceneId: (options as any).targetSceneId,
+      baseImage: (options as any).baseImage || (options as any).baseImageUrl,
+      storyboard: (options as any).storyboard,
       timestamp: new Date().toISOString(),
     };
 

@@ -17,6 +17,8 @@ export interface ImagePromptOptions {
   templatePrompt?: string;
   userPrompt?: string;
   modelImage?: string;
+  taskType?: string;
+  mediaType?: "IMAGE" | "VIDEO";
 }
 
 export interface ImageGenerationResult {

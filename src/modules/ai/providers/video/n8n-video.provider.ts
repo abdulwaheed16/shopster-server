@@ -14,21 +14,25 @@ export class N8NVideoProvider
   protected readonly logPrefix = "[N8NVideoProvider]";
 
   async generate(options: VideoPromptOptions): Promise<VideoGenerationResult> {
-    const webhookUrl = this.resolveWebhookUrl();
+    const webhookUrl = this.resolveWebhookUrl(
+      options.taskType,
+      options.mediaType,
+    );
 
     const payload: VideoGenerationPayload = {
       adId: options.adId,
       scenes: options.scenes,
-      templatePrompt: options.templatePrompt,
-      templateImage: options.templateImage,
       productImages: options.productImages,
-      modelImage: options.modelImage,
       aspectRatio: options.aspectRatio,
       style: options.style,
       color: options.color,
-      mediaType: "VIDEO",
+      mediaType: options.mediaType || "VIDEO",
       duration: options.duration ?? 10,
       videoScript: options.videoScript,
+      storyboard: options.storyboard,
+      baseImage: options.baseImage || (options as any).baseImageUrl,
+      productDescription: (options as any).productDescription,
+      targetSceneId: (options as any).targetSceneId,
       timestamp: new Date().toISOString(),
     };
 
