@@ -1,4 +1,9 @@
-import { adGenerationWorker } from "./ad-generation.worker";
+import { adTemplateWorker } from "./ad-generation/workers/ad-template.worker";
+import { baseImageWorker } from "./ad-generation/workers/base-image.worker";
+import { finalVideoWorker } from "./ad-generation/workers/final-video.worker";
+import { modelImageWorker } from "./ad-generation/workers/model-image.worker";
+import { singleSceneWorker } from "./ad-generation/workers/single-scene.worker";
+import { storyboardWorker } from "./ad-generation/workers/storyboard.worker";
 import { shopifySyncWorker } from "./shopify-sync.worker";
 import { templatePreviewWorker } from "./template-preview.worker";
 
@@ -13,19 +18,25 @@ export const initializeWorkers = () => {
   // This function just provides a central place to manage them
 
   console.log("Queue workers initialized successfully");
-  console.log("Ad Generation Worker: Ready");
-  console.log("Template Preview Worker: Ready");
-  console.log("Shopify Sync Worker: Ready");
+  console.log(
+    "Ad Generation Workers: [Base, Model, Storyboard, Scene, Final, Template] Ready",
+  );
+  console.log("Legacy Workers: [Shopify, Preview] Ready");
 };
 
 /**
  * Gracefully shutdown all workers
  */
 export const shutdownWorkers = async () => {
-  console.log("Shutting down queue workers...");  
+  console.log("Shutting down queue workers...");
 
   await Promise.all([
-    adGenerationWorker.close(),
+    baseImageWorker.close(),
+    modelImageWorker.close(),
+    storyboardWorker.close(),
+    singleSceneWorker.close(),
+    finalVideoWorker.close(),
+    adTemplateWorker.close(),
     templatePreviewWorker.close(),
     shopifySyncWorker.close(),
   ]);
@@ -34,4 +45,13 @@ export const shutdownWorkers = async () => {
 };
 
 // Export workers for testing/monitoring
-export { adGenerationWorker, shopifySyncWorker, templatePreviewWorker };
+export {
+  adTemplateWorker,
+  baseImageWorker,
+  finalVideoWorker,
+  modelImageWorker,
+  shopifySyncWorker,
+  singleSceneWorker,
+  storyboardWorker,
+  templatePreviewWorker,
+};
