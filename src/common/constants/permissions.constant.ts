@@ -117,14 +117,22 @@ export enum Permission {
 
   // ─── Ad Drafts ────────────────────────────────────────────────────────────
   MANAGE_AD_DRAFTS = "manage_ad_drafts",
+
+  // ─── Variable Management ──────────────────────────────────────────────────
+  VIEW_VARIABLES = "view_variables",
+  CREATE_VARIABLE = "create_variable",
+  EDIT_VARIABLE = "edit_variable",
+  DELETE_VARIABLE = "delete_variable",
+
+  // ─── Generation Jobs (Admin) ──────────────────────────────────────────────
+  VIEW_JOBS = "view_jobs",
+  RETRY_JOB = "retry_job",
+  CANCEL_JOB = "cancel_job",
+
+  // ─── Audit Logs (Admin) ───────────────────────────────────────────────────
+  VIEW_AUDIT_LOGS = "view_audit_logs",
 }
 
-/**
- * Map each role to its allowed permissions.
- * ADMIN gets all permissions.
- * USER gets standard authenticated user access.
- * GUEST gets a read-only, limited set (no billing, no write ops).
- */
 export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
   [UserRole.ADMIN]: Object.values(Permission),
 
@@ -139,6 +147,13 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.DELETE_AD,
     Permission.BULK_DELETE_ADS,
     Permission.CANCEL_AD_GENERATION,
+    Permission.MANAGE_AD_DRAFTS,
+
+    // Variables
+    Permission.VIEW_VARIABLES,
+    Permission.CREATE_VARIABLE,
+    Permission.EDIT_VARIABLE,
+    Permission.DELETE_VARIABLE,
 
     // Stores
     Permission.VIEW_STORES,
@@ -164,7 +179,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.VIEW_TEMPLATES,
     Permission.MANAGE_OWN_TEMPLATES,
 
-    // Billing — user self-service
+    // Billing
     Permission.VIEW_BILLING_PAGE,
     Permission.VIEW_PLANS,
     Permission.VIEW_PRICING_PAGE,
@@ -189,6 +204,19 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     // Feedback
     Permission.SUBMIT_FEEDBACK,
     Permission.VIEW_OWN_FEEDBACK,
+
+    // Categories
+    Permission.VIEW_CATEGORIES,
+    Permission.CREATE_CATEGORY,
+    Permission.EDIT_CATEGORY,
+    Permission.DELETE_CATEGORY,
+
+    // Notifications
+    Permission.VIEW_NOTIFICATIONS,
+    Permission.MARK_NOTIFICATIONS_READ,
+
+    // User Details
+    Permission.VIEW_USER_DETAILS,
   ],
 
   [UserRole.GUEST]: [
@@ -202,12 +230,13 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.DELETE_AD,
     Permission.BULK_DELETE_ADS,
     Permission.CANCEL_AD_GENERATION,
+    Permission.MANAGE_AD_DRAFTS,
+
+    // Variables
+    Permission.VIEW_VARIABLES,
 
     // Stores
     Permission.VIEW_STORES,
-    Permission.CREATE_STORE,
-    Permission.EDIT_STORE,
-    Permission.DELETE_STORE,
     Permission.SYNC_STORE,
 
     // Products
@@ -215,27 +244,17 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.CREATE_PRODUCT,
     Permission.EDIT_PRODUCT,
     Permission.DELETE_PRODUCT,
-    Permission.BULK_DELETE_PRODUCTS,
-    Permission.IMPORT_PRODUCTS_CSV,
-    Permission.EXPORT_PRODUCTS,
     Permission.MANAGE_ASSET_FOLDERS,
     Permission.UPLOAD_IMAGES,
     Permission.UPLOAD_VIDEOS,
-    Permission.DELETE_UPLOAD,
 
     // Templates
     Permission.VIEW_TEMPLATES,
     Permission.MANAGE_OWN_TEMPLATES,
 
-    // // Billing — user self-service
-    // Permission.VIEW_BILLING_PAGE,
-    // Permission.VIEW_PLANS,
-    // Permission.VIEW_PRICING_PAGE,
-    // Permission.MANAGE_SUBSCRIPTION,
-    // Permission.VIEW_INVOICES,
-    // Permission.VIEW_PAYMENT_METHODS,
-    // Permission.CREATE_CHECKOUT_SESSION,
-    // Permission.CREATE_PORTAL_SESSION,
+    // Billing (Limited)
+    Permission.VIEW_PLANS,
+    Permission.VIEW_PRICING_PAGE,
 
     // Analytics
     Permission.VIEW_AD_ANALYTICS,
@@ -246,11 +265,19 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.VIEW_PROFILE_SETTINGS,
     Permission.EDIT_PROFILE_SETTINGS,
     Permission.VIEW_SECURITY_SETTINGS,
-    Permission.EDIT_SECURITY_SETTINGS,
-    Permission.MANAGE_2FA,
 
     // Feedback
     Permission.SUBMIT_FEEDBACK,
     Permission.VIEW_OWN_FEEDBACK,
+
+    // Categories
+    Permission.VIEW_CATEGORIES,
+
+    // Notifications
+    Permission.VIEW_NOTIFICATIONS,
+    Permission.MARK_NOTIFICATIONS_READ,
+
+    // Ad Drafts
+    Permission.MANAGE_AD_DRAFTS,
   ],
 };
