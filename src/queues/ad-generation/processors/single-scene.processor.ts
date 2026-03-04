@@ -42,6 +42,7 @@ export class SingleSceneProcessor implements IAdProcessor<SingleSceneJobData> {
 
     const payload = {
       adId,
+      isDraft,
       imageUrls: [baseImage].filter(Boolean),
       userPrompt: userPrompt, // Standardized name
       prompt: userPrompt, // Legacy fallback

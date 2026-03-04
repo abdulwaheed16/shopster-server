@@ -21,6 +21,8 @@ export interface VideoPromptOptions {
   baseImage?: string;
   userPrompt?: string;
   isDraft?: boolean;
+  categoryName?: string;
+  adType?: string;
 }
 
 export interface VideoGenerationResult {

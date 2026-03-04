@@ -41,6 +41,8 @@ export interface VideoGenerationPayload extends N8NBasePayload {
   productDescription?: string;
   userPrompt?: string;
   targetSceneId?: string;
+  categoryName?: string;
+  adType?: string;
 }
 
 export interface N8NImageResult {

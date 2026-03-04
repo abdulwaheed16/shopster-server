@@ -665,6 +665,7 @@ export class AdsService implements IAdsService {
     data: GenerateVideoBaseImageDto,
   ) {
     Logger.info(`[AdsService] generateVideoBaseImage — userId=${userId}`, data);
+    Logger.info(`[AdsService] generateVideoBaseImage — data=${data}`);
 
     // Lookup category name from DB to ensure consistency
     const category = await prisma.category.findUnique({
@@ -709,6 +710,11 @@ export class AdsService implements IAdsService {
       templateId: data?.templateId || "",
       userPrompt: data?.userPrompt || "",
     };
+
+    Logger.info(
+      `[AdsService] BASE_IMAGE job payload — draftId=${draft.id}`,
+      jobPayload,
+    );
 
     await baseImageQueue.add("generate-base-image", jobPayload);
     Logger.info(`[AdsService] BASE_IMAGE job enqueued — draftId=${draft.id}`);

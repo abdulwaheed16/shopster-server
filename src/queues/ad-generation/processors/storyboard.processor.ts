@@ -50,6 +50,7 @@ export class StoryboardProcessor implements IAdProcessor<StoryboardJobData> {
     // Construct an explicit, type-safe payload for the AI service
     const payload = {
       adId,
+      isDraft,
       taskType: taskType as any,
       mediaType: "IMAGE" as const,
       userPrompt, // Standardized name
@@ -61,7 +62,7 @@ export class StoryboardProcessor implements IAdProcessor<StoryboardJobData> {
       productImages,
       baseImage: baseImage,
       storyboard: storyboard || (draft as any).storyboard,
-      category:
+      categoryName:
         (data as any).categoryName || (draft as any).categoryName || "General",
       adType: (data as any).adType || (draft as any).adType || "UGC",
     };

@@ -33,6 +33,7 @@ export class ModelImageProcessor implements IAdProcessor<ModelImageJobData> {
 
     const payload = {
       adId,
+      isDraft,
       taskType: "MODEL_IMAGE" as const,
       mediaType,
       userPrompt, // Explicitly pass userPrompt

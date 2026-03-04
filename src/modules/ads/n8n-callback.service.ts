@@ -12,6 +12,8 @@ export interface N8NCallbackPayload {
   mediaType?: MediaType;
   error?: string;
   url?: string;
+  imageUrls?: string[];
+  videoUrls?: string[];
   result?: any;
   scenes?: any[];
 }
@@ -33,12 +35,27 @@ export class N8NCallbackService {
   // ── Entry Point ────────────────────────────────────────────────────────────
 
   async handleCallback(payload: N8NCallbackPayload): Promise<void> {
-    const { adId, isDraft, status, error, taskType } = payload;
+    const { adId, status, error, taskType } = payload;
+    let { isDraft } = payload;
 
     this.logger.info(
       `[N8NCallback] RECEIVED — adId=${adId} task=${taskType} status=${status}`,
       { hasResult: !!payload.result, hasUrl: !!payload.url, isDraft },
     );
+
+    // ── Resiliency Guard ─────────────────────────────────────────────────────
+    // If isDraft is not explicitly provided by n8n (common if payload sync
+    // is lost), we check the DB to see where this ID lives.
+    if (isDraft === undefined) {
+      const draftExists = await prisma.adDraft.findUnique({
+        where: { id: adId },
+        select: { id: true },
+      });
+      isDraft = !!draftExists;
+      this.logger.info(
+        `[N8NCallback] Auto-detected isDraft=${isDraft} for adId=${adId}`,
+      );
+    }
 
     if (status === "error") {
       await this.handleFailure(
@@ -103,9 +120,9 @@ export class N8NCallbackService {
     isDraft: boolean,
     payload: N8NCallbackPayload,
   ): Promise<void> {
-    const { taskType, url, result } = payload;
-    const imageUrl = url || result?.url || result?.imageUrl;
-    const storyboard = result?.description || result?.storyboard;
+    const { taskType, result, imageUrls } = payload;
+    const imageUrl = imageUrls?.[0];
+    const storyboard = result?.storyBoard;
     const productDescription = result?.productDescription;
 
     // log the payload
@@ -113,35 +130,35 @@ export class N8NCallbackService {
       `[N8NCallback] Payload (BASE_IMAGE/MODEL_IMAGE): ${JSON.stringify(payload)}`,
     );
 
-    await prisma.adDraft.update({
-      where: { id: adId },
-      data: {
-        status: "PROCESSING" as AdStatus,
-        currentTask: { type: taskType, status: "COMPLETED" },
-        ...(taskType === "BASE_IMAGE"
-          ? {
-              baseImageUrl: imageUrl,
-              storyboard: storyboard || undefined,
-              productDescription: productDescription
-                ? { type: "TEXT", content: productDescription }
-                : undefined,
-            }
-          : { modelImageUrl: imageUrl }),
-      } as any,
-    });
-    // if (isDraft) {
-    // } else {
-    //   // Non-draft (image ad flow)
-    //   await prisma.ad.update({
-    //     where: { id: adId },
-    //     data: {
-    //       currentTask: { type: taskType, status: "COMPLETED" },
-    //       ...(taskType === "BASE_IMAGE"
-    //         ? { baseImageUrl: imageUrl }
-    //         : { modelImageUrl: imageUrl }),
-    //     } as any,
-    //   });
-    // }
+    if (isDraft) {
+      await prisma.adDraft.update({
+        where: { id: adId },
+        data: {
+          status: "PROCESSING" as AdStatus,
+          currentTask: { type: taskType, status: "COMPLETED" },
+          ...(taskType === "BASE_IMAGE"
+            ? {
+                baseImageUrl: imageUrl,
+                storyboard: storyboard || undefined,
+                productDescription: productDescription
+                  ? { type: "TEXT", content: productDescription }
+                  : undefined,
+              }
+            : { modelImageUrl: imageUrl }),
+        } as any,
+      });
+    } else {
+      // Non-draft (image ad flow)
+      await prisma.ad.update({
+        where: { id: adId },
+        data: {
+          currentTask: { type: taskType, status: "COMPLETED" },
+          ...(taskType === "BASE_IMAGE"
+            ? { baseImageUrl: imageUrl }
+            : { modelImageUrl: imageUrl }),
+        } as any,
+      });
+    }
 
     adsService.emitAdUpdate(adId, {
       status: "COMPLETED",
@@ -167,7 +184,7 @@ export class N8NCallbackService {
   ): Promise<void> {
     const { scenes, result, taskType } = payload;
     const finalScenes = scenes || result?.scenes || [];
-    const storyboard = result?.description || result?.storyboard;
+    const storyboard = result?.storyBoard;
     const productDescription = result?.productDescription;
 
     // log the payload
@@ -292,8 +309,16 @@ export class N8NCallbackService {
     isDraft: boolean,
     payload: N8NCallbackPayload,
   ): Promise<void> {
-    const { url, result, mediaType } = payload;
-    const finalUrl = url || result?.url || result?.videoUrl || result?.imageUrl;
+    const { url, result, mediaType, videoUrls, imageUrls } = payload;
+    const finalUrl =
+      url ||
+      result?.url ||
+      result?.videoUrl ||
+      result?.imageUrl ||
+      videoUrls?.[0] ||
+      imageUrls?.[0] ||
+      result?.videoUrls?.[0] ||
+      result?.imageUrls?.[0];
 
     // log the payload
     this.logger.info(

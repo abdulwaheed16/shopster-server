@@ -23,6 +23,8 @@ export class N8NVideoProvider
       adId: options.adId,
       isDraft: options.isDraft,
       taskType: options.taskType,
+      categoryName: options.categoryName,
+      adType: options.adType,
       scenes: options.scenes,
       productImages: options.productImages,
       aspectRatio: options.aspectRatio,
