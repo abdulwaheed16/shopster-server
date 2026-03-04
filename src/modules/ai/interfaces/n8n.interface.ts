@@ -1,9 +1,8 @@
+import { MediaType } from "@prisma/client";
 import { AspectRatio, StylePreset } from "../ai.constants";
 
 export interface N8NBasePayload {
   adId?: string;
-  templatePrompt?: string;
-  templateImage?: string;
   productImages?: string[];
   aspectRatio?: AspectRatio | string;
   style?: StylePreset | string;
@@ -13,20 +12,32 @@ export interface N8NBasePayload {
 }
 
 export interface ImageGenerationPayload extends N8NBasePayload {
-  mediaType: "IMAGE";
+  mediaType: MediaType | "IMAGE";
   variants: number;
-  userPrompt: string;
+  userPrompt?: string;
+  templatePrompt?: string;
+  templateImage?: string;
+  modelImage?: string;
+  categoryName?: string;
+  adType?: string;
+  productDescription?: string;
+  targetSceneId?: string;
+  baseImage?: string;
+  storyboard?: string;
 }
 
 export interface VideoGenerationPayload extends N8NBasePayload {
-  mediaType: "VIDEO";
-  modelImage?: string;
+  mediaType: MediaType;
   duration: number;
-  scenes?: string[];
+  scenes?: any[];
   videoScript?: {
     type: "TEXT" | "VOICE";
     content: string;
   };
+  storyboard?: string;
+  baseImage?: string;
+  productDescription?: string;
+  targetSceneId?: string;
 }
 
 export interface N8NImageResult {

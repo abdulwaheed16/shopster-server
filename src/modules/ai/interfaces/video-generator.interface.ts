@@ -15,6 +15,10 @@ export interface VideoPromptOptions {
     type: "TEXT" | "VOICE";
     content: string;
   };
+  storyboard?: string;
+  taskType?: string;
+  mediaType?: "IMAGE" | "VIDEO";
+  baseImage?: string;
 }
 
 export interface VideoGenerationResult {

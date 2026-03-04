@@ -1,25 +1,84 @@
 import { NextFunction, Request, Response } from "express";
-import { MESSAGES } from "../../common/constants/messages.constant";
 import Logger from "../../common/logging/logger";
 import {
   sendCreated,
   sendPaginated,
   sendSuccess,
 } from "../../common/utils/response.util";
-import { N8NCallbackPayload } from "../ai/interfaces/n8n-callback.types";
 import { adsService } from "./ads.service";
-import { GenerateAdBody, GetAdsQuery } from "./ads.validation";
 import { n8nCallbackService } from "./n8n-callback.service";
 
 export class AdsController {
+  // ---------------------------------------------------------------------------
+  // Real-time Event Streaming (SSE)
+  // ---------------------------------------------------------------------------
+  async streamAdEvents(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
+    try {
+      const { id } = req.params;
+      Logger.info(`[AdsController] SSE connection established — adId=${id}`);
+
+      res.write(
+        `data: ${JSON.stringify({ status: "CONNECTED", adId: id })}\n\n`,
+      );
+
+      const unsubscribe = adsService.subscribeToAdUpdates(id, (data) => {
+        if (res.writable) {
+          Logger.info(
+            `[AdsController] Forwarding update to client — adId=${id} status=${data.status}`,
+          );
+          res.write(`data: ${JSON.stringify(data)}\n\n`);
+          if ((res as any).flush) (res as any).flush();
+        }
+      });
+
+      const heartbeat = setInterval(() => {
+        if (res.writable) {
+          res.write(": heartbeat\n\n");
+          if ((res as any).flush) (res as any).flush();
+        }
+      }, 15_000);
+
+      req.on("close", () => {
+        clearInterval(heartbeat);
+        unsubscribe();
+        Logger.info(`[AdsController] SSE connection closed — adId=${id}`);
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // n8n Callback Handling
+  // ---------------------------------------------------------------------------
+  async handleN8nCallback(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
+    try {
+      await n8nCallbackService.handleCallback(req.body);
+      sendSuccess(res, "Callback received");
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Core Ad Operations
+  // ---------------------------------------------------------------------------
   async getAds(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const userId = req.user!.id;
-      const query = req.query as unknown as GetAdsQuery;
-
-      const result = await adsService.getAds(userId, query, req.user!.role);
-
-      sendPaginated(res, MESSAGES.ADS.FETCHED, result);
+      const result = await adsService.getAds(
+        req.user!.id,
+        req.query as any,
+        req.user!.role,
+      );
+      sendPaginated(res, "Ads fetched", result);
     } catch (error) {
       next(error);
     }
@@ -31,12 +90,8 @@ export class AdsController {
     next: NextFunction,
   ): Promise<void> {
     try {
-      const userId = req.user!.id;
-      const { id } = req.params;
-
-      const ad = await adsService.getAdById(id as string, userId);
-
-      sendSuccess(res, MESSAGES.ADS.FETCHED_ONE, ad);
+      const ad = await adsService.getAdById(req.params.id, req.user!.id);
+      sendSuccess(res, "Ad fetched", ad);
     } catch (error) {
       next(error);
     }
@@ -48,12 +103,8 @@ export class AdsController {
     next: NextFunction,
   ): Promise<void> {
     try {
-      const userId = req.user!.id;
-      const data = req.body as GenerateAdBody;
-
-      const ad = await adsService.generateAd(userId, data);
-
-      sendCreated(res, MESSAGES.ADS.QUEUED, ad);
+      const ad = await adsService.generateAd(req.user!.id, req.body);
+      sendCreated(res, "Ad generation started", ad);
     } catch (error) {
       next(error);
     }
@@ -65,13 +116,12 @@ export class AdsController {
     next: NextFunction,
   ): Promise<void> {
     try {
-      const userId = req.user!.id;
-      const { id } = req.params;
-      const data = req.body;
-
-      const ad = await adsService.updateAd(id as string, userId, data);
-
-      sendSuccess(res, MESSAGES.ADS.UPDATED, ad);
+      const ad = await adsService.updateAd(
+        req.params.id,
+        req.user!.id,
+        req.body,
+      );
+      sendSuccess(res, "Ad updated", ad);
     } catch (error) {
       next(error);
     }
@@ -83,12 +133,8 @@ export class AdsController {
     next: NextFunction,
   ): Promise<void> {
     try {
-      const userId = req.user!.id;
-      const { id } = req.params;
-
-      await adsService.deleteAd(id as string, userId);
-
-      sendSuccess(res, MESSAGES.ADS.DELETED);
+      await adsService.deleteAd(req.params.id, req.user!.id);
+      sendSuccess(res, "Ad deleted");
     } catch (error) {
       next(error);
     }
@@ -100,14 +146,8 @@ export class AdsController {
     next: NextFunction,
   ): Promise<void> {
     try {
-      const userId = req.user!.id;
-      const { ids } = req.body;
-
-      const result = await adsService.bulkDeleteAds(userId, ids);
-
-      sendSuccess(res, `${result.count} ads deleted successfully`, {
-        count: result.count,
-      });
+      const result = await adsService.bulkDeleteAds(req.user!.id, req.body.ids);
+      sendSuccess(res, `Bulk delete successful — ${result.count} ads removed`);
     } catch (error) {
       next(error);
     }
@@ -119,68 +159,124 @@ export class AdsController {
     next: NextFunction,
   ): Promise<void> {
     try {
-      const userId = req.user!.id;
-      const { id } = req.params;
-
-      await adsService.cancelAd(id as string, userId);
-
-      sendSuccess(res, MESSAGES.ADS.CANCELLED || "Ad generation cancelled");
+      await adsService.cancelAd(req.params.id, req.user!.id);
+      sendSuccess(res, "Ad generation cancelled");
     } catch (error) {
       next(error);
     }
   }
 
-  async streamAdEvents(
+  // ---------------------------------------------------------------------------
+  // Multi-step Video Generation Operations
+  // ---------------------------------------------------------------------------
+  async generateVideoBaseImage(
     req: Request,
     res: Response,
     next: NextFunction,
   ): Promise<void> {
     try {
-      const { id } = req.params;
-      Logger.info(`[SSE] streamAdEvents hit for ad ${id}`);
-
-      // Send initial event immediately to "lock in" the content-type
-      res.write(
-        `data: ${JSON.stringify({ status: "CONNECTED", adId: id as string })}\n\n`,
+      const result = await adsService.generateVideoBaseImage(
+        req.user!.id,
+        req.body,
       );
-
-      // Subscribe to ad-specific updates
-      const unsubscribe = adsService.subscribeToAdUpdates(
-        id as string,
-        (data) => {
-          res.write(`data: ${JSON.stringify(data)}\n\n`);
-        },
-      );
-
-      // Keep connection alive with a periodic heartbeat
-      const heartbeat = setInterval(() => {
-        res.write(": heartbeat\n\n");
-      }, 15_000);
-
-      Logger.info("SSE-Heartbeat: " + heartbeat);
-
-      Logger.info(`Ad events subscription established for ad: ${id}`);
-
-      // Clean up on client disconnect
-      req.on("close", () => {
-        clearInterval(heartbeat);
-        unsubscribe();
-        res.end();
-      });
+      sendSuccess(res, "Base image generation started", result);
     } catch (error) {
       next(error);
     }
   }
 
-  async handleN8nCallback(
+  async generateVideoScenes(
     req: Request,
     res: Response,
     next: NextFunction,
   ): Promise<void> {
     try {
-      const payload = req.body as N8NCallbackPayload;
-      await n8nCallbackService.handleCallback(payload);
-      sendSuccess(res, "Callback received and processed");
+      const result = await adsService.generateVideoScenes(
+        req.user!.id,
+        req.body,
+      );
+      sendSuccess(res, "Scene generation started", result);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async generateVideoFoodScenes(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
+    try {
+      const result = await adsService.generateVideoFoodScenes(
+        req.user!.id,
+        req.body,
+      );
+      sendSuccess(res, "Food scene generation started", result);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async regenerateScene(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
+    try {
+      const result = await adsService.regenerateScene(
+        req.user!.id,
+        req.params.id,
+        req.body,
+      );
+      sendSuccess(res, "Scene regeneration started", result);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async regenerateAllScenes(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
+    try {
+      const result = await adsService.regenerateAllScenes(
+        req.user!.id,
+        req.params.id,
+      );
+      sendSuccess(res, "All scenes regeneration started", result);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async generateFinalVideo(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
+    try {
+      const result = await adsService.generateFinalVideo(
+        req.user!.id,
+        req.body,
+      );
+      sendSuccess(res, "Final video rendering queued", result);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async generateVideoModelImage(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
+    try {
+      const result = await adsService.generateVideoModelImage(
+        req.user!.id,
+        req.body,
+      );
+      sendSuccess(res, "Model image generation started", result);
     } catch (error) {
       next(error);
     }

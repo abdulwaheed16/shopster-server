@@ -27,26 +27,31 @@ const router = Router();
 router.get(
   "/plans",
   authenticate,
+  hasPermissions(Permission.VIEW_PLANS),
   billingController.getPlans.bind(billingController),
 );
 router.get(
   "/plans/:id",
   authenticate,
+  hasPermissions(Permission.VIEW_PLANS),
   billingController.getPlan.bind(billingController),
 );
 router.get(
   "/subscription",
   authenticate,
+  hasPermissions(Permission.MANAGE_SUBSCRIPTION),
   billingController.getCurrentSubscription.bind(billingController),
 );
 router.get(
   "/invoices",
   authenticate,
+  hasPermissions(Permission.VIEW_INVOICES),
   billingController.getInvoices.bind(billingController),
 );
 router.get(
   "/payment-methods",
   authenticate,
+  hasPermissions(Permission.VIEW_PAYMENT_METHODS),
   billingController.getPaymentMethods.bind(billingController),
 );
 

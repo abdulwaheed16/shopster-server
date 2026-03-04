@@ -39,13 +39,44 @@ export abstract class N8NBaseProvider {
 
   /**
    * Validates that the n8n webhook URL is configured.
-   * Throws if missing so callers get a clear error early.
+   * Supports task-specific overrides from environment variables.
+   * Fallback priority: Specialized URL > Global N8N_WEBHOOK_URL.
    */
-  protected resolveWebhookUrl(): string {
-    const url = config.webhook.n8nUrl;
-    if (!url) {
-      throw new Error("n8n Webhook URL is not configured (N8N_WEBHOOK_URL)");
+  protected resolveWebhookUrl(
+    taskType?: string,
+    mediaType?: "IMAGE" | "VIDEO",
+  ): string {
+    let url: string | undefined;
+
+    // 1. Task-specific mapping
+    if (taskType === "MODEL_IMAGE") {
+      url = config.webhook.n8nVideoModelUrl;
+    } else if (
+      taskType === "STORYBOARD" ||
+      taskType === "ALL_SCENES" ||
+      taskType === "SINGLE_SCENE"
+    ) {
+      url = config.webhook.n8nVideoScenesUrl;
+    } else if (taskType === "FINAL_VIDEO") {
+      url = config.webhook.n8nVideoAdUrl;
+    } else if (taskType === "BASE_IMAGE") {
+      // Differentiate between standalone image ad and video-flow base image
+      url =
+        mediaType === "VIDEO"
+          ? config.webhook.n8nVideoBaseImageUrl
+          : config.webhook.n8nImageAdUrl;
     }
+
+    // 2. Fallback to global URL
+    url = url || config.webhook.n8nUrl;
+
+    if (!url) {
+      const missingKey = taskType
+        ? `specific to ${taskType}`
+        : "N8N_WEBHOOK_URL";
+      throw new Error(`n8n Webhook URL is not configured (${missingKey})`);
+    }
+
     return url;
   }
 

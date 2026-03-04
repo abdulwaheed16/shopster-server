@@ -656,12 +656,16 @@ export class TemplatesService implements ITemplatesService {
     );
 
     await templatePreviewQueue.add("generate-preview", {
-      templateId,
+      adId: templateId || "temp_preview",
       userId,
+      isDraft: true,
+      mediaType: "IMAGE",
+      taskType: "AD_TEMPLATE",
+      templateId: templateId || "temp_preview",
       promptTemplate,
       referenceAdImage,
       productImage,
-      variables: data.variables, // Pass variables for dynamic injection if needed
+      variables: data.variables,
     });
 
     return {

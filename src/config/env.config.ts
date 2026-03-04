@@ -61,8 +61,13 @@ const envSchema = z.object({
   OPENAI_API_KEY: z.string().optional(),
   TEXT_PROVIDER_GEMINI_API_KEY: z.string().optional(),
 
-  // n8n Webhook
+  // n8n Webhooks
   N8N_WEBHOOK_URL: z.string().url().optional(),
+  N8N_IMAGE_AD_URL: z.string().url().optional(),
+  N8N_VIDEO_AD_BASE_IMAGE_URL: z.string().url().optional(),
+  N8N_VIDEO_AD_MODEL_URL: z.string().url().optional(),
+  N8N_VIDEO_AD_SCENES_URL: z.string().url().optional(),
+  N8N_VIDEO_AD_URL: z.string().url().optional(),
   N8N_CALLBACK_SECRET: z.string().optional(),
   SERVER_BASE_URL: z.string().url().optional(),
 
@@ -134,6 +139,11 @@ export const config = {
   },
   webhook: {
     n8nUrl: env.N8N_WEBHOOK_URL,
+    n8nImageAdUrl: env.N8N_IMAGE_AD_URL,
+    n8nVideoBaseImageUrl: env.N8N_VIDEO_AD_BASE_IMAGE_URL,
+    n8nVideoModelUrl: env.N8N_VIDEO_AD_MODEL_URL,
+    n8nVideoScenesUrl: env.N8N_VIDEO_AD_SCENES_URL,
+    n8nVideoAdUrl: env.N8N_VIDEO_AD_URL,
     n8nCallbackSecret: env.N8N_CALLBACK_SECRET,
     serverBaseUrl: env.SERVER_BASE_URL,
   },

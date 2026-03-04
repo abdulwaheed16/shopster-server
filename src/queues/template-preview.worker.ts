@@ -55,7 +55,7 @@ export const templatePreviewWorker = new Worker(
       // Call n8n webhook for preview generation
       const webhookUrl = config.webhook.n8nUrl;
       if (!webhookUrl) {
-        throw new Error("N8N_WEBHOOK_URL is not configured");
+        throw new Error("n8n Webhook URL is not configured (N8N_WEBHOOK_URL)");
       }
 
       const response = await axios.post(

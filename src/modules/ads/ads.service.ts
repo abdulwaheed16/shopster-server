@@ -1,119 +1,236 @@
-import { AdStatus, Prisma } from "@prisma/client";
+import { AdStatus, MediaType, Prisma } from "@prisma/client";
 import { EventEmitter } from "events";
 import { ApiError } from "../../common/errors/api-error";
 import Logger from "../../common/logging/logger";
 import { createPaginatedResponse } from "../../common/utils/pagination.util";
 import { prisma } from "../../config/database.config";
-import { adGenerationQueue } from "../../config/queue.config";
-import { ASPECT_RATIOS } from "../ai/ai.constants";
+import {
+  baseImageQueue,
+  finalVideoQueue,
+  modelImageQueue,
+  singleSceneQueue,
+  storyboardQueue,
+} from "../../config/queue.config";
+import { AdGenerationJobData } from "../../queues/ad-generation/types/job-data.types";
+
 import { creditsService } from "../billing/credits.service";
-import { IAdsService } from "./ads.types";
+import {
+  GenerateFinalVideoDto,
+  GenerateVideoBaseImageDto,
+  GenerateVideoFoodScenesDto,
+  GenerateVideoModelImageDto,
+  GenerateVideoScenesDto,
+  IAdsService,
+  RegenerateSceneDto,
+} from "./ads.types";
 import { GenerateAdBody, GetAdsQuery } from "./ads.validation";
 import { AD_COSTS } from "./constants/ad-costs";
 
 export class AdsService implements IAdsService {
   private adEvents = new EventEmitter();
 
-  // Subscribe to ad updates
+  // ============================================================
+  // SSE Event Bus
+  // ============================================================
+
   subscribeToAdUpdates(adId: string, callback: (data: any) => void) {
     const handler = (data: any) => {
-      if (data.adId === adId) {
-        callback(data);
-      }
+      if (data.adId === adId) callback(data);
     };
     this.adEvents.on("adUpdate", handler);
     return () => this.adEvents.off("adUpdate", handler);
   }
 
-  // Emit ad update
+  // @ts-ignore
   emitAdUpdate(adId: string, status: AdStatus, data: any = {}) {
-    this.adEvents.emit("adUpdate", { adId, status, ...data });
+    // Extract potential competing identifiers from data to prevent collision
+    const { adId: dataAdId, ...rest } = data;
+    const finalAdId = adId || dataAdId;
+
+    Logger.info(
+      `[AdsService] Emitting SSE update — targetId=${finalAdId} status=${status} (listeners=${this.adEvents.listenerCount("adUpdate")})`,
+      { taskType: data.taskType, hasUrl: !!data.url },
+    );
+
+    this.adEvents.emit("adUpdate", { ...rest, adId: finalAdId, status });
   }
 
-  // Cancel ad generation
-  async cancelAd(adId: string, userId: string): Promise<void> {
-    const ad = await prisma.ad.findFirst({
-      where: { id: adId, userId },
+  // ============================================================
+  // Concurrency Guard
+  // ============================================================
+
+  async ensureNoActiveGeneration(userId: string) {
+    // [USER REQUEST] Allow multiple concurrent generation requests
+    /*
+    const activeDraft = await prisma.adDraft.findFirst({
+      where: { userId, status: { in: ["PENDING", "PROCESSING"] } },
     });
 
-    if (!ad) {
-      throw ApiError.notFound("Ad not found");
+    if (activeDraft) {
+      throw ApiError.forbidden(
+        "You already have an active generation in progress. Please wait for it to complete.",
+      );
+    }
+    */
+  }
+
+  // ============================================================
+  // Draft Promotion
+  // ============================================================
+
+  async promoteDraftToAd(draftId: string) {
+    Logger.info(`[AdsService] Promoting draft ${draftId} to Ad`);
+
+    const draft = await prisma.adDraft.findUnique({
+      where: { id: draftId },
+      include: { user: true },
+    });
+
+    if (!draft) {
+      Logger.warn(`[AdsService] Draft ${draftId} not found for promotion`);
+      return null;
     }
 
-    if (ad.status !== "PENDING" && ad.status !== "PROCESSING") {
-      throw ApiError.badRequest(`Cannot cancel an ad that is ${ad.status}`);
+    // Create the final Ad record.
+    // NOTE: draft.products is a JSON array field — use direct assignment (not { set: ... })
+    // to preserve all nested fields (productId, source, imageUrl, etc.) correctly.
+    const ad = await prisma.ad.create({
+      data: {
+        userId: draft.userId,
+        title: draft.videoPrompt || `Ad ${new Date().toLocaleDateString()}`,
+        mediaType: draft.mediaType,
+        status: "COMPLETED",
+        products: draft.products as any,
+        templateId: draft.templateId,
+        categoryId: draft.categoryId,
+        categoryName: (draft as any).categoryName,
+        adType: draft.adType,
+        assembledPrompt:
+          draft.videoPrompt || draft.imagePrompt || "Promoted Ad",
+        baseImageUrl: draft.baseImageUrl,
+        modelImageUrl: draft.modelImageUrl,
+        scenes: draft.scenes as any,
+        videoScript: draft.videoScript as any,
+        productDescription: draft.productDescription,
+        duration: draft.duration,
+        variantsCount: draft.videoVariants || draft.variantsCount,
+        aspectRatio: draft.aspectRatio || "1:1",
+        metadata: { draftId: draft.id },
+      } as any,
+    });
+
+    Logger.info(`[AdsService] Draft ${draftId} promoted — new Ad ID=${ad.id}`);
+
+    // Clean up the draft
+    await prisma.adDraft.delete({ where: { id: draftId } });
+
+    // Notify frontend: old draftId is gone, redirect to new adId
+    this.emitAdUpdate(draftId, "COMPLETED", { adId: ad.id });
+    this.emitAdUpdate(ad.id, "COMPLETED", { newId: ad.id });
+
+    return ad;
+  }
+
+  // ============================================================
+  // Cancel Ad Generation
+  // ============================================================
+
+  async cancelAd(adId: string, userId: string): Promise<void> {
+    Logger.info(`[AdsService] cancelAd — adId=${adId} userId=${userId}`);
+
+    // 1. Find resource — Ad takes priority over AdDraft
+    const ad = await prisma.ad.findFirst({ where: { id: adId, userId } });
+    const draft = !ad
+      ? await prisma.adDraft.findFirst({ where: { id: adId, userId } })
+      : null;
+
+    if (!ad && !draft) throw ApiError.notFound("Resource not found");
+
+    const resource = ad ?? draft!;
+    const resourceType = ad ? "AD" : "DRAFT";
+
+    if (resource.status !== "PENDING" && resource.status !== "PROCESSING") {
+      Logger.info(
+        `[AdsService] cancelAd — ${resourceType} ${adId} already ${resource.status}, skipping.`,
+      );
+      return;
     }
 
-    // Try to remove from BullMQ (check all potential states)
+    // 2. Remove from all BullMQ queues
     try {
-      const jobs = await adGenerationQueue.getJobs([
-        "waiting",
-        "active",
-        "delayed",
-        "paused",
-      ]);
-      const job = jobs.find((j) => j.data?.adId === adId);
-
-      if (job) {
-        await job.remove();
-        Logger.info(`[AdsService] Job for ad ${adId} removed from queue`);
-      }
+      const allQueues = [
+        baseImageQueue,
+        modelImageQueue,
+        storyboardQueue,
+        singleSceneQueue,
+        finalVideoQueue,
+      ];
+      await Promise.all(
+        allQueues.map(async (q) => {
+          const jobs = await q.getJobs([
+            "waiting",
+            "active",
+            "delayed",
+            "paused",
+          ]);
+          const job = jobs.find((j) => j.data?.adId === adId);
+          if (job) {
+            await job.remove();
+            Logger.info(
+              `[AdsService] Removed BullMQ job from "${q.name}" for ${adId}`,
+            );
+          }
+        }),
+      );
     } catch (queueError: any) {
       Logger.warn(
-        `[AdsService] Failed to remove job for ad ${adId} from queue: ${queueError.message}`,
+        `[AdsService] Failed to remove BullMQ job for ${adId}: ${queueError.message}`,
       );
     }
 
-    // Update DB
-    await prisma.ad.update({
-      where: { id: adId },
-      data: { status: "CANCELLED" },
-    });
+    // 3. Cancel or delete
+    if (resourceType === "AD") {
+      await prisma.ad.update({
+        where: { id: adId },
+        data: { status: "CANCELLED" },
+      });
+      Logger.info(`[AdsService] Ad ${adId} marked CANCELLED`);
+    } else {
+      // Drafts are deleted on cancel — no orphaned incomplete records
+      await prisma.adDraft
+        .delete({ where: { id: adId } })
+        .catch((err) =>
+          Logger.warn(
+            `[AdsService] Failed to delete draft ${adId}: ${err.message}`,
+          ),
+        );
+      Logger.info(`[AdsService] Draft ${adId} deleted on cancel`);
+    }
 
     this.emitAdUpdate(adId, "CANCELLED" as any);
   }
 
-  // Get all ads for a user
+  // ============================================================
+  // Get Ads (Paginated)
+  // ============================================================
+
   async getAds(userId: string, query: GetAdsQuery, userRole: string) {
     const page = parseInt(query.page || "1");
     const limit = parseInt(query.limit || "20");
-    const skip = query.cursor ? 1 : (page - 1) * limit; // Skip the cursor itself if present
+    const skip = query.cursor ? 1 : (page - 1) * limit;
 
+    const isAdmin = userRole === "ADMIN";
     const where: Prisma.AdWhereInput = { userId };
 
-    const orderBy: Prisma.AdOrderByWithRelationInput = {
-      createdAt: query.sort === "oldest" ? "asc" : "desc",
-    };
-
-    if (query.status) {
+    // Status filter
+    if (isAdmin && query.status) {
       where.status = query.status as AdStatus;
-    }
-
-    if (query.productId) {
-      where.products = { some: { productId: query.productId } };
-    }
-
-    if (query.templateId) {
-      where.templateId = query.templateId;
-    }
-
-    // storeId filter removed (no longer a relation on Ad)
-
-    if (query.search) {
-      where.title = {
-        contains: query.search,
-        mode: "insensitive",
-      };
-    }
-
-    // Apply strict filtering for non-admins
-    if (userRole !== "ADMIN") {
+    } else if (!isAdmin) {
+      // Regular users: only completed ads, hidden stale pending/failed
       const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000);
-
+      where.status = "COMPLETED";
       where.AND = [
-        // 1. Never show failed ads
         { status: { not: "FAILED" } },
-        // 2. Only show pending/processing if under 15 minutes
         {
           OR: [
             { status: { notIn: ["PENDING", "PROCESSING"] } },
@@ -123,37 +240,43 @@ export class AdsService implements IAdsService {
       ];
     }
 
-    if (query.days && query.days !== "all") {
-      const days = parseInt(query.days);
-      const date = new Date();
-      date.setDate(date.getDate() - days);
-      where.createdAt = {
-        gte: date,
-      };
+    // Optional filters
+    if (query.productId)
+      where.products = { some: { productId: query.productId } };
+    if (query.templateId) where.templateId = query.templateId;
+
+    if (query.search) {
+      where.title = { contains: query.search, mode: "insensitive" };
     }
+
+    if (query.days && query.days !== "all") {
+      const cutoff = new Date();
+      cutoff.setDate(cutoff.getDate() - parseInt(query.days));
+      where.createdAt = { gte: cutoff };
+    }
+
+    const orderBy: Prisma.AdOrderByWithRelationInput = {
+      createdAt: query.sort === "oldest" ? "asc" : "desc",
+    };
 
     const [ads, total] = await Promise.all([
       prisma.ad.findMany({
         where,
         take: limit,
-        skip: query.cursor ? skip : skip,
+        skip,
         cursor: query.cursor ? { id: query.cursor } : undefined,
         orderBy,
-        include: {
-          template: {
-            select: { id: true, name: true },
-          },
-        },
+        include: { template: { select: { id: true, name: true } } },
       }),
       prisma.ad.count({ where }),
     ]);
 
-    // Attach product info for all ads via a single bulk query
-    const allProductInfos = [...new Set(ads.flatMap((a) => a.products))];
-    const storeProductIds = allProductInfos
+    // Bulk-fetch product info for all ads
+    const allProductRefs = [...new Set(ads.flatMap((a) => a.products))];
+    const storeProductIds = allProductRefs
       .filter((p) => p.source === "STORE")
       .map((p) => p.productId);
-    const uploadedProductIds = allProductInfos
+    const uploadedProductIds = allProductRefs
       .filter((p) => p.source === "UPLOADED")
       .map((p) => p.productId);
 
@@ -176,7 +299,6 @@ export class AdsService implements IAdsService {
       [...storeProducts, ...uploadedProducts].map((p) => [p.id, p]),
     );
 
-    // Strip internal fields and attach products
     const sanitizedAds = ads.map((ad: any) => {
       delete ad.resultAnalysis;
       ad.productDetails = ad.products
@@ -186,7 +308,6 @@ export class AdsService implements IAdsService {
     });
 
     const nextCursor = ads.length === limit ? ads[ads.length - 1].id : null;
-
     return createPaginatedResponse(
       sanitizedAds,
       total,
@@ -196,27 +317,27 @@ export class AdsService implements IAdsService {
     );
   }
 
-  // Get ad by ID
+  // ============================================================
+  // Get Ad By ID
+  // ============================================================
+
   async getAdById(id: string, userId: string) {
     const ad = await prisma.ad.findFirst({
       where: { id, userId },
       include: { template: true },
     });
 
-    if (!ad) {
-      throw ApiError.notFound("Ad not found or you don't have access");
-    }
+    if (!ad) throw ApiError.notFound("Ad not found or you don't have access");
 
-    // Strict filtering for regular users
+    // Visibility rules for non-admins
     const user = await prisma.user.findUnique({
       where: { id: userId },
       select: { role: true },
     });
 
     if (user?.role !== "ADMIN") {
-      if (ad.status === "FAILED") {
+      if (ad.status === "FAILED")
         throw ApiError.notFound("Ad not found or you don't have access");
-      }
       if (ad.status === "PENDING" || ad.status === "PROCESSING") {
         const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000);
         if (ad.createdAt < fifteenMinutesAgo) {
@@ -225,24 +346,24 @@ export class AdsService implements IAdsService {
       }
     }
 
-    // Fetch associated products manually
-    const storeProductIds = ad.products
+    // Resolve product details
+    const storeIds = ad.products
       .filter((p) => p.source === "STORE")
       .map((p) => p.productId);
-    const uploadedProductIds = ad.products
+    const uploadedIds = ad.products
       .filter((p) => p.source === "UPLOADED")
       .map((p) => p.productId);
 
     const [storeProducts, uploadedProducts] = await Promise.all([
-      storeProductIds.length > 0
+      storeIds.length > 0
         ? prisma.product.findMany({
-            where: { id: { in: storeProductIds } },
+            where: { id: { in: storeIds } },
             select: { id: true, title: true, images: true },
           })
         : [],
-      uploadedProductIds.length > 0
+      uploadedIds.length > 0
         ? prisma.product.findMany({
-            where: { id: { in: uploadedProductIds } },
+            where: { id: { in: uploadedIds } },
             select: { id: true, title: true, images: true },
           })
         : [],
@@ -251,7 +372,6 @@ export class AdsService implements IAdsService {
     const productMap = Object.fromEntries(
       [...storeProducts, ...uploadedProducts].map((p) => [p.id, p]),
     );
-
     const productDetails = ad.products
       .map((p: any) => productMap[p.productId])
       .filter(Boolean);
@@ -260,9 +380,16 @@ export class AdsService implements IAdsService {
     return { ...rest, productDetails };
   }
 
-  // Generate ad (Step 3: Submit)
+  // ============================================================
+  // Generate Ad (Image / Quick Submit)
+  // ============================================================
+
   async generateAd(userId: string, data: GenerateAdBody) {
-    // 0. Credit & Subscription Check
+    Logger.info(
+      `[AdsService] generateAd — userId=${userId} mediaType=${data.mediaType}`,
+    );
+
+    // ── 0. Auth & Subscription Check ─────────────────────────
     const user = await prisma.user.findUnique({
       where: { id: userId },
       include: { subscription: { include: { plan: true } } },
@@ -270,7 +397,6 @@ export class AdsService implements IAdsService {
 
     if (!user) throw ApiError.notFound("User not found");
 
-    // Enforce active subscription for everyone (including ADMIN)
     const isActiveSubscription =
       user.subscription &&
       (user.subscription.status === "ACTIVE" ||
@@ -282,7 +408,9 @@ export class AdsService implements IAdsService {
       );
     }
 
-    // Guest-plan enforcement: max 10s video, max 2 scenes
+    await this.ensureNoActiveGeneration(userId);
+
+    // ── 1. Guest Plan Restrictions ────────────────────────────
     const planName =
       (user.subscription as any)?.plan?.name?.toLowerCase() ?? "";
     if (planName === "guest" && data.mediaType === "VIDEO") {
@@ -299,16 +427,21 @@ export class AdsService implements IAdsService {
       }
     }
 
+    // ── 2. Credit Check ───────────────────────────────────────
     const userBalance = await creditsService.getBalance(userId);
-    const adCost = AD_COSTS[data.mediaType];
+    const adCost = AD_COSTS[data.mediaType as MediaType];
+
+    Logger.info(
+      `[AdsService] Credit check — balance=${userBalance} required=${adCost}`,
+    );
 
     if (userBalance < adCost) {
       throw ApiError.forbidden(
-        `Insufficient credits to generate a ${data.mediaType.toLowerCase()} ad. This operation requires ${adCost} credit${adCost > 1 ? "s" : ""}. Please refill your balance.`,
+        `Insufficient credits. Required: ${adCost}, available: ${userBalance}.`,
       );
     }
 
-    // 1. Resolve product images from IDs (Admins can access everything)
+    // ── 3. Resolve Products ───────────────────────────────────
     const storeProductIds = data.products
       .filter((p) => p.source === "STORE")
       .map((p) => p.productId);
@@ -338,17 +471,18 @@ export class AdsService implements IAdsService {
     ]);
 
     const products = [...storeProducts, ...uploadedProducts];
-
-    if (products.length === 0) {
-      throw ApiError.badRequest("No valid products found for the provided IDs");
-    }
+    if (products.length === 0)
+      throw ApiError.badRequest("No valid products found");
 
     const productImages = products.flatMap((p) =>
       p.images.map((img: any) => img.url),
     );
-    const primaryProduct = products[0];
 
-    // 2. Resolve Template Data
+    Logger.info(
+      `[AdsService] Resolved ${products.length} products, ${productImages.length} images`,
+    );
+
+    // ── 4. Resolve Template ───────────────────────────────────
     let templateImage =
       data.mediaType === "IMAGE" ? (data as any).templateImageUrl || "" : "";
     let assembledPrompt = "";
@@ -367,6 +501,7 @@ export class AdsService implements IAdsService {
           (template as any).previewImages?.[0] ||
           (template as any).referenceAdImage ||
           "";
+        Logger.info(`[AdsService] Template resolved — id=${template.id}`);
       }
     }
 
@@ -374,88 +509,102 @@ export class AdsService implements IAdsService {
       assembledPrompt = (data as any).prompt;
     }
 
-    // 3. Assemble Variable Values into prompt
+    // ── 5. Interpolate Variable Values ────────────────────────
     const variableValues = data.variableValues || {};
-    if (Object.keys(variableValues).length > 0) {
-      Object.entries(variableValues).forEach(([key, value]) => {
-        const regex = new RegExp(`{{${key}}}`, "g");
-        assembledPrompt = assembledPrompt.replace(regex, String(value));
-      });
-    }
+    Object.entries(variableValues).forEach(([key, value]) => {
+      const regex = new RegExp(`{{${key}}}`, "g");
+      assembledPrompt = assembledPrompt.replace(regex, String(value));
+    });
 
-    // 4. Create Ad record
+    // ── 6. Create Ad Directly (Freeing AdDraft) ─────────────
     const ad = await prisma.ad.create({
       data: {
         userId,
-        products: {
-          set: data.products,
-        },
-        templateId: data.templateId || null,
-        title: `Ad for ${primaryProduct.title}`,
-        assembledPrompt,
-        variableValues: variableValues ?? {},
-        aspectRatio: data.aspectRatio || ASPECT_RATIOS.SQUARE,
-        variantsCount: data.variantsCount || 1,
+        title:
+          data.title || (data.mediaType === "VIDEO" ? "Video Ad" : "Image Ad"),
+        mediaType: data.mediaType as MediaType,
         status: "PENDING",
-        mediaType: data.mediaType,
-        metadata: {
-          color: data.color,
-          ...(data.mediaType === "VIDEO"
-            ? {
-                scenes: (data as any).scenes,
-                duration: (data as any).duration,
-              }
-            : {}),
-        },
-        videoScript:
-          data.mediaType === "VIDEO" ? (data as any).videoScript : undefined,
+        products: data.products as any,
+        templateId: data.templateId || null,
+        assembledPrompt,
+        aspectRatio: data.aspectRatio || "1:1",
+        variantsCount: data.variantsCount || 1,
+        modelImageUrl: (data as any).modelImageUrl,
+        baseImageUrl: (data as any).baseImageUrl,
+        scenes: (data as any).scenes as any,
+        videoScript: (data as any).videoScript as any,
+        duration: (data as any).duration,
+        variableValues: data.variableValues || {},
+        metadata: { source: "DIRECT_SUBMIT" },
       },
     });
 
-    // 5. Add to queue
-    await adGenerationQueue.add("generate", {
+    Logger.info(`[AdsService] Ad created — adId=${ad.id}`);
+
+    // Clean up any existing draft for this user
+    await prisma.adDraft
+      .deleteMany({
+        where: { userId },
+      })
+      .catch((err) => Logger.warn(`Failed to delete draft: ${err.message}`));
+
+    // ── 7. Enqueue Generation Job ─────────────────────────────
+    const jobPayload: AdGenerationJobData = {
       adId: ad.id,
       userId,
-      assembledPrompt,
-      aspectRatio: ad.aspectRatio,
-      variantsCount: ad.variantsCount,
-      color: data.color,
-      scenes: data.mediaType === "VIDEO" ? (data as any).scenes : undefined,
-      videoScript:
-        data.mediaType === "VIDEO" ? (data as any).videoScript : undefined,
+      isDraft: false,
+      taskType: "FINAL_VIDEO",
       mediaType: ad.mediaType,
-      duration: data.mediaType === "VIDEO" ? (data as any).duration : undefined,
-      templatePrompt,
-      productImages,
-      templateImage,
-      modelImage:
-        data.mediaType === "VIDEO" ? (data as any).modelImageUrl : undefined,
-    } as any);
+      scenes: (Array.isArray(ad.scenes) ? ad.scenes : []).map((s: any) => ({
+        id: s.id ?? s._id ?? String(s.orderNumber ?? 0),
+        order: s.orderNumber,
+        image: s.imageUrl ?? "",
+        description: s.description ?? "",
+      })),
+      aspectRatio: ad.aspectRatio || "1:1",
+      duration: ad.duration ?? undefined,
+      videoScript: ad.videoScript as any,
+      // @ts-ignore
+      storyboard: (ad as any).storyboard || "",
+      // @ts-ignore
+      baseImage: ad.baseImageUrl ?? undefined,
+      productImages: (Array.isArray(ad.products) ? ad.products : [])
+        .map((p: any) => p.imageUrl)
+        .filter(Boolean),
+    };
 
-    Logger.info(`Ad created with ID: ${ad.id}`);
+    await finalVideoQueue.add("generate", jobPayload);
+
+    Logger.info(
+      `[AdsService] Generation job enqueued — adId=${ad.id} mediaType=${ad.mediaType}`,
+    );
+
     return ad;
   }
 
-  // Update ad
+  // ============================================================
+  // Update Ad
+  // ============================================================
+
   async updateAd(
     id: string,
     userId: string,
-    data: Partial<{
-      title: string;
-      status: AdStatus;
-      variableValues: any;
-    }>,
+    data: Partial<{ title: string; status: AdStatus; variableValues: any }>,
   ) {
-    // Verify ownership
-    const ad = await this.getAdById(id, userId);
+    await this.getAdById(id, userId);
 
-    // Update ad
     const updatedAd = await prisma.ad.update({
       where: { id },
       data: {
         title: data.title,
         status: data.status,
         variableValues: data.variableValues,
+        // @ts-ignore
+        currentStep: (data as any).currentStep,
+        // @ts-ignore
+        baseImagePrompt: (data as any).baseImagePrompt,
+        // @ts-ignore
+        scenePrompt: (data as any).scenePrompt,
         updatedAt: new Date(),
       },
     });
@@ -464,44 +613,647 @@ export class AdsService implements IAdsService {
     return sanitizedAd;
   }
 
-  // Delete ad
-  async deleteAd(id: string, userId: string): Promise<void> {
-    const ad = await this.getAdById(id, userId);
+  // ============================================================
+  // Delete Ad
+  // ============================================================
 
-    // Only allow deleting completed or failed ads?
-    // Or just delete anyway if the user wants
-    await prisma.ad.delete({
-      where: { id },
-    });
+  async deleteAd(id: string, userId: string): Promise<void> {
+    await this.getAdById(id, userId);
+    await prisma.ad.delete({ where: { id } });
+    Logger.info(`[AdsService] Ad ${id} deleted`);
   }
 
-  // Bulk delete ads
+  // ============================================================
+  // Bulk Delete Ads
+  // ============================================================
+
   async bulkDeleteAds(userId: string, ids: string[]) {
-    // Verify all ads belong to the user
     const ads = await prisma.ad.findMany({
-      where: {
-        id: { in: ids },
-        userId,
-      },
+      where: { id: { in: ids }, userId },
       select: { id: true },
     });
 
     const validatedIds = ads.map((a) => a.id);
-
-    if (validatedIds.length === 0) {
+    if (validatedIds.length === 0)
       return { count: 0, message: "No valid ads found to delete" };
-    }
 
     const { count } = await prisma.ad.deleteMany({
-      where: {
-        id: { in: validatedIds },
-      },
+      where: { id: { in: validatedIds } },
+    });
+    Logger.info(
+      `[AdsService] Bulk delete — removed ${count} ads for user ${userId}`,
+    );
+    return { count, message: `Successfully deleted ${count} ads` };
+  }
+
+  // ============================================================
+  // Video Step 1 – Generate Base Image
+  // ============================================================
+
+  async generateVideoBaseImage(
+    userId: string,
+    data: GenerateVideoBaseImageDto,
+  ) {
+    Logger.info(`[AdsService] generateVideoBaseImage — userId=${userId}`, {
+      adId: data.adId,
+      categoryId: data.categoryId,
+      adType: data.adType,
+      productImagesCount: data.products?.length,
+      hasModelImage: !!data.modelImage,
+      hasTemplateImage: !!data.templateImage,
     });
 
-    return {
-      count,
-      message: `Successfully deleted ${count} ads`,
+    // Lookup category name from DB to ensure consistency
+    let categoryName = data.categoryName;
+    if (data.categoryId) {
+      const category = await prisma.category.findUnique({
+        where: { id: data.categoryId },
+        select: { name: true },
+      });
+      if (category) {
+        categoryName = category.name;
+      }
+    }
+
+    const task = { name: "BASE_IMAGE", status: "PENDING" };
+    let draft;
+    let isNew = false;
+
+    // Reuse existing draft if adId provided
+    if (data.adId && data.adId !== "undefined") {
+      try {
+        draft = await prisma.adDraft.findFirst({
+          where: { id: data.adId, userId },
+        });
+      } catch (err) {
+        Logger.warn(
+          `[AdsService] Invalid adId in generateVideoBaseImage: ${data.adId}`,
+        );
+      }
+    }
+
+    if (draft) {
+      draft = await prisma.adDraft.update({
+        where: { id: draft.id },
+        data: {
+          status: "PENDING",
+          currentTask: task,
+          modelImageUrl: data.modelImage || data.modelImage || undefined,
+          baseImagePrompt:
+            (data as any).prompt || (draft as any).baseImagePrompt,
+          productDescription:
+            data.productDescription || (draft as any).productDescription,
+        },
+      });
+      Logger.info(`[AdsService] Updated draft ${draft.id} — task=BASE_IMAGE`);
+    } else {
+      await this.ensureNoActiveGeneration(userId);
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + 7);
+
+      draft = await prisma.adDraft.create({
+        data: {
+          userId,
+          mediaType: "VIDEO",
+          // currentStep: 3, // Optional in schema, handled by frontend or omitted
+          status: "PENDING",
+          currentTask: task,
+          expiresAt,
+          products: { set: data.products || [] },
+          categoryId: data.categoryId,
+          categoryName: categoryName,
+          adType: data.adType || null,
+          modelImageUrl: data.modelImage || null,
+          templateId: data.templateId || null,
+          productDescription: data.productDescription || null,
+        } as any,
+      });
+      isNew = true;
+      Logger.info(`[AdsService] Created draft ${draft.id} — task=BASE_IMAGE`);
+    }
+
+    if (isNew) {
+      // Emit AD_CREATED so frontend can capture the adId and open SSE
+      this.emitAdUpdate(draft.id, "PENDING" as any, {
+        taskType: "AD_CREATED",
+        adId: draft.id,
+      });
+    }
+
+    const jobPayload: AdGenerationJobData = {
+      adId: draft.id,
+      userId,
+      isDraft: true,
+      taskType: "BASE_IMAGE",
+      mediaType: "VIDEO",
+      currentTask: task,
+      categoryName: categoryName || "",
+      adType: data.adType,
+      products: data.products,
+      productImages: (data.products || []).map((p) => p.imageUrl),
+      modelImage: data.modelImage,
+      templateImage: data.templateImage,
+      templateId: data.templateId || (draft as any).templateId || "",
+      productDescription:
+        data.productDescription || (draft as any).productDescription || "",
     };
+
+    await baseImageQueue.add("generate-base-image", jobPayload);
+    Logger.info(`[AdsService] BASE_IMAGE job enqueued — draftId=${draft.id}`);
+
+    return { adId: draft.id, status: "PENDING" };
+  }
+
+  // ============================================================
+  // Video Step 2 – Generate Scenes (Storyboard)
+  // ============================================================
+
+  async generateVideoScenes(userId: string, data: GenerateVideoScenesDto) {
+    Logger.info(
+      `[AdsService] generateVideoScenes — userId=${userId} adId=${data.adId}`,
+    );
+
+    const task = { name: "STORYBOARD", status: "PENDING" };
+    let draft;
+    let isNew = false;
+
+    if (data.adId && data.adId !== "undefined") {
+      try {
+        draft = await prisma.adDraft.findFirst({
+          where: { id: data.adId, userId },
+        });
+      } catch (err) {
+        Logger.warn(`[AdsService] Error finding draft ${data.adId}: ${err}`);
+      }
+    }
+
+    if (!draft) {
+      // No draft found — create one as fallback
+      await this.ensureNoActiveGeneration(userId);
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + 7);
+
+      draft = await prisma.adDraft.create({
+        data: {
+          userId,
+          mediaType: "VIDEO",
+          // currentStep: 3,
+          status: "PENDING",
+          currentTask: task,
+          expiresAt,
+          baseImageUrl: data.baseImage || null,
+          storyboard: data.storyboard,
+          productDescription: data.productDescription,
+          templateId: data.templateId,
+          duration: data.duration,
+          categoryId: data.categoryId,
+          categoryName: data.categoryName,
+          adType: data.adType,
+        } as any,
+      });
+      isNew = true;
+      Logger.info(
+        `[AdsService] Created new draft ${draft.id} in generateVideoScenes`,
+      );
+    } else {
+      draft = await prisma.adDraft.update({
+        where: { id: draft.id },
+        data: {
+          status: "PENDING",
+          currentTask: task,
+          baseImageUrl: data.baseImage || draft.baseImageUrl,
+          storyboard: data.storyboard || draft.storyboard,
+          productDescription:
+            data.productDescription || draft.productDescription,
+          templateId: data.templateId || draft.templateId,
+          duration: data.duration || (draft as any).duration,
+          categoryId: data.categoryId || (draft as any).categoryId,
+          categoryName: data.categoryName || (draft as any).categoryName,
+          adType: data.adType || (draft as any).adType,
+        } as any,
+      });
+      Logger.info(`[AdsService] Updated draft ${draft.id} — task=STORYBOARD`);
+    }
+
+    if (isNew) {
+      this.emitAdUpdate(draft.id, "PENDING" as any, {
+        taskType: "AD_CREATED",
+        adId: draft.id,
+      });
+    }
+
+    const jobPayload: AdGenerationJobData = {
+      adId: draft.id,
+      userId,
+      isDraft: true,
+      taskType: "STORYBOARD",
+      mediaType: "VIDEO",
+      currentTask: task,
+      baseImage: data.baseImage || (draft as any).baseImageUrl || "",
+      storyboard: data.storyboard || (draft as any).storyboard || "",
+      productDescription:
+        data.productDescription || (draft as any).productDescription || "",
+      categoryName: data.categoryName || (draft as any).categoryName || "",
+      adType: data.adType || (draft as any).adType || "",
+      templateId: data.templateId || (draft as any).templateId || "",
+      products: (draft as any).products || [],
+      productImages: (Array.isArray((draft as any).products)
+        ? (draft as any).products
+        : []
+      )
+        .map((p: any) => p.imageUrl)
+        .filter(Boolean),
+    };
+
+    await storyboardQueue.add("generate-storyboard", jobPayload);
+    this.emitAdUpdate(draft.id, "PROCESSING" as any, {
+      taskType: "STORYBOARD",
+    });
+    Logger.info(`[AdsService] STORYBOARD job enqueued — draftId=${draft.id}`);
+
+    return { adId: draft.id, status: "PROCESSING" };
+  }
+
+  // ============================================================
+  // Video Step 2 (Food) – Generate Food Category Scenes
+  // ============================================================
+
+  async generateVideoFoodScenes(
+    userId: string,
+    data: GenerateVideoFoodScenesDto,
+  ) {
+    Logger.info(`[AdsService] generateVideoFoodScenes — userId=${userId}`, {
+      productImagesCount: data.products?.length,
+      templateId: data.templateId,
+      categoryId: data.categoryId,
+    });
+
+    // Lookup category name from DB
+    let categoryName = data.category;
+    if (data.categoryId) {
+      const category = await prisma.category.findUnique({
+        where: { id: data.categoryId },
+        select: { name: true },
+      });
+      if (category) {
+        categoryName = category.name;
+      }
+    }
+
+    await this.ensureNoActiveGeneration(userId);
+
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 7);
+    const task = { name: "STORYBOARD", status: "PENDING" };
+
+    const draft = await prisma.adDraft.create({
+      data: {
+        userId,
+        mediaType: "VIDEO",
+        // currentStep: 4,
+        status: AdStatus.PENDING,
+        currentTask: task,
+        expiresAt,
+        products: { set: data.products || [] },
+        templateId: data.templateId || null,
+        categoryId: data.categoryId,
+        categoryName: categoryName,
+        adType: (data as any).adType || null,
+        productDescription: (data as any).productDescription || null,
+      } as any,
+    });
+
+    Logger.info(`[AdsService] Food scene draft created — draftId=${draft.id}`);
+
+    // Emit AD_CREATED so frontend captures the draftId
+    this.emitAdUpdate(draft.id, "PENDING" as any, {
+      taskType: "AD_CREATED",
+      adId: draft.id,
+    });
+
+    const jobPayload: AdGenerationJobData = {
+      adId: draft.id,
+      userId,
+      isDraft: true,
+      taskType: "STORYBOARD",
+      mediaType: "VIDEO",
+      currentTask: task,
+      baseImage: "",
+      categoryName: categoryName || "",
+      products: data.products,
+      productImages: (data.products || []).map((p) => p.imageUrl),
+      templateId: data.templateId ?? undefined,
+      storyboard: "",
+      productDescription: (data as any).productDescription || "",
+      adType: (data as any).adType || "",
+    };
+
+    await storyboardQueue.add("generate-food-scenes", jobPayload);
+    Logger.info(`[AdsService] FOOD_SCENES job enqueued — draftId=${draft.id}`);
+    return { adId: draft.id, status: "PENDING" };
+  }
+
+  // ============================================================
+  // Video Step 3 – Regenerate Single Scene
+  // ============================================================
+
+  async regenerateScene(
+    userId: string,
+    adId: string,
+    data: RegenerateSceneDto,
+  ) {
+    const { sceneId, description } = data;
+    Logger.info(
+      `[AdsService] regenerateScene — adId=${adId} sceneId=${sceneId}`,
+    );
+
+    // Check Ad first, then AdDraft
+    let resource: any = await prisma.ad.findFirst({
+      where: { id: adId, userId },
+    });
+    let isDraft = false;
+
+    if (!resource) {
+      resource = await prisma.adDraft.findFirst({
+        where: { id: adId, userId },
+      });
+      isDraft = true;
+    }
+
+    if (!resource) throw ApiError.notFound("Resource not found");
+
+    // Resource update logic previously here (flowState removed)
+
+    Logger.info(`[AdsService] SINGLE_SCENE payload:`, {
+      adId,
+      sceneId,
+      description,
+      baseImage: resource.baseImageUrl,
+      isDraft,
+    });
+
+    const jobPayload: AdGenerationJobData = {
+      adId,
+      userId,
+      isDraft,
+      taskType: "SINGLE_SCENE",
+      mediaType: "VIDEO",
+      currentTask: { name: "SINGLE_SCENE", status: "PENDING" },
+      targetSceneId: sceneId,
+      assembledPrompt: data.description,
+      baseImage: resource.baseImageUrl || "",
+      productDescription: resource.productDescription || "",
+    };
+
+    await singleSceneQueue.add("regenerate-single-scene", jobPayload);
+
+    this.emitAdUpdate(adId, "PROCESSING" as any, {
+      taskType: "SINGLE_SCENE",
+      sceneId,
+    });
+    Logger.info(
+      `[AdsService] SINGLE_SCENE job enqueued — adId=${adId} sceneId=${sceneId}`,
+    );
+
+    return { adId, status: "PROCESSING", sceneId };
+  }
+
+  // ============================================================
+  // Video Step 3 – Regenerate All Scenes
+  // ============================================================
+
+  async regenerateAllScenes(userId: string, adId: string) {
+    Logger.info(`[AdsService] regenerateAllScenes — adId=${adId}`);
+
+    let resource: any = await prisma.ad.findFirst({
+      where: { id: adId, userId },
+    });
+    let isDraft = false;
+
+    if (!resource) {
+      resource = await prisma.adDraft.findFirst({
+        where: { id: adId, userId },
+      });
+      isDraft = true;
+    }
+
+    if (!resource) throw ApiError.notFound("Resource not found");
+
+    Logger.info(`[AdsService] ALL_SCENES payload:`, {
+      adId,
+      baseImage: resource.baseImageUrl,
+      templateId: resource.templateId,
+      isDraft,
+    });
+
+    const jobPayload: AdGenerationJobData = {
+      adId,
+      userId,
+      isDraft,
+      taskType: "ALL_SCENES",
+      mediaType: "VIDEO",
+      currentTask: { name: "STORYBOARD", status: "PENDING" },
+      baseImage: resource.baseImageUrl ?? "",
+      storyboard: resource.storyboard || "",
+      productDescription: resource.productDescription || "",
+      categoryName: (resource as any).categoryName || "",
+      adType: (resource as any).adType || "",
+    };
+
+    await storyboardQueue.add("regenerate-all-scenes", jobPayload);
+
+    this.emitAdUpdate(adId, "PROCESSING" as any, { taskType: "ALL_SCENES" });
+    Logger.info(`[AdsService] ALL_SCENES job enqueued — adId=${adId}`);
+
+    return { adId, status: "PROCESSING" };
+  }
+
+  // ============================================================
+  // Video Step 4 – Generate Final Video
+  // ============================================================
+
+  async generateFinalVideo(userId: string, data: GenerateFinalVideoDto) {
+    const { adId } = data;
+    Logger.info(
+      `[AdsService] generateFinalVideo — adId=${adId} userId=${userId}`,
+    );
+
+    // Draft MUST exist — Ad is only created when FINAL_VIDEO callback succeeds
+    const draft: any = await prisma.adDraft.findFirst({
+      where: { id: adId, userId },
+    });
+    if (!draft)
+      throw ApiError.notFound("Ad draft not found. Please restart the flow.");
+
+    // ── Credit check ──────────────────────────────────────────
+    const adCost = AD_COSTS[draft.mediaType as MediaType] || 10;
+    const userBalance = await creditsService.getBalance(userId);
+
+    Logger.info(
+      `[AdsService] Final video credit check — balance=${userBalance} required=${adCost}`,
+    );
+
+    if (userBalance < adCost) {
+      throw ApiError.forbidden(
+        `Insufficient credits. Required: ${adCost}, available: ${userBalance}.`,
+      );
+    }
+
+    // ── Pull scene data from request or draft ─────────────────
+    const scenes = (data.scenes || (draft.scenes as any[]) || []).map(
+      (s: any) => ({
+        order: s.order ?? s.orderNumber ?? 0,
+        image: s.image ?? s.imageUrl ?? "",
+        description: s.description ?? "",
+      }),
+    );
+
+    const task = { name: "FINAL_VIDEO", status: "PENDING" };
+
+    // ── Update draft — mark FINAL_VIDEO as in-progress ────────
+    await prisma.adDraft.update({
+      where: { id: adId },
+      data: {
+        status: "PENDING",
+        currentTask: task,
+        scenes,
+        duration: data.duration ?? (draft as any).duration,
+        aspectRatio: data.aspectRatio ?? (draft as any).aspectRatio,
+      } as any,
+    });
+
+    // ── Enqueue job — promotion happens in n8n callback ───────
+    const jobPayload: AdGenerationJobData = {
+      adId,
+      userId,
+      isDraft: true,
+      taskType: "FINAL_VIDEO",
+      mediaType: draft.mediaType,
+      currentTask: task,
+      scenes,
+      baseImage: draft.baseImageUrl || "",
+      storyboard: draft.storyboard || "",
+      productDescription: draft.productDescription || "",
+      categoryName: (draft as any).categoryName || "",
+      adType: (draft as any).adType || "",
+      duration: data.duration ?? (draft as any).duration ?? 10,
+      aspectRatio: data.aspectRatio ?? (draft as any).aspectRatio ?? "9:16",
+    };
+
+    await finalVideoQueue.add("generate-final-video", jobPayload);
+
+    this.emitAdUpdate(adId, "PROCESSING" as any, { taskType: "FINAL_VIDEO" });
+    Logger.info(`[AdsService] FINAL_VIDEO job enqueued — draftId=${adId}`);
+
+    return { adId, status: "PROCESSING" };
+  }
+
+  // ============================================================
+  // Video Model Image Generation
+  // ============================================================
+
+  async generateVideoModelImage(
+    userId: string,
+    data: GenerateVideoModelImageDto,
+  ) {
+    Logger.info(`[AdsService] generateVideoModelImage — userId=${userId}`, {
+      gender: data.gender,
+      age: data.age,
+      skin: data.skin,
+    });
+
+    const task = { name: "MODEL_IMAGE", status: "PENDING" };
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 7);
+
+    let draftId: string;
+    let isNew = false;
+
+    // Reuse existing draft if adId provided and valid
+    if (data.adId && data.adId !== "undefined") {
+      let existingDraft: any = null;
+      try {
+        existingDraft = await prisma.adDraft.findFirst({
+          where: { id: data.adId, userId },
+        });
+      } catch (err) {
+        Logger.warn(
+          `[AdsService] Invalid adId in generateVideoModelImage: ${data.adId}`,
+        );
+      }
+
+      if (existingDraft) {
+        await prisma.adDraft.update({
+          where: { id: existingDraft.id },
+          data: {
+            status: "PENDING",
+            currentTask: task,
+            videoPrompt: data.notes,
+          } as any,
+        });
+        draftId = existingDraft.id;
+        Logger.info(`[AdsService] Reusing draft ${draftId} — task=MODEL_IMAGE`);
+      } else {
+        // adId provided but not found — create new
+        await this.ensureNoActiveGeneration(userId);
+        const newDraft = await prisma.adDraft.create({
+          data: {
+            userId,
+            mediaType: "VIDEO",
+            currentStep: 1,
+            status: "PENDING",
+            currentTask: task,
+            expiresAt,
+            videoPrompt: data.notes,
+          },
+        });
+        draftId = newDraft.id;
+        isNew = true;
+        Logger.info(
+          `[AdsService] Created new draft ${draftId} — task=MODEL_IMAGE`,
+        );
+      }
+    } else {
+      await this.ensureNoActiveGeneration(userId);
+      const newDraft = await prisma.adDraft.create({
+        data: {
+          userId,
+          mediaType: "VIDEO",
+          currentStep: 1,
+          status: "PENDING",
+          currentTask: task,
+          expiresAt,
+          videoPrompt: data.notes,
+        },
+      });
+      draftId = newDraft.id;
+      isNew = true;
+      Logger.info(
+        `[AdsService] Created new draft ${draftId} — task=MODEL_IMAGE`,
+      );
+    }
+
+    if (isNew) {
+      this.emitAdUpdate(draftId, "PENDING" as any, {
+        taskType: "AD_CREATED",
+        adId: draftId,
+      });
+    }
+
+    await modelImageQueue.add("generate-model-image", {
+      adId: draftId,
+      userId,
+      isDraft: true,
+      taskType: "MODEL_IMAGE" as const,
+      mediaType: "VIDEO" as const,
+      gender: data.gender,
+      age: data.age,
+      skinColor: data.skin,
+      userPrompt: data.notes,
+    });
+
+    Logger.info(`[AdsService] MODEL_IMAGE job enqueued — draftId=${draftId}`);
+    return { adId: draftId, status: "PENDING" };
   }
 }
 

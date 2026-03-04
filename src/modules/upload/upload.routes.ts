@@ -1,6 +1,8 @@
 import { Router } from "express";
 import multer from "multer";
+import { Permission } from "../../common/constants/permissions.constant";
 import { authenticate } from "../../common/middlewares/auth.middleware";
+import { hasPermissions } from "../../common/middlewares/permission.middleware";
 import { validate } from "../../common/middlewares/validate.middleware";
 import { uploadController } from "./upload.controller";
 import { deleteImageSchema } from "./upload.validation";
@@ -40,28 +42,28 @@ const videoUpload = multer({
 
 router.post(
   "/image",
-  // hasPermissions(Permission.UPLOAD_IMAGES),
+  hasPermissions(Permission.UPLOAD_IMAGES),
   upload.single("image"),
   uploadController.uploadImage.bind(uploadController),
 );
 
 router.post(
   "/images",
-  // hasPermissions(Permission.UPLOAD_IMAGES),
+  hasPermissions(Permission.UPLOAD_IMAGES),
   upload.array("images", 10),
   uploadController.uploadImages.bind(uploadController),
 );
 
 router.post(
   "/video",
-  // hasPermissions(Permission.UPLOAD_VIDEOS),
+  hasPermissions(Permission.UPLOAD_VIDEOS),
   videoUpload.single("video"),
   uploadController.uploadVideo.bind(uploadController),
 );
 
 router.delete(
   "/:publicId",
-  // hasPermissions(Permission.DELETE_UPLOAD),
+  hasPermissions(Permission.DELETE_UPLOAD),
   validate(deleteImageSchema),
   uploadController.deleteImage.bind(uploadController),
 );

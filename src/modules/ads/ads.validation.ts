@@ -97,3 +97,47 @@ export const n8nCallbackSchema = z.object({
 });
 
 export type N8nCallbackBody = z.infer<typeof n8nCallbackSchema>["body"];
+
+// Video Generation Step-Specific Schemas
+export const generateScenesSchema = z.object({
+  body: z.object({
+    adId: z.string(),
+    baseImage: z.string(),
+    storyboard: z.string(),
+    productDescription: z.string(),
+    templateId: z.string().optional(),
+    duration: z.number().optional(),
+    categoryId: z.string().optional(),
+    categoryName: z.string().optional(),
+    adType: z.string().optional(),
+  }),
+});
+
+export const regenerateSceneSchema = z.object({
+  params: z.object({
+    id: objectIdSchema,
+  }),
+  body: z.object({
+    adId: z.string(),
+    sceneId: z.string(),
+    description: z.string(),
+  }),
+});
+
+export const generateFinalVideoSchema = z.object({
+  params: z.object({
+    id: objectIdSchema,
+  }),
+  body: z.object({
+    adId: z.string(),
+    scenes: z.array(
+      z.object({
+        order: z.number(),
+        image: z.string(),
+        description: z.string(),
+      }),
+    ),
+    duration: z.number().optional(),
+    aspectRatio: z.string().optional(),
+  }),
+});
