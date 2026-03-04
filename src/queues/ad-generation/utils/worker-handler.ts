@@ -1,3 +1,4 @@
+import { AdStatus } from "@prisma/client";
 import { Job } from "bullmq";
 import Logger from "../../../common/logging/logger";
 import { prisma } from "../../../config/database.config";
@@ -14,10 +15,12 @@ import { mapErrorMessage } from "./error-mapper";
  */
 export const createAdWorkerHandler = (defaultTaskType?: string) => {
   return async (job: Job<AdGenerationJobData>) => {
-    const { adId, isDraft } = job.data;
-    // Use job-provided taskType if available (e.g., STORYBOARD vs ALL_SCENES),
-    // otherwise fallback to the defaultTaskType passed during initialization.
-    const taskType = (job.data as any).taskType || defaultTaskType;
+    const { adId, taskType: dataTaskType } = job.data;
+    const taskType = dataTaskType || defaultTaskType;
+
+    if (!taskType) {
+      throw new Error(`[Worker] No taskType provided for job ${job.id}`);
+    }
 
     try {
       Logger.info(`[Worker:${taskType}] Job ${job.id} started — adId=${adId}`);
@@ -27,7 +30,13 @@ export const createAdWorkerHandler = (defaultTaskType?: string) => {
         throw new Error(`Processor not found for taskType: ${taskType}`);
       }
 
-      return await processor.handle(job.data as any);
+      // Root status becomes PROCESSING upon pickup
+      adsService.emitAdUpdate(adId, {
+        status: "PROCESSING",
+        taskType,
+      });
+
+      return await processor.handle(job.data as AdGenerationJobData);
     } catch (err: any) {
       const rawMessage = err.message || "Unknown error";
       Logger.error(`[Worker:${taskType}] Job ${job.id} failed: ${rawMessage}`);
@@ -38,8 +47,14 @@ export const createAdWorkerHandler = (defaultTaskType?: string) => {
 
       // 1. Update DB status to FAILED so it persists
       try {
-        const updateData: any = { status: "FAILED" };
-        if (isDraft) {
+        const { mediaType } = job.data;
+        const updateData: any =
+          mediaType === "VIDEO"
+            ? { currentTask: { type: taskType, status: "FAILED" } }
+            : { status: "FAILED" as AdStatus, error: errorMessage };
+
+        const draft = await prisma.adDraft.findUnique({ where: { id: adId } });
+        if (draft) {
           await prisma.adDraft.update({
             where: { id: adId },
             data: updateData,
@@ -56,10 +71,11 @@ export const createAdWorkerHandler = (defaultTaskType?: string) => {
 
       // 2. Emit SSE FAILED event so UI stops loading
       // We pass the friendly message to the UI, but keep the raw error in logs
-      adsService.emitAdUpdate(adId, "FAILED" as any, {
+      adsService.emitAdUpdate(adId, {
+        status: "FAILED",
         taskType,
         error: errorMessage,
-        rawError: rawMessage, // Optional: backend logs often include this anyway
+        rawError: rawMessage,
       });
 
       // 3. Re-throw so BullMQ handles retries/logging

@@ -90,7 +90,7 @@ router.delete(
 
 // --- Video Generation Routes ---
 router.post(
-  "/video/generate-image",
+  "/video/generate-base-image",
   hasPermissions(Permission.GENERATE_ADS),
   adsController.generateVideoBaseImage.bind(adsController),
 );

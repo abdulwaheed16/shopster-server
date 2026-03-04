@@ -496,18 +496,18 @@ enum NotificationType {
 //--------------------------------------------------------------------
 
 model Ad {
-    id              String      @id @default(auto()) @map("_id") @db.ObjectId
-    userId          String      @db.ObjectId
-    products        AdProduct[] // IDs and sources of products used in this ad
-    templateId      String?     @db.ObjectId
-    generationJobId String?     @db.ObjectId
-    categoryId      String?     @db.ObjectId
-    category        Category?   @relation(fields: [categoryId], references: [id])
+    id              String    @id @default(auto()) @map("_id") @db.ObjectId
+    userId          String    @db.ObjectId
+    templateId      String?   @db.ObjectId
+    generationJobId String?   @db.ObjectId
+    categoryId      String?   @db.ObjectId
+    category        Category? @relation(fields: [categoryId], references: [id])
+    categoryName    String?
 
     // Ad details
     title           String?
     assembledPrompt String // Final prompt sent to AI
-    variableValues  Json // User-provided variable values
+    variableValues  Json? // User-provided variable values
 
     // Media type
     mediaType MediaType @default(IMAGE)
@@ -558,6 +558,11 @@ model Ad {
 
     // Product description generated during base image step
     productDescription String?
+    // Active task tracking
+    currentTask        Json? // { type: string, status: string }
+
+    // Products used in this ad (JSON array)
+    products Json?
 
     // Relations
     user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -641,14 +646,13 @@ model AdDraft {
     scenes      Json?
     videoScript Json?
 
-    // Active task tracking: { name: "BASE_IMAGE"|"MODEL_IMAGE"|"STORYBOARD"|"SINGLE_SCENE"|"FINAL_VIDEO", status: "PENDING"|"PROCESSING"|"COMPLETED"|"FAILED" }
-    currentTask Json?
-
-    // Product tracking (restored from production)
-    products Json?
-
     // Product description generated during base image step
     productDescription String?
+    // Active task tracking
+    currentTask        Json? // { type: string, status: string }
+
+    // Products selection (JSON array)
+    products Json?
 
     // Expiration
     expiresAt DateTime // Auto-delete after 7 days

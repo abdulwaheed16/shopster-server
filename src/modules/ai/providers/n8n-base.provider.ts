@@ -114,7 +114,8 @@ export abstract class N8NBaseProvider {
         },
       );
 
-      Logger.info(`${this.logPrefix} n8n acknowledged:`, response.data);
+      Logger.info(`${this.logPrefix} n8n response status:`, response.status);
+      Logger.info(`${this.logPrefix} n8n response data:`, response.data);
     } catch (error: any) {
       this.handleWebhookError(error, webhookUrl);
     }

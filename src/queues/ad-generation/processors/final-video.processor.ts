@@ -49,15 +49,22 @@ export class FinalVideoProcessor implements IAdProcessor<FinalVideoJobData> {
     const payload = {
       ...data,
       taskType: "FINAL_VIDEO",
-      categoryName: (data as any).categoryName || (draft as any).categoryName || "",
+      categoryName:
+        (data as any).categoryName || (draft as any).categoryName || "",
       adType: (data as any).adType || (draft as any).adType || "",
       productDescription:
-        (data as any).productDescription || (draft as any).productDescription || "",
+        (data as any).productDescription ||
+        (draft as any).productDescription ||
+        "",
       baseImage: (data as any).baseImage || (draft as any).baseImageUrl || "",
       storyboard: (data as any).storyboard || (draft as any).storyboard || "",
+      userPrompt:
+        (data as any).userPrompt ||
+        (draft as any).baseImagePrompt ||
+        (draft as any).videoPrompt ||
+        "",
       duration: (data as any).duration || 10,
       aspectRatio: (data as any).aspectRatio || "9:16",
-      
     };
 
     const generationResults =
@@ -89,10 +96,6 @@ export class FinalVideoProcessor implements IAdProcessor<FinalVideoJobData> {
       Logger.info(
         `[FinalVideoProcessor] Async — awaiting n8n callback for ${adId}`,
       );
-      adsService.emitAdUpdate(adId, "PROCESSING" as any, {
-        taskType: "FINAL_VIDEO",
-        mediaType,
-      });
       return { success: true, adId, async: true, taskType: "FINAL_VIDEO" };
     }
 
@@ -126,7 +129,8 @@ export class FinalVideoProcessor implements IAdProcessor<FinalVideoJobData> {
       data: { status: AdStatus.COMPLETED, ...urlFields },
     });
 
-    adsService.emitAdUpdate(targetAdId, AdStatus.COMPLETED, {
+    adsService.emitAdUpdate(targetAdId, {
+      status: "COMPLETED",
       url: primaryUrl,
       mediaType,
       adId: targetAdId,

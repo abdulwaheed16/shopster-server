@@ -41,13 +41,19 @@ export class StoryboardProcessor implements IAdProcessor<StoryboardJobData> {
         .map((p: any) => p.imageUrl)
         .filter(Boolean);
 
+    const userPrompt =
+      data.userPrompt ||
+      (draft as any).scenePrompt ||
+      (draft as any).baseImagePrompt ||
+      (draft as any).productDescription ||
+      "";
     // Construct an explicit, type-safe payload for the AI service
     const payload = {
       adId,
       taskType: taskType as any,
       mediaType: "IMAGE" as const,
-      prompt:
-        (draft as any).scenePrompt || (draft as any).baseImagePrompt || "",
+      userPrompt, // Standardized name
+      prompt: userPrompt, // Legacy fallback
       productDescription:
         (data as any).productDescription ||
         (draft as any).productDescription ||
@@ -67,7 +73,9 @@ export class StoryboardProcessor implements IAdProcessor<StoryboardJobData> {
       Logger.info(
         `[StoryboardProcessor] Async — awaiting n8n callback for ${adId}`,
       );
-      adsService.emitAdUpdate(adId, "PROCESSING" as any, { taskType });
+      adsService.emitAdUpdate(adId, {
+        status: "PROCESSING",
+      });
       return { success: true, adId, async: true, taskType };
     }
 
@@ -87,7 +95,8 @@ export class StoryboardProcessor implements IAdProcessor<StoryboardJobData> {
       });
     }
 
-    adsService.emitAdUpdate(adId, "PENDING" as any, {
+    adsService.emitAdUpdate(adId, {
+      status: "PROCESSING",
       scenes,
       taskType: "STORYBOARD",
     });

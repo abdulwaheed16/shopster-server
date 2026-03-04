@@ -19,6 +19,7 @@ export interface VideoPromptOptions {
   taskType?: string;
   mediaType?: "IMAGE" | "VIDEO";
   baseImage?: string;
+  userPrompt?: string;
 }
 
 export interface VideoGenerationResult {

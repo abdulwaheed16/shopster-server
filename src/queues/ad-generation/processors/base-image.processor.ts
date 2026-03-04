@@ -1,4 +1,3 @@
-import { AdStatus } from "@prisma/client";
 import Logger from "../../../common/logging/logger";
 import { prisma } from "../../../config/database.config";
 
@@ -9,15 +8,6 @@ import { IStorageService } from "../../../modules/upload/interfaces/storage.inte
 import { BaseImageJobData } from "../types/job-data.types";
 import { IAdProcessor, ProcessorResult } from "../types/processor.interface";
 
-/**
- * BaseImageProcessor — Strategy for BASE_IMAGE task
- *
- * Sends: adId, categoryName, adType, productImages, modelImage?,
- *        templateImage?, callbackUrl (injected by N8NBaseProvider), timestamp
- *
- * On success: updates AdDraft.baseImageUrl and emits SSE BASE_IMAGE_READY.
- * On async (n8n webhook): returns immediately; n8nCallbackService handles the rest.
- */
 export class BaseImageProcessor implements IAdProcessor<BaseImageJobData> {
   constructor(private readonly storageService: IStorageService) {}
 
@@ -46,11 +36,8 @@ export class BaseImageProcessor implements IAdProcessor<BaseImageJobData> {
     const modelImage = draft.modelImageUrl;
     const templateImage =
       (draft as any).templateImage || (draft as any).templateImageUrl;
-    const userPrompt = (draft as any).baseImagePrompt;
-    const productDescription = (draft as any).productDescription || "";
-    const aspectRatio = draft.aspectRatio;
-    const style = (draft as any).style;
-    const color = (draft as any).color;
+    const userPrompt = data.userPrompt || (draft as any).baseImagePrompt;
+
 
     Logger.info(`[BaseImageProcessor] Payload summary:`, {
       categoryName,
@@ -67,13 +54,9 @@ export class BaseImageProcessor implements IAdProcessor<BaseImageJobData> {
       productImages,
       modelImage: modelImage ?? undefined,
       templateImage,
-      category: categoryName,
+      categoryName: categoryName,
       adType,
-      productDescription,
-      prompt: userPrompt,
-      aspectRatio: aspectRatio ?? undefined,
-      style,
-      color,
+      userPrompt,
     };
 
     const results = await aiService.generateImage(payload, AI_PROVIDERS.N8N);
@@ -83,10 +66,6 @@ export class BaseImageProcessor implements IAdProcessor<BaseImageJobData> {
       Logger.info(
         `[BaseImageProcessor] Async — awaiting n8n callback for ${adId}`,
       );
-      // Notify UI immediately to show loading
-      adsService.emitAdUpdate(adId, "PROCESSING" as AdStatus, {
-        taskType: "BASE_IMAGE",
-      });
       return { success: true, adId, async: true, taskType: "BASE_IMAGE" };
     }
 
@@ -102,7 +81,8 @@ export class BaseImageProcessor implements IAdProcessor<BaseImageJobData> {
       });
     }
 
-    adsService.emitAdUpdate(adId, "BASE_IMAGE_READY" as AdStatus, {
+    adsService.emitAdUpdate(adId, {
+      status: "COMPLETED",
       url: imageUrl,
       taskType: "BASE_IMAGE",
     });

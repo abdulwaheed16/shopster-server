@@ -35,20 +35,19 @@ export class ModelImageProcessor implements IAdProcessor<ModelImageJobData> {
       adId,
       taskType: "MODEL_IMAGE" as const,
       mediaType,
+      userPrompt, // Explicitly pass userPrompt
       modelDescription: { gender, age, skin: skinColor, notes: userPrompt },
-      prompt: `Portrait of a ${gender}, age ${age}, with ${skinColor} skin tone. ${userPrompt ?? ""}`.trim(),
+      prompt:
+        `Portrait of a ${gender}, age ${age}, with ${skinColor} skin tone. ${userPrompt ?? ""}`.trim(),
     };
 
     const results = await aiService.generateImage(payload, AI_PROVIDERS.N8N);
 
-    // Async path
+    // Async path — n8n accepted, callback will update DB
     if (results.some((r: any) => r.metadata?.pending)) {
       Logger.info(
         `[ModelImageProcessor] Async — awaiting n8n callback for ${adId}`,
       );
-      adsService.emitAdUpdate(adId, "PROCESSING" as any, {
-        taskType: "MODEL_IMAGE",
-      });
       return { success: true, adId, async: true, taskType: "MODEL_IMAGE" };
     }
 
@@ -69,7 +68,8 @@ export class ModelImageProcessor implements IAdProcessor<ModelImageJobData> {
       });
     }
 
-    adsService.emitAdUpdate(adId, "MODEL_READY" as any, {
+    adsService.emitAdUpdate(adId, {
+      status: mediaType === "VIDEO" ? "PROCESSING" : "COMPLETED",
       url: imageUrl,
       taskType: "MODEL_IMAGE",
     });

@@ -21,6 +21,7 @@ export class N8NVideoProvider
 
     const payload: VideoGenerationPayload = {
       adId: options.adId,
+      taskType: options.taskType,
       scenes: options.scenes,
       productImages: options.productImages,
       aspectRatio: options.aspectRatio,
@@ -32,6 +33,7 @@ export class N8NVideoProvider
       storyboard: options.storyboard,
       baseImage: options.baseImage || (options as any).baseImageUrl,
       productDescription: (options as any).productDescription,
+      userPrompt: options.userPrompt || (options as any).prompt,
       targetSceneId: (options as any).targetSceneId,
       timestamp: new Date().toISOString(),
     };

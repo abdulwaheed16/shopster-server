@@ -1,7 +1,7 @@
 import { AspectRatio, StylePreset } from "../ai.constants";
 
 export interface ImagePromptOptions {
-  prompt: string;
+  prompt?: string;
   aspectRatio?: AspectRatio | string;
   imageSize?: string;
   variants?: number;
@@ -19,6 +19,8 @@ export interface ImagePromptOptions {
   modelImage?: string;
   taskType?: string;
   mediaType?: "IMAGE" | "VIDEO";
+  categoryName?: string;
+  adType?: string;
 }
 
 export interface ImageGenerationResult {

@@ -42,17 +42,20 @@ export class AdsService implements IAdsService {
   }
 
   // @ts-ignore
-  emitAdUpdate(adId: string, status: AdStatus, data: any = {}) {
-    // Extract potential competing identifiers from data to prevent collision
-    const { adId: dataAdId, ...rest } = data;
-    const finalAdId = adId || dataAdId;
+  emitAdUpdate(adId: string, data: { status: AdStatus; [key: string]: any }) {
+    const { status, ...rest } = data;
+    const finalAdId = adId || rest.adId;
 
     Logger.info(
       `[AdsService] Emitting SSE update — targetId=${finalAdId} status=${status} (listeners=${this.adEvents.listenerCount("adUpdate")})`,
-      { taskType: data.taskType, hasUrl: !!data.url },
+      { hasUrl: !!rest.url },
     );
 
-    this.adEvents.emit("adUpdate", { ...rest, adId: finalAdId, status });
+    this.adEvents.emit("adUpdate", {
+      ...rest,
+      adId: finalAdId,
+      status,
+    });
   }
 
   // ============================================================
@@ -98,25 +101,25 @@ export class AdsService implements IAdsService {
       data: {
         userId: draft.userId,
         title: draft.videoPrompt || `Ad ${new Date().toLocaleDateString()}`,
-        mediaType: draft.mediaType,
+        mediaType: draft.mediaType as MediaType,
         status: "COMPLETED",
-        products: draft.products as any,
+        products: draft.products || [],
         templateId: draft.templateId,
         categoryId: draft.categoryId,
-        categoryName: (draft as any).categoryName,
+        categoryName: draft?.categoryName as string,
         adType: draft.adType,
         assembledPrompt:
           draft.videoPrompt || draft.imagePrompt || "Promoted Ad",
         baseImageUrl: draft.baseImageUrl,
         modelImageUrl: draft.modelImageUrl,
-        scenes: draft.scenes as any,
-        videoScript: draft.videoScript as any,
-        productDescription: draft.productDescription,
+        scenes: draft.scenes || [],
+        videoScript: draft.videoScript || {},
+        productDescription: draft.productDescription || "",
         duration: draft.duration,
         variantsCount: draft.videoVariants || draft.variantsCount,
         aspectRatio: draft.aspectRatio || "1:1",
         metadata: { draftId: draft.id },
-      } as any,
+      },
     });
 
     Logger.info(`[AdsService] Draft ${draftId} promoted — new Ad ID=${ad.id}`);
@@ -125,8 +128,8 @@ export class AdsService implements IAdsService {
     await prisma.adDraft.delete({ where: { id: draftId } });
 
     // Notify frontend: old draftId is gone, redirect to new adId
-    this.emitAdUpdate(draftId, "COMPLETED", { adId: ad.id });
-    this.emitAdUpdate(ad.id, "COMPLETED", { newId: ad.id });
+    this.emitAdUpdate(draftId, { status: "COMPLETED", adId: ad.id });
+    this.emitAdUpdate(ad.id, { status: "COMPLETED", newId: ad.id });
 
     return ad;
   }
@@ -207,7 +210,7 @@ export class AdsService implements IAdsService {
       Logger.info(`[AdsService] Draft ${adId} deleted on cancel`);
     }
 
-    this.emitAdUpdate(adId, "CANCELLED" as any);
+    this.emitAdUpdate(adId, { status: "CANCELLED" });
   }
 
   // ============================================================
@@ -241,8 +244,11 @@ export class AdsService implements IAdsService {
     }
 
     // Optional filters
-    if (query.productId)
-      where.products = { some: { productId: query.productId } };
+    if (query.productId) {
+      where.products = {
+        array_contains: [{ productId: query.productId }],
+      } as any;
+    }
     if (query.templateId) where.templateId = query.templateId;
 
     if (query.search) {
@@ -272,13 +278,15 @@ export class AdsService implements IAdsService {
     ]);
 
     // Bulk-fetch product info for all ads
-    const allProductRefs = [...new Set(ads.flatMap((a) => a.products))];
+    const allProductRefs = [
+      ...new Set(ads.flatMap((a: any) => (a.products as any[]) || [])),
+    ];
     const storeProductIds = allProductRefs
-      .filter((p) => p.source === "STORE")
-      .map((p) => p.productId);
+      .filter((p: any) => p?.source === "STORE")
+      .map((p: any) => p.productId);
     const uploadedProductIds = allProductRefs
-      .filter((p) => p.source === "UPLOADED")
-      .map((p) => p.productId);
+      .filter((p: any) => p?.source === "UPLOADED")
+      .map((p: any) => p.productId);
 
     const [storeProducts, uploadedProducts] = await Promise.all([
       storeProductIds.length > 0
@@ -347,12 +355,13 @@ export class AdsService implements IAdsService {
     }
 
     // Resolve product details
-    const storeIds = ad.products
-      .filter((p) => p.source === "STORE")
-      .map((p) => p.productId);
-    const uploadedIds = ad.products
-      .filter((p) => p.source === "UPLOADED")
-      .map((p) => p.productId);
+    const productRefs = (ad.products as any[]) || [];
+    const storeIds = productRefs
+      .filter((p: any) => p?.source === "STORE")
+      .map((p: any) => p.productId);
+    const uploadedIds = productRefs
+      .filter((p: any) => p?.source === "UPLOADED")
+      .map((p: any) => p.productId);
 
     const [storeProducts, uploadedProducts] = await Promise.all([
       storeIds.length > 0
@@ -372,8 +381,8 @@ export class AdsService implements IAdsService {
     const productMap = Object.fromEntries(
       [...storeProducts, ...uploadedProducts].map((p) => [p.id, p]),
     );
-    const productDetails = ad.products
-      .map((p: any) => productMap[p.productId])
+    const productDetails = productRefs
+      ?.map((p: any) => productMap[p.productId])
       .filter(Boolean);
 
     const { resultAnalysis, ...rest } = ad as any;
@@ -571,6 +580,7 @@ export class AdsService implements IAdsService {
       productImages: (Array.isArray(ad.products) ? ad.products : [])
         .map((p: any) => p.imageUrl)
         .filter(Boolean),
+      userPrompt: ad.assembledPrompt,
     };
 
     await finalVideoQueue.add("generate", jobPayload);
@@ -654,114 +664,60 @@ export class AdsService implements IAdsService {
     userId: string,
     data: GenerateVideoBaseImageDto,
   ) {
-    Logger.info(`[AdsService] generateVideoBaseImage — userId=${userId}`, {
-      adId: data.adId,
-      categoryId: data.categoryId,
-      adType: data.adType,
-      productImagesCount: data.products?.length,
-      hasModelImage: !!data.modelImage,
-      hasTemplateImage: !!data.templateImage,
-    });
+    Logger.info(`[AdsService] generateVideoBaseImage — userId=${userId}`, data);
 
     // Lookup category name from DB to ensure consistency
-    let categoryName = data.categoryName;
-    if (data.categoryId) {
-      const category = await prisma.category.findUnique({
-        where: { id: data.categoryId },
-        select: { name: true },
-      });
-      if (category) {
-        categoryName = category.name;
-      }
-    }
+    const category = await prisma.category.findUnique({
+      where: { id: data.categoryId },
+      select: { name: true },
+    });
 
-    const task = { name: "BASE_IMAGE", status: "PENDING" };
-    let draft;
-    let isNew = false;
+    // await this.ensureNoActiveGeneration(userId);
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 7);
 
-    // Reuse existing draft if adId provided
-    if (data.adId && data.adId !== "undefined") {
-      try {
-        draft = await prisma.adDraft.findFirst({
-          where: { id: data.adId, userId },
-        });
-      } catch (err) {
-        Logger.warn(
-          `[AdsService] Invalid adId in generateVideoBaseImage: ${data.adId}`,
-        );
-      }
-    }
+    const draft = await prisma.adDraft.create({
+      data: {
+        userId,
+        mediaType: "VIDEO",
+        status: "PENDING",
+        expiresAt,
+        products: data.products || [],
+        categoryId: data.categoryId,
+        categoryName: category?.name,
+        adType: data.adType || null,
+        modelImageUrl: data.modelImage || null,
+        templateId: data?.templateId || null,
+      } as any,
+    });
 
-    if (draft) {
-      draft = await prisma.adDraft.update({
-        where: { id: draft.id },
-        data: {
-          status: "PENDING",
-          currentTask: task,
-          modelImageUrl: data.modelImage || data.modelImage || undefined,
-          baseImagePrompt:
-            (data as any).prompt || (draft as any).baseImagePrompt,
-          productDescription:
-            data.productDescription || (draft as any).productDescription,
-        },
-      });
-      Logger.info(`[AdsService] Updated draft ${draft.id} — task=BASE_IMAGE`);
-    } else {
-      await this.ensureNoActiveGeneration(userId);
-      const expiresAt = new Date();
-      expiresAt.setDate(expiresAt.getDate() + 7);
-
-      draft = await prisma.adDraft.create({
-        data: {
-          userId,
-          mediaType: "VIDEO",
-          // currentStep: 3, // Optional in schema, handled by frontend or omitted
-          status: "PENDING",
-          currentTask: task,
-          expiresAt,
-          products: { set: data.products || [] },
-          categoryId: data.categoryId,
-          categoryName: categoryName,
-          adType: data.adType || null,
-          modelImageUrl: data.modelImage || null,
-          templateId: data.templateId || null,
-          productDescription: data.productDescription || null,
-        } as any,
-      });
-      isNew = true;
-      Logger.info(`[AdsService] Created draft ${draft.id} — task=BASE_IMAGE`);
-    }
-
-    if (isNew) {
-      // Emit AD_CREATED so frontend can capture the adId and open SSE
-      this.emitAdUpdate(draft.id, "PENDING" as any, {
-        taskType: "AD_CREATED",
-        adId: draft.id,
-      });
-    }
+    Logger.info(`[AdsService] Created draft ${draft.id} — task=BASE_IMAGE`);
 
     const jobPayload: AdGenerationJobData = {
       adId: draft.id,
       userId,
       isDraft: true,
       taskType: "BASE_IMAGE",
+      status: "PENDING",
       mediaType: "VIDEO",
-      currentTask: task,
-      categoryName: categoryName || "",
+      categoryName: category?.name || "",
       adType: data.adType,
       products: data.products,
       productImages: (data.products || []).map((p) => p.imageUrl),
       modelImage: data.modelImage,
-      templateImage: data.templateImage,
-      templateId: data.templateId || (draft as any).templateId || "",
-      productDescription:
-        data.productDescription || (draft as any).productDescription || "",
+      templateImage: data?.templateImage,
+      templateId: data?.templateId || "",
+      userPrompt: data?.userPrompt || "",
     };
 
     await baseImageQueue.add("generate-base-image", jobPayload);
     Logger.info(`[AdsService] BASE_IMAGE job enqueued — draftId=${draft.id}`);
 
-    return { adId: draft.id, status: "PENDING" };
+    this.emitAdUpdate(draft.id, {
+      status: "PENDING",
+    });
+
+    return { adId: draft.id };
   }
 
   // ============================================================
@@ -773,7 +729,6 @@ export class AdsService implements IAdsService {
       `[AdsService] generateVideoScenes — userId=${userId} adId=${data.adId}`,
     );
 
-    const task = { name: "STORYBOARD", status: "PENDING" };
     let draft;
     let isNew = false;
 
@@ -799,7 +754,6 @@ export class AdsService implements IAdsService {
           mediaType: "VIDEO",
           // currentStep: 3,
           status: "PENDING",
-          currentTask: task,
           expiresAt,
           baseImageUrl: data.baseImage || null,
           storyboard: data.storyboard,
@@ -820,25 +774,23 @@ export class AdsService implements IAdsService {
         where: { id: draft.id },
         data: {
           status: "PENDING",
-          currentTask: task,
           baseImageUrl: data.baseImage || draft.baseImageUrl,
           storyboard: data.storyboard || draft.storyboard,
           productDescription:
             data.productDescription || draft.productDescription,
           templateId: data.templateId || draft.templateId,
-          duration: data.duration || (draft as any).duration,
-          categoryId: data.categoryId || (draft as any).categoryId,
-          categoryName: data.categoryName || (draft as any).categoryName,
-          adType: data.adType || (draft as any).adType,
-        } as any,
+          duration: data.duration || draft.duration,
+          categoryId: data.categoryId || draft.categoryId,
+          categoryName: data.categoryName || draft.categoryName,
+          adType: data.adType || draft.adType,
+        },
       });
       Logger.info(`[AdsService] Updated draft ${draft.id} — task=STORYBOARD`);
     }
 
     if (isNew) {
-      this.emitAdUpdate(draft.id, "PENDING" as any, {
-        taskType: "AD_CREATED",
-        adId: draft.id,
+      this.emitAdUpdate(draft.id, {
+        status: "PENDING",
       });
     }
 
@@ -847,27 +799,28 @@ export class AdsService implements IAdsService {
       userId,
       isDraft: true,
       taskType: "STORYBOARD",
+      status: "PENDING",
       mediaType: "VIDEO",
-      currentTask: task,
-      baseImage: data.baseImage || (draft as any).baseImageUrl || "",
-      storyboard: data.storyboard || (draft as any).storyboard || "",
+      baseImage: data.baseImage || draft.baseImageUrl || "",
+      storyboard: data.storyboard || draft.storyboard || "",
       productDescription:
-        data.productDescription || (draft as any).productDescription || "",
-      categoryName: data.categoryName || (draft as any).categoryName || "",
-      adType: data.adType || (draft as any).adType || "",
-      templateId: data.templateId || (draft as any).templateId || "",
-      products: (draft as any).products || [],
-      productImages: (Array.isArray((draft as any).products)
-        ? (draft as any).products
-        : []
-      )
+        data.productDescription || draft.productDescription || "",
+      categoryName: data.categoryName || draft.categoryName || "",
+      adType: data.adType || draft.adType || "",
+      templateId: data.templateId || draft.templateId || "",
+      userPrompt:
+        (data as any).userPrompt ||
+        draft.baseImagePrompt ||
+        draft.productDescription ||
+        "",
+      productImages: (Array.isArray(draft.products) ? draft.products : [])
         .map((p: any) => p.imageUrl)
         .filter(Boolean),
     };
 
     await storyboardQueue.add("generate-storyboard", jobPayload);
-    this.emitAdUpdate(draft.id, "PROCESSING" as any, {
-      taskType: "STORYBOARD",
+    this.emitAdUpdate(draft.id, {
+      status: "PROCESSING",
     });
     Logger.info(`[AdsService] STORYBOARD job enqueued — draftId=${draft.id}`);
 
@@ -904,17 +857,14 @@ export class AdsService implements IAdsService {
 
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7);
-    const task = { name: "STORYBOARD", status: "PENDING" };
 
     const draft = await prisma.adDraft.create({
       data: {
         userId,
         mediaType: "VIDEO",
-        // currentStep: 4,
         status: AdStatus.PENDING,
-        currentTask: task,
         expiresAt,
-        products: { set: data.products || [] },
+        products: data.products || [],
         templateId: data.templateId || null,
         categoryId: data.categoryId,
         categoryName: categoryName,
@@ -926,9 +876,8 @@ export class AdsService implements IAdsService {
     Logger.info(`[AdsService] Food scene draft created — draftId=${draft.id}`);
 
     // Emit AD_CREATED so frontend captures the draftId
-    this.emitAdUpdate(draft.id, "PENDING" as any, {
-      taskType: "AD_CREATED",
-      adId: draft.id,
+    this.emitAdUpdate(draft.id, {
+      status: "PENDING",
     });
 
     const jobPayload: AdGenerationJobData = {
@@ -936,8 +885,8 @@ export class AdsService implements IAdsService {
       userId,
       isDraft: true,
       taskType: "STORYBOARD",
+      status: "PENDING",
       mediaType: "VIDEO",
-      currentTask: task,
       baseImage: "",
       categoryName: categoryName || "",
       products: data.products,
@@ -945,6 +894,11 @@ export class AdsService implements IAdsService {
       templateId: data.templateId ?? undefined,
       storyboard: "",
       productDescription: (data as any).productDescription || "",
+      userPrompt:
+        (data as any).userPrompt ||
+        (data as any).productDescription ||
+        draft.productDescription ||
+        "",
       adType: (data as any).adType || "",
     };
 
@@ -997,23 +951,21 @@ export class AdsService implements IAdsService {
       userId,
       isDraft,
       taskType: "SINGLE_SCENE",
+      status: "PENDING",
       mediaType: "VIDEO",
-      currentTask: { name: "SINGLE_SCENE", status: "PENDING" },
       targetSceneId: sceneId,
       assembledPrompt: data.description,
+      userPrompt: data.description, // For n8n
       baseImage: resource.baseImageUrl || "",
       productDescription: resource.productDescription || "",
     };
 
     await singleSceneQueue.add("regenerate-single-scene", jobPayload);
 
-    this.emitAdUpdate(adId, "PROCESSING" as any, {
-      taskType: "SINGLE_SCENE",
+    this.emitAdUpdate(adId, {
+      status: "PROCESSING",
       sceneId,
     });
-    Logger.info(
-      `[AdsService] SINGLE_SCENE job enqueued — adId=${adId} sceneId=${sceneId}`,
-    );
 
     return { adId, status: "PROCESSING", sceneId };
   }
@@ -1031,10 +983,20 @@ export class AdsService implements IAdsService {
     let isDraft = false;
 
     if (!resource) {
-      resource = await prisma.adDraft.findFirst({
-        where: { id: adId, userId },
+      await prisma.adDraft.update({
+        where: { id: adId },
+        data: {
+          status: "PENDING",
+        },
       });
       isDraft = true;
+    } else {
+      await prisma.ad.update({
+        where: { id: adId },
+        data: {
+          status: "PENDING",
+        },
+      });
     }
 
     if (!resource) throw ApiError.notFound("Resource not found");
@@ -1051,18 +1013,25 @@ export class AdsService implements IAdsService {
       userId,
       isDraft,
       taskType: "ALL_SCENES",
+      status: "PENDING",
       mediaType: "VIDEO",
-      currentTask: { name: "STORYBOARD", status: "PENDING" },
       baseImage: resource.baseImageUrl ?? "",
       storyboard: resource.storyboard || "",
       productDescription: resource.productDescription || "",
+      userPrompt:
+        (resource as any).scenePrompt ||
+        (resource as any).baseImagePrompt ||
+        (resource as any).productDescription ||
+        "",
       categoryName: (resource as any).categoryName || "",
       adType: (resource as any).adType || "",
     };
 
     await storyboardQueue.add("regenerate-all-scenes", jobPayload);
 
-    this.emitAdUpdate(adId, "PROCESSING" as any, { taskType: "ALL_SCENES" });
+    this.emitAdUpdate(adId, {
+      status: "PROCESSING",
+    });
     Logger.info(`[AdsService] ALL_SCENES job enqueued — adId=${adId}`);
 
     return { adId, status: "PROCESSING" };
@@ -1108,14 +1077,11 @@ export class AdsService implements IAdsService {
       }),
     );
 
-    const task = { name: "FINAL_VIDEO", status: "PENDING" };
-
     // ── Update draft — mark FINAL_VIDEO as in-progress ────────
     await prisma.adDraft.update({
       where: { id: adId },
       data: {
         status: "PENDING",
-        currentTask: task,
         scenes,
         duration: data.duration ?? (draft as any).duration,
         aspectRatio: data.aspectRatio ?? (draft as any).aspectRatio,
@@ -1128,21 +1094,28 @@ export class AdsService implements IAdsService {
       userId,
       isDraft: true,
       taskType: "FINAL_VIDEO",
-      mediaType: draft.mediaType,
-      currentTask: task,
+      status: "PENDING",
+      mediaType: draft.mediaType as any,
       scenes,
       baseImage: draft.baseImageUrl || "",
       storyboard: draft.storyboard || "",
       productDescription: draft.productDescription || "",
       categoryName: (draft as any).categoryName || "",
       adType: (draft as any).adType || "",
+      userPrompt:
+        (draft as any).videoPrompt ||
+        (draft as any).baseImagePrompt ||
+        (draft as any).productDescription ||
+        "",
       duration: data.duration ?? (draft as any).duration ?? 10,
       aspectRatio: data.aspectRatio ?? (draft as any).aspectRatio ?? "9:16",
     };
 
     await finalVideoQueue.add("generate-final-video", jobPayload);
 
-    this.emitAdUpdate(adId, "PROCESSING" as any, { taskType: "FINAL_VIDEO" });
+    this.emitAdUpdate(adId, {
+      status: "PROCESSING",
+    });
     Logger.info(`[AdsService] FINAL_VIDEO job enqueued — draftId=${adId}`);
 
     return { adId, status: "PROCESSING" };
@@ -1162,7 +1135,6 @@ export class AdsService implements IAdsService {
       skin: data.skin,
     });
 
-    const task = { name: "MODEL_IMAGE", status: "PENDING" };
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7);
 
@@ -1187,7 +1159,6 @@ export class AdsService implements IAdsService {
           where: { id: existingDraft.id },
           data: {
             status: "PENDING",
-            currentTask: task,
             videoPrompt: data.notes,
           } as any,
         });
@@ -1202,10 +1173,9 @@ export class AdsService implements IAdsService {
             mediaType: "VIDEO",
             currentStep: 1,
             status: "PENDING",
-            currentTask: task,
             expiresAt,
             videoPrompt: data.notes,
-          },
+          } as any,
         });
         draftId = newDraft.id;
         isNew = true;
@@ -1221,10 +1191,9 @@ export class AdsService implements IAdsService {
           mediaType: "VIDEO",
           currentStep: 1,
           status: "PENDING",
-          currentTask: task,
           expiresAt,
           videoPrompt: data.notes,
-        },
+        } as any,
       });
       draftId = newDraft.id;
       isNew = true;
@@ -1234,9 +1203,8 @@ export class AdsService implements IAdsService {
     }
 
     if (isNew) {
-      this.emitAdUpdate(draftId, "PENDING" as any, {
-        taskType: "AD_CREATED",
-        adId: draftId,
+      this.emitAdUpdate(draftId, {
+        status: "PENDING",
       });
     }
 
@@ -1244,8 +1212,9 @@ export class AdsService implements IAdsService {
       adId: draftId,
       userId,
       isDraft: true,
-      taskType: "MODEL_IMAGE" as const,
-      mediaType: "VIDEO" as const,
+      taskType: "MODEL_IMAGE",
+      status: "PENDING",
+      mediaType: "VIDEO",
       gender: data.gender,
       age: data.age,
       skinColor: data.skin,
@@ -1253,7 +1222,7 @@ export class AdsService implements IAdsService {
     });
 
     Logger.info(`[AdsService] MODEL_IMAGE job enqueued — draftId=${draftId}`);
-    return { adId: draftId, status: "PENDING" };
+    return { adId: draftId };
   }
 }
 

@@ -6,12 +6,19 @@ import { MediaType } from "@prisma/client";
 //       at send-time by each processor (callbackUrl via N8NBaseProvider, timestamp
 //       via Date.now()) to avoid stale values in retried jobs.
 // ─────────────────────────────────────────────────────────────────────────────
+export interface TaskProgress {
+  type: string; // e.g. "BASE_IMAGE", "STORYBOARD", etc.
+  status: "PENDING" | "PROCESSING" | "COMPLETED" | "FAILED";
+}
+
 export interface BaseJobData {
   adId: string;
   userId: string;
-  isDraft: boolean;
+  isDraft?: boolean;
   mediaType: MediaType;
-  currentTask: { name: string; status: string };
+  taskType?: string; // Current job type for worker routing
+  status: "PENDING" | "PROCESSING" | "COMPLETED" | "FAILED"; // Overall ad status
+  currentTask?: TaskProgress; // Granular task details for UI
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -20,7 +27,7 @@ export interface BaseJobData {
 //               templateImage?, callbackUrl, timestamp
 // ─────────────────────────────────────────────────────────────────────────────
 export interface BaseImageJobData extends BaseJobData {
-  taskType: "BASE_IMAGE";
+  taskType?: "BASE_IMAGE";
   categoryName: string;
   adType: string;
   products: Array<{
@@ -33,11 +40,10 @@ export interface BaseImageJobData extends BaseJobData {
   templateId?: string;
   templateImage?: string;
   userPrompt?: string;
-  productDescription?: string;
 }
 
 export interface ModelImageJobData extends BaseJobData {
-  taskType: "MODEL_IMAGE";
+  taskType?: "MODEL_IMAGE";
   gender: string;
   age: string;
   skinColor: string;
@@ -45,7 +51,7 @@ export interface ModelImageJobData extends BaseJobData {
 }
 
 export interface StoryboardJobData extends BaseJobData {
-  taskType: "STORYBOARD" | "ALL_SCENES";
+  taskType?: "STORYBOARD" | "ALL_SCENES";
   baseImage: string;
   storyboard: string;
   productDescription: string;
@@ -58,14 +64,16 @@ export interface StoryboardJobData extends BaseJobData {
     imageUrl: string;
   }>;
   productImages?: string[];
+  userPrompt?: string;
 }
 
 export interface SingleSceneJobData extends BaseJobData {
-  taskType: "SINGLE_SCENE";
+  taskType?: "SINGLE_SCENE";
   targetSceneId: string;
   assembledPrompt: string;
   baseImage: string;
   productDescription?: string;
+  userPrompt?: string;
 }
 
 export interface FinalVideoScene {
@@ -75,7 +83,7 @@ export interface FinalVideoScene {
 }
 
 export interface FinalVideoJobData extends BaseJobData {
-  taskType: "FINAL_VIDEO";
+  taskType?: "FINAL_VIDEO";
   baseImage: string;
   storyboard: string;
   productDescription: string;
@@ -84,13 +92,14 @@ export interface FinalVideoJobData extends BaseJobData {
   adType?: string;
   duration?: number;
   aspectRatio?: string;
+  userPrompt?: string;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Discriminated union for all task types
 // ─────────────────────────────────────────────────────────────────────────────
 export interface AdTemplateJobData extends BaseJobData {
-  taskType: "AD_TEMPLATE";
+  taskType?: "AD_TEMPLATE";
   templateId: string;
   promptTemplate: string;
   referenceAdImage?: string;

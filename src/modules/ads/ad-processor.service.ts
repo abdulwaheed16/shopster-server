@@ -20,16 +20,16 @@ export class AdProcessorService {
     );
 
     // 1. Status -> PROCESSING
-    await this.updateResourceStatus(adId, AdStatus.PROCESSING, isDraft, {
+    await this.updateResourceStatus(adId, AdStatus.PROCESSING, !!isDraft, {
       taskType,
     });
 
     // 2. Delegate to strategy
-    const processor = processorRegistry.get(taskType);
+    const processor = processorRegistry.get(taskType || "");
     if (!processor) {
       const error = `No processor registered for taskType: ${taskType}`;
       Logger.error(`[AdProcessorService] ${error}`);
-      await this.updateResourceStatus(adId, AdStatus.FAILED, isDraft, {
+      await this.updateResourceStatus(adId, AdStatus.FAILED, !!isDraft, {
         error,
       });
       throw new Error(error);
@@ -42,7 +42,7 @@ export class AdProcessorService {
       Logger.error(
         `[AdProcessorService] Processor failed — adId=${adId} error=${error.message}`,
       );
-      await this.updateResourceStatus(adId, AdStatus.FAILED, isDraft, {
+      await this.updateResourceStatus(adId, AdStatus.FAILED, !!isDraft, {
         error: error.message,
       });
       throw error;
@@ -76,7 +76,7 @@ export class AdProcessorService {
       },
     });
 
-    adsService.emitAdUpdate(id, status, metadata);
+    adsService.emitAdUpdate(id, { status, ...metadata });
   }
 }
 

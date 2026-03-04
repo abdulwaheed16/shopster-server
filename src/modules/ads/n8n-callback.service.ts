@@ -101,12 +101,11 @@ export class N8NCallbackService {
     const productDescription = result?.productDescription;
 
     if (isDraft) {
-      const taskStatus: AdStatus = "PENDING";
       await prisma.adDraft.update({
         where: { id: adId },
         data: {
-          status: taskStatus,
-          currentTask: { name: taskType, status: "COMPLETED" },
+          status: "PROCESSING" as AdStatus,
+          currentTask: { type: taskType, status: "COMPLETED" },
           ...(taskType === "BASE_IMAGE"
             ? {
                 baseImageUrl: imageUrl,
@@ -123,7 +122,7 @@ export class N8NCallbackService {
       await prisma.ad.update({
         where: { id: adId },
         data: {
-          status: "PENDING",
+          status: "COMPLETED",
           ...(taskType === "BASE_IMAGE"
             ? { baseImageUrl: imageUrl }
             : { modelImageUrl: imageUrl }),
@@ -131,11 +130,10 @@ export class N8NCallbackService {
       });
     }
 
-    const sseEvent =
-      taskType === "BASE_IMAGE" ? "BASE_IMAGE_READY" : "MODEL_READY";
-    adsService.emitAdUpdate(adId, sseEvent as any, {
+    adsService.emitAdUpdate(adId, {
+      status: "COMPLETED",
       url: imageUrl,
-      taskType,
+      taskType: taskType,
       storyboard: storyboard || undefined,
       productDescription: productDescription || undefined,
     });
@@ -165,8 +163,7 @@ export class N8NCallbackService {
         data: {
           scenes: finalScenes,
           storyboard: storyboard || undefined,
-          currentTask: { name: taskType, status: "COMPLETED" },
-          status: "PENDING" as AdStatus,
+          status: "PROCESSING" as AdStatus,
           videoScript: productDescription
             ? { type: "TEXT", content: productDescription }
             : undefined,
@@ -178,7 +175,7 @@ export class N8NCallbackService {
         data: {
           scenes: finalScenes,
           storyboard: storyboard || undefined,
-          status: "PENDING",
+          status: "PROCESSING",
           videoScript: productDescription
             ? { type: "TEXT", content: productDescription }
             : undefined,
@@ -186,7 +183,8 @@ export class N8NCallbackService {
       });
     }
 
-    adsService.emitAdUpdate(adId, "PENDING", {
+    adsService.emitAdUpdate(adId, {
+      status: "PROCESSING",
       scenes: finalScenes,
       taskType,
       storyboard: storyboard || undefined,
@@ -237,18 +235,21 @@ export class N8NCallbackService {
         where: { id: adId },
         data: {
           scenes: updatedScenes,
-          currentTask: { name: "SINGLE_SCENE", status: "COMPLETED" },
-          status: "PENDING" as AdStatus,
+          status: "PROCESSING" as AdStatus,
         } as any,
       });
     } else {
       await prisma.ad.update({
         where: { id: adId },
-        data: { scenes: updatedScenes, status: "PENDING" } as any,
+        data: {
+          scenes: updatedScenes,
+          status: "PROCESSING",
+        } as any,
       });
     }
 
-    adsService.emitAdUpdate(adId, "PENDING", {
+    adsService.emitAdUpdate(adId, {
+      status: "PROCESSING",
       sceneId: targetSceneId,
       url: sceneUrl,
       taskType: "SINGLE_SCENE",
@@ -303,16 +304,17 @@ export class N8NCallbackService {
 
     // Emit REDIRECT on old draftId so frontend SSE reconnects to new Ad ID
     if (isDraft && targetAdId !== adId) {
-      adsService.emitAdUpdate(adId, "COMPLETED" as any, {
-        taskType: payload.taskType,
-        status: "REDIRECT",
+      adsService.emitAdUpdate(adId, {
+        status: "REDIRECT" as any,
         newId: targetAdId,
         adId: targetAdId,
+        taskType: payload.taskType,
       });
     }
 
     // Emit COMPLETED on new Ad ID
-    adsService.emitAdUpdate(targetAdId, "COMPLETED", {
+    adsService.emitAdUpdate(targetAdId, {
+      status: "COMPLETED",
       url: finalUrl,
       taskType: payload.taskType,
       adId: targetAdId,
@@ -346,7 +348,6 @@ export class N8NCallbackService {
           where: { id: adId },
           data: {
             status: "FAILED" as AdStatus,
-            currentTask: { name: taskType, status: "FAILED" },
             metadata: { error, failedAt: new Date().toISOString(), taskType },
           } as any,
         });
@@ -365,7 +366,11 @@ export class N8NCallbackService {
       );
     }
 
-    adsService.emitAdUpdate(adId, "FAILED", { error, taskType });
+    adsService.emitAdUpdate(adId, {
+      status: "FAILED",
+      error,
+      taskType,
+    });
   }
 
   // ── Credit Deduction ───────────────────────────────────────────────────────

@@ -23,7 +23,8 @@ export class N8NImageProvider
 
     const payload: ImageGenerationPayload = {
       adId: options.adId,
-      userPrompt: options.userPrompt || options.prompt,
+      taskType: options?.taskType,
+      userPrompt: options?.userPrompt || options?.prompt,
       productImages: options.productImages,
       modelImage: options.modelImage,
       categoryName: (options as any).category,
@@ -39,8 +40,6 @@ export class N8NImageProvider
       storyboard: (options as any).storyboard,
       timestamp: new Date().toISOString(),
     };
-
-    console.log("Image Generation Payload:", payload);
 
     await this.fireAndForget(webhookUrl, payload);
 

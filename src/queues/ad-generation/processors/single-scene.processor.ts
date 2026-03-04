@@ -38,10 +38,13 @@ export class SingleSceneProcessor implements IAdProcessor<SingleSceneJobData> {
       baseImage: !!baseImage,
     });
 
+    const userPrompt = data.userPrompt || data.assembledPrompt;
+
     const payload = {
       adId,
       imageUrls: [baseImage].filter(Boolean),
-      prompt: assembledPrompt,
+      userPrompt: userPrompt, // Standardized name
+      prompt: userPrompt, // Legacy fallback
       targetSceneId,
       taskType: "SINGLE_SCENE" as const,
       mediaType: "IMAGE" as const,
@@ -54,8 +57,8 @@ export class SingleSceneProcessor implements IAdProcessor<SingleSceneJobData> {
       Logger.info(
         `[SingleSceneProcessor] Async — awaiting n8n callback for ${adId}`,
       );
-      adsService.emitAdUpdate(adId, "PROCESSING" as any, {
-        taskType: "SINGLE_SCENE",
+      adsService.emitAdUpdate(adId, {
+        status: "PROCESSING",
         sceneId: targetSceneId,
       });
       return { success: true, adId, async: true, taskType: "SINGLE_SCENE" };
@@ -93,10 +96,11 @@ export class SingleSceneProcessor implements IAdProcessor<SingleSceneJobData> {
       });
     }
 
-    adsService.emitAdUpdate(adId, isDraft ? "PENDING" : ("COMPLETED" as any), {
-      sceneId: targetSceneId,
+    adsService.emitAdUpdate(adId, {
+      status: "PROCESSING",
       url: sceneUrl,
       taskType: "SINGLE_SCENE",
+      sceneId: targetSceneId,
     });
 
     return { success: true, adId, url: sceneUrl };

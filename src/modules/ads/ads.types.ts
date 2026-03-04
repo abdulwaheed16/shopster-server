@@ -9,8 +9,8 @@ import { GenerateAdBody, GetAdsQuery } from "./ads.validation";
 export interface GenerateVideoBaseImageDto {
   adId?: string;
   categoryId: string;
-  categoryName?: string;
   adType: string;
+  userPrompt?: string;
   products: Array<{
     productId: string;
     source: "STORE" | "UPLOADED";
@@ -19,7 +19,6 @@ export interface GenerateVideoBaseImageDto {
   modelImage: string;
   templateId?: string;
   templateImage?: string;
-  productDescription?: string;
 }
 
 export interface GenerateVideoScenesDto {
@@ -92,38 +91,34 @@ export interface IAdsService {
   subscribeToAdUpdates(adId: string, callback: (data: any) => void): () => void;
   emitAdUpdate(
     adId: string,
-    status: AdStatus,
-    data?: Record<string, any>,
+    data: { status: AdStatus; [key: string]: any },
   ): void;
 
   // Video Step-by-Step Methods
   generateVideoBaseImage(
     userId: string,
     data: GenerateVideoBaseImageDto,
-  ): Promise<{ adId: string; status: string }>;
+  ): Promise<{ adId: string }>;
   generateVideoScenes(
     userId: string,
     data: GenerateVideoScenesDto,
-  ): Promise<{ adId: string; status: string }>;
+  ): Promise<{ adId: string }>;
   generateVideoFoodScenes(
     userId: string,
     data: GenerateVideoFoodScenesDto,
-  ): Promise<{ adId: string; status: string }>;
+  ): Promise<{ adId: string }>;
   regenerateScene(
     userId: string,
     adId: string,
     data: RegenerateSceneDto,
-  ): Promise<{ adId: string; status: string; sceneId: string }>;
-  regenerateAllScenes(
-    userId: string,
-    adId: string,
-  ): Promise<{ adId: string; status: string }>;
+  ): Promise<{ adId: string; sceneId: string }>;
+  regenerateAllScenes(userId: string, adId: string): Promise<{ adId: string }>;
   generateFinalVideo(
     userId: string,
     data: GenerateFinalVideoDto,
-  ): Promise<{ adId: string; status: string }>;
+  ): Promise<{ adId: string }>;
   generateVideoModelImage(
     userId: string,
     data: GenerateVideoModelImageDto,
-  ): Promise<{ adId: string; status: string }>;
+  ): Promise<{ adId: string }>;
 }

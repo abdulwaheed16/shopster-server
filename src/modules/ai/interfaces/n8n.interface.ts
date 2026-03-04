@@ -9,6 +9,7 @@ export interface N8NBasePayload {
   color?: string;
   timestamp: string;
   callbackUrl?: string;
+  taskType?: string;
 }
 
 export interface ImageGenerationPayload extends N8NBasePayload {
@@ -37,6 +38,7 @@ export interface VideoGenerationPayload extends N8NBasePayload {
   storyboard?: string;
   baseImage?: string;
   productDescription?: string;
+  userPrompt?: string;
   targetSceneId?: string;
 }
 
