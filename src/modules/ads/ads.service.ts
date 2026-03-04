@@ -751,7 +751,7 @@ export class AdsService implements IAdsService {
 
     if (!draft) {
       // No draft found — create one as fallback
-      await this.ensureNoActiveGeneration(userId);
+      // await this.ensureNoActiveGeneration(userId);
       const expiresAt = new Date();
       expiresAt.setDate(expiresAt.getDate() + 7);
 
@@ -759,8 +759,6 @@ export class AdsService implements IAdsService {
         data: {
           userId,
           mediaType: "VIDEO",
-          // currentStep: 3,
-          status: "PENDING",
           expiresAt,
           baseImageUrl: data.baseImage || null,
           storyboard: data.storyboard,
@@ -780,16 +778,7 @@ export class AdsService implements IAdsService {
       draft = await prisma.adDraft.update({
         where: { id: draft.id },
         data: {
-          status: "PENDING",
           baseImageUrl: data.baseImage || draft.baseImageUrl,
-          storyboard: data.storyboard || draft.storyboard,
-          productDescription:
-            data.productDescription || draft.productDescription,
-          templateId: data.templateId || draft.templateId,
-          duration: data.duration || draft.duration,
-          categoryId: data.categoryId || draft.categoryId,
-          categoryName: data.categoryName || draft.categoryName,
-          adType: data.adType || draft.adType,
         },
       });
       Logger.info(`[AdsService] Updated draft ${draft.id} — task=STORYBOARD`);
@@ -815,11 +804,7 @@ export class AdsService implements IAdsService {
       categoryName: data.categoryName || draft.categoryName || "",
       adType: data.adType || draft.adType || "",
       templateId: data.templateId || draft.templateId || "",
-      userPrompt:
-        (data as any).userPrompt ||
-        draft.baseImagePrompt ||
-        draft.productDescription ||
-        "",
+      userPrompt: (data as any).userPrompt || draft.baseImagePrompt || "",
       productImages: (Array.isArray(draft.products) ? draft.products : [])
         .map((p: any) => p.imageUrl)
         .filter(Boolean),

@@ -123,10 +123,32 @@ export class N8NCallbackService {
     isDraft: boolean,
     payload: N8NCallbackPayload,
   ): Promise<void> {
-    const { taskType, result, imageUrls } = payload;
-    const imageUrl = imageUrls?.[0];
-    const storyboard = result?.storyBoard;
-    const productDescription = result?.productDescription;
+    const {
+      taskType,
+      result,
+      imageUrls,
+      url,
+      videoUrls,
+      storyBoard,
+      storyboard: topStoryboard,
+      productDescription: topProductDescription,
+    } = payload as any;
+    const imageUrl =
+      url ||
+      imageUrls?.[0] ||
+      videoUrls?.[0] ||
+      result?.url ||
+      result?.imageUrl ||
+      result?.imageUrls?.[0] ||
+      result?.videoUrls?.[0];
+    const storyboard =
+      storyBoard ||
+      topStoryboard ||
+      result?.storyBoard ||
+      result?.storyboard ||
+      result?.description;
+    const productDescription =
+      topProductDescription || result?.productDescription;
 
     // log the payload
     this.logger.info(
@@ -165,7 +187,6 @@ export class N8NCallbackService {
       status: "COMPLETED",
       url: imageUrl,
       taskType: taskType,
-      currentTask: { type: taskType, status: "COMPLETED" },
       storyboard: storyboard || undefined,
       productDescription: productDescription || undefined,
     });
@@ -184,38 +205,44 @@ export class N8NCallbackService {
     isDraft: boolean,
     payload: N8NCallbackPayload,
   ): Promise<void> {
-    const { scenes, result, taskType } = payload;
-    const finalScenes = scenes || result?.scenes || [];
+    const { imageUrls, result, taskType } = payload as any;
+    const finalImageUrls = imageUrls || result?.imageUrls || [];
 
     // log the payload
     this.logger.info(
       `[N8NCallback] Payload (STORYBOARD/ALL_SCENES): ${JSON.stringify(payload)}`,
     );
 
+    const scenes = finalImageUrls.map((url: string, index: number) => ({
+      id: String(index + 1),
+      imageUrl: url,
+      description: `Scene ${index + 1}`,
+    }));
+
     if (isDraft) {
       await prisma.adDraft.update({
         where: { id: adId },
         data: {
-          scenes: finalScenes,
+          scenes: scenes,
         } as any,
       });
     } else {
       await prisma.ad.update({
         where: { id: adId },
         data: {
-          scenes: finalScenes,
+          scenes: scenes,
         } as any,
       });
     }
 
     adsService.emitAdUpdate(adId, {
       status: "COMPLETED",
-      scenes: finalScenes,
+      scenes: scenes,
       taskType: taskType as any,
     });
 
     this.logger.info(
-      `[N8NCallback] ${taskType} done — adId=${adId} scenes=${finalScenes.length}`,
+      `[N8NCallback] ${taskType} done — adId=${adId} scenes=${scenes.length}`,
     );
   }
 
