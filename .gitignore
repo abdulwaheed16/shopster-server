@@ -22,6 +22,7 @@ coverage/
 
 # Documentation
 /docs
+./docs
 
 # Docker
 Dockerfile

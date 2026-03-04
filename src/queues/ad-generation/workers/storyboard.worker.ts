@@ -1,8 +1,8 @@
 import { Worker } from "bullmq";
+import Logger from "../../../common/logging/logger";
 import { connection, QUEUE_NAMES } from "../../../config/queue.config";
 import { StoryboardJobData } from "../types/job-data.types";
 import { createAdWorkerHandler } from "../utils/worker-handler";
-import Logger from "../../../common/logging/logger";
 
 export const storyboardWorker = new Worker<StoryboardJobData>(
   QUEUE_NAMES.STORYBOARD,

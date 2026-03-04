@@ -72,7 +72,11 @@ const envSchema = z.object({
   SERVER_BASE_URL: z.string().url().optional(),
 
   // CORS
-  CORS_ORIGIN: z.string().default("http://localhost:5173, http://13.51.204.80"),
+  CORS_ORIGIN: z
+    .string()
+    .default(
+      "http://localhost:5173, http://13.51.204.80, http://3.236.171.107",
+    ),
 
   // Rate Limiting
   RATE_LIMIT_WINDOW_MS: z.string().default("900000"), // 15 minutes
