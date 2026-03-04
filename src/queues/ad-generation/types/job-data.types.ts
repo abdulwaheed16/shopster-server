@@ -30,6 +30,7 @@ export interface BaseImageJobData extends BaseJobData {
   }>;
   productImages: string[];
   modelImage: string;
+  templateId?: string;
   templateImage?: string;
   userPrompt?: string;
   productDescription?: string;

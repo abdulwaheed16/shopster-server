@@ -17,6 +17,7 @@ export interface GenerateVideoBaseImageDto {
     imageUrl: string;
   }>;
   modelImage: string;
+  templateId?: string;
   templateImage?: string;
   productDescription?: string;
 }

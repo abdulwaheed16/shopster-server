@@ -724,6 +724,7 @@ export class AdsService implements IAdsService {
           categoryName: categoryName,
           adType: data.adType || null,
           modelImageUrl: data.modelImage || null,
+          templateId: data.templateId || null,
           productDescription: data.productDescription || null,
         } as any,
       });
@@ -752,6 +753,7 @@ export class AdsService implements IAdsService {
       productImages: (data.products || []).map((p) => p.imageUrl),
       modelImage: data.modelImage,
       templateImage: data.templateImage,
+      templateId: data.templateId || (draft as any).templateId || "",
       productDescription:
         data.productDescription || (draft as any).productDescription || "",
     };
