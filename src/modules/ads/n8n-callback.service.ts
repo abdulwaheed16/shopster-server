@@ -123,7 +123,7 @@ export class N8NCallbackService {
             ? {
                 baseImageUrl: imageUrl,
                 storyboard: storyboard || undefined,
-                videoScript: productDescription
+                productDescription: productDescription
                   ? { type: "TEXT", content: productDescription }
                   : undefined,
               }
