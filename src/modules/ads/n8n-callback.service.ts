@@ -127,28 +127,10 @@ export class N8NCallbackService {
       taskType,
       result,
       imageUrls,
-      url,
-      videoUrls,
       storyBoard,
-      storyboard: topStoryboard,
-      productDescription: topProductDescription,
+      storyboard,
+      productDescription,
     } = payload as any;
-    const imageUrl =
-      url ||
-      imageUrls?.[0] ||
-      videoUrls?.[0] ||
-      result?.url ||
-      result?.imageUrl ||
-      result?.imageUrls?.[0] ||
-      result?.videoUrls?.[0];
-    const storyboard =
-      storyBoard ||
-      topStoryboard ||
-      result?.storyBoard ||
-      result?.storyboard ||
-      result?.description;
-    const productDescription =
-      topProductDescription || result?.productDescription;
 
     // log the payload
     this.logger.info(
@@ -163,11 +145,12 @@ export class N8NCallbackService {
           currentTask: { type: taskType, status: "COMPLETED" },
           ...(taskType === "BASE_IMAGE"
             ? {
-                baseImageUrl: imageUrl,
-                storyboard: storyboard || undefined,
-                productDescription: productDescription || undefined,
+                baseImageUrl: imageUrls?.[0] || result?.imageUrls?.[0],
+                storyboard: storyBoard || result?.storyboard || undefined,
+                productDescription:
+                  productDescription || result?.productDescription || undefined,
               }
-            : { modelImageUrl: imageUrl }),
+            : { modelImageUrl: imageUrls?.[0] || result?.imageUrls?.[0] }),
         } as any,
       });
     } else {
@@ -177,22 +160,23 @@ export class N8NCallbackService {
         data: {
           currentTask: { type: taskType, status: "COMPLETED" },
           ...(taskType === "BASE_IMAGE"
-            ? { baseImageUrl: imageUrl }
-            : { modelImageUrl: imageUrl }),
+            ? { baseImageUrl: imageUrls[0] || result?.imageUrls?.[0] }
+            : { modelImageUrl: imageUrls[0] || result?.imageUrls?.[0] }),
         } as any,
       });
     }
 
     adsService.emitAdUpdate(adId, {
       status: "COMPLETED",
-      url: imageUrl,
+      url: imageUrls?.[0] || result?.imageUrls?.[0],
       taskType: taskType,
-      storyboard: storyboard || undefined,
-      productDescription: productDescription || undefined,
+      storyboard: storyBoard || result?.storyboard || undefined,
+      productDescription:
+        productDescription || result?.productDescription || undefined,
     });
 
     this.logger.info(
-      `[N8NCallback] ${taskType} done — adId=${adId} url=${imageUrl}`,
+      `[N8NCallback] ${taskType} done — adId=${adId} url=${imageUrls?.[0] || result?.imageUrls?.[0]}`,
     );
   }
 
