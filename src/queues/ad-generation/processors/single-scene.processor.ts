@@ -60,6 +60,7 @@ export class SingleSceneProcessor implements IAdProcessor<SingleSceneJobData> {
       );
       adsService.emitAdUpdate(adId, {
         status: "PROCESSING",
+        taskType: "SINGLE_SCENE",
         sceneId: targetSceneId,
       });
       return { success: true, adId, async: true, taskType: "SINGLE_SCENE" };
