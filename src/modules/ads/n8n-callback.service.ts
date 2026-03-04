@@ -62,6 +62,14 @@ export class N8NCallbackService {
   ): Promise<void> {
     const { taskType } = payload;
 
+    // log the payload
+    this.logger.info(
+      `[N8NCallback] Payload (handleSuccess): ${JSON.stringify(payload)}`,
+    );
+
+    // log the taskType
+    this.logger.info(`[N8NCallback] Task type (handleSuccess): ${taskType}`);
+
     switch (taskType) {
       case "BASE_IMAGE":
       case "MODEL_IMAGE":
@@ -100,6 +108,11 @@ export class N8NCallbackService {
     const storyboard = result?.description || result?.storyboard;
     const productDescription = result?.productDescription;
 
+    // log the payload
+    this.logger.info(
+      `[N8NCallback] Payload (BASE_IMAGE/MODEL_IMAGE): ${JSON.stringify(payload)}`,
+    );
+
     if (isDraft) {
       await prisma.adDraft.update({
         where: { id: adId },
@@ -122,7 +135,7 @@ export class N8NCallbackService {
       await prisma.ad.update({
         where: { id: adId },
         data: {
-          status: "COMPLETED",
+          currentTask: { type: taskType, status: "COMPLETED" },
           ...(taskType === "BASE_IMAGE"
             ? { baseImageUrl: imageUrl }
             : { modelImageUrl: imageUrl }),
@@ -156,6 +169,11 @@ export class N8NCallbackService {
     const finalScenes = scenes || result?.scenes || [];
     const storyboard = result?.description || result?.storyboard;
     const productDescription = result?.productDescription;
+
+    // log the payload
+    this.logger.info(
+      `[N8NCallback] Payload (STORYBOARD/ALL_SCENES): ${JSON.stringify(payload)}`,
+    );
 
     if (isDraft) {
       await prisma.adDraft.update({
@@ -208,6 +226,11 @@ export class N8NCallbackService {
     const sceneUrl = url || result?.url || result?.imageUrl;
     const targetSceneId =
       result?.targetSceneId || (payload as any).targetSceneId;
+
+    // log the payload
+    this.logger.info(
+      `[N8NCallback] Payload (SINGLE_SCENE): ${JSON.stringify(payload)}`,
+    );
 
     // Fetch current scenes from the correct table
     let currentScenes: any[] = [];
@@ -271,6 +294,11 @@ export class N8NCallbackService {
   ): Promise<void> {
     const { url, result, mediaType } = payload;
     const finalUrl = url || result?.url || result?.videoUrl || result?.imageUrl;
+
+    // log the payload
+    this.logger.info(
+      `[N8NCallback] Payload (FINAL_VIDEO): ${JSON.stringify(payload)}`,
+    );
 
     let targetAdId = adId;
 
