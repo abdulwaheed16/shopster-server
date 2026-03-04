@@ -63,6 +63,10 @@ export class BaseImageProcessor implements IAdProcessor<BaseImageJobData> {
 
     // Async path — n8n accepted, callback will update DB
     if (results.some((r: any) => r.metadata?.pending)) {
+      adsService.emitAdUpdate(adId, {
+        status: "PROCESSING",
+        taskType: "BASE_IMAGE",
+      });
       Logger.info(
         `[BaseImageProcessor] Async — awaiting n8n callback for ${adId}`,
       );

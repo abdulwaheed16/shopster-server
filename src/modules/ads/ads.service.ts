@@ -720,7 +720,8 @@ export class AdsService implements IAdsService {
     Logger.info(`[AdsService] BASE_IMAGE job enqueued — draftId=${draft.id}`);
 
     this.emitAdUpdate(draft.id, {
-      status: "PENDING",
+      status: "PROCESSING", // actual processing starts when worker picks the job.
+      taskType: "BASE_IMAGE",
     });
 
     return { adId: draft.id };

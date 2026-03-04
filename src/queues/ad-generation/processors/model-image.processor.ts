@@ -46,6 +46,10 @@ export class ModelImageProcessor implements IAdProcessor<ModelImageJobData> {
 
     // Async path — n8n accepted, callback will update DB
     if (results.some((r: any) => r.metadata?.pending)) {
+      adsService.emitAdUpdate(adId, {
+        status: "PROCESSING",
+        taskType: "MODEL_IMAGE",
+      });
       Logger.info(
         `[ModelImageProcessor] Async — awaiting n8n callback for ${adId}`,
       );

@@ -164,6 +164,7 @@ export class N8NCallbackService {
       status: "COMPLETED",
       url: imageUrl,
       taskType: taskType,
+      currentTask: { type: taskType, status: "COMPLETED" },
       storyboard: storyboard || undefined,
       productDescription: productDescription || undefined,
     });
@@ -222,6 +223,7 @@ export class N8NCallbackService {
       status: "PROCESSING",
       scenes: finalScenes,
       taskType,
+      currentTask: { type: taskType, status: "COMPLETED" },
       storyboard: storyboard || undefined,
       productDescription: productDescription || undefined,
     });

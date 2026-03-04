@@ -76,6 +76,7 @@ export class StoryboardProcessor implements IAdProcessor<StoryboardJobData> {
       );
       adsService.emitAdUpdate(adId, {
         status: "PROCESSING",
+        taskType: "STORYBOARD",
       });
       return { success: true, adId, async: true, taskType };
     }

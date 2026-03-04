@@ -30,6 +30,10 @@ export const createAdWorkerHandler = (defaultTaskType?: string) => {
         throw new Error(`Processor not found for taskType: ${taskType}`);
       }
 
+      Logger.info(
+        `[Worker:${taskType}] Job ${job.id} processor found — payload=${JSON.stringify(job.data)}`,
+      );
+
       // Root status becomes PROCESSING upon pickup
       adsService.emitAdUpdate(adId, {
         status: "PROCESSING",

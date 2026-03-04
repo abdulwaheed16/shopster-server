@@ -93,6 +93,10 @@ export class FinalVideoProcessor implements IAdProcessor<FinalVideoJobData> {
 
     // Async path — await n8n callback
     if (generationResults.some((r) => r.pending)) {
+      adsService.emitAdUpdate(adId, {
+        status: "PROCESSING",
+        taskType: "FINAL_VIDEO",
+      });
       Logger.info(
         `[FinalVideoProcessor] Async — awaiting n8n callback for ${adId}`,
       );
