@@ -113,35 +113,35 @@ export class N8NCallbackService {
       `[N8NCallback] Payload (BASE_IMAGE/MODEL_IMAGE): ${JSON.stringify(payload)}`,
     );
 
-    if (isDraft) {
-      await prisma.adDraft.update({
-        where: { id: adId },
-        data: {
-          status: "PROCESSING" as AdStatus,
-          currentTask: { type: taskType, status: "COMPLETED" },
-          ...(taskType === "BASE_IMAGE"
-            ? {
-                baseImageUrl: imageUrl,
-                storyboard: storyboard || undefined,
-                productDescription: productDescription
-                  ? { type: "TEXT", content: productDescription }
-                  : undefined,
-              }
-            : { modelImageUrl: imageUrl }),
-        } as any,
-      });
-    } else {
-      // Non-draft (image ad flow)
-      await prisma.ad.update({
-        where: { id: adId },
-        data: {
-          currentTask: { type: taskType, status: "COMPLETED" },
-          ...(taskType === "BASE_IMAGE"
-            ? { baseImageUrl: imageUrl }
-            : { modelImageUrl: imageUrl }),
-        } as any,
-      });
-    }
+    await prisma.adDraft.update({
+      where: { id: adId },
+      data: {
+        status: "PROCESSING" as AdStatus,
+        currentTask: { type: taskType, status: "COMPLETED" },
+        ...(taskType === "BASE_IMAGE"
+          ? {
+              baseImageUrl: imageUrl,
+              storyboard: storyboard || undefined,
+              productDescription: productDescription
+                ? { type: "TEXT", content: productDescription }
+                : undefined,
+            }
+          : { modelImageUrl: imageUrl }),
+      } as any,
+    });
+    // if (isDraft) {
+    // } else {
+    //   // Non-draft (image ad flow)
+    //   await prisma.ad.update({
+    //     where: { id: adId },
+    //     data: {
+    //       currentTask: { type: taskType, status: "COMPLETED" },
+    //       ...(taskType === "BASE_IMAGE"
+    //         ? { baseImageUrl: imageUrl }
+    //         : { modelImageUrl: imageUrl }),
+    //     } as any,
+    //   });
+    // }
 
     adsService.emitAdUpdate(adId, {
       status: "COMPLETED",

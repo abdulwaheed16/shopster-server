@@ -20,6 +20,7 @@ export interface VideoPromptOptions {
   mediaType?: "IMAGE" | "VIDEO";
   baseImage?: string;
   userPrompt?: string;
+  isDraft?: boolean;
 }
 
 export interface VideoGenerationResult {

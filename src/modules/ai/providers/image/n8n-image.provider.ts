@@ -23,6 +23,7 @@ export class N8NImageProvider
 
     const payload: ImageGenerationPayload = {
       adId: options.adId,
+      isDraft: options.isDraft,
       taskType: options?.taskType,
       userPrompt: options?.userPrompt || options?.prompt,
       productImages: options.productImages,

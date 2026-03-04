@@ -38,7 +38,6 @@ export class BaseImageProcessor implements IAdProcessor<BaseImageJobData> {
       (draft as any).templateImage || (draft as any).templateImageUrl;
     const userPrompt = data.userPrompt || (draft as any).baseImagePrompt;
 
-
     Logger.info(`[BaseImageProcessor] Payload summary:`, {
       categoryName,
       adType,
@@ -49,6 +48,7 @@ export class BaseImageProcessor implements IAdProcessor<BaseImageJobData> {
 
     const payload = {
       adId,
+      isDraft,
       taskType: "BASE_IMAGE" as const,
       mediaType,
       productImages,

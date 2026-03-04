@@ -21,6 +21,7 @@ export interface ImagePromptOptions {
   mediaType?: "IMAGE" | "VIDEO";
   categoryName?: string;
   adType?: string;
+  isDraft?: boolean;
 }
 
 export interface ImageGenerationResult {

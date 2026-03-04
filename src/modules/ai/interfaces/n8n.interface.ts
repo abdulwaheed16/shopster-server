@@ -10,6 +10,7 @@ export interface N8NBasePayload {
   timestamp: string;
   callbackUrl?: string;
   taskType?: string;
+  isDraft?: boolean;
 }
 
 export interface ImageGenerationPayload extends N8NBasePayload {

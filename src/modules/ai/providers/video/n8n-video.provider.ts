@@ -21,6 +21,7 @@ export class N8NVideoProvider
 
     const payload: VideoGenerationPayload = {
       adId: options.adId,
+      isDraft: options.isDraft,
       taskType: options.taskType,
       scenes: options.scenes,
       productImages: options.productImages,
