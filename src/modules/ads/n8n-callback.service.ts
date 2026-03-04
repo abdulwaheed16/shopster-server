@@ -186,8 +186,6 @@ export class N8NCallbackService {
   ): Promise<void> {
     const { scenes, result, taskType } = payload;
     const finalScenes = scenes || result?.scenes || [];
-    const storyboard = result?.storyBoard;
-    const productDescription = result?.productDescription;
 
     // log the payload
     this.logger.info(
@@ -199,11 +197,6 @@ export class N8NCallbackService {
         where: { id: adId },
         data: {
           scenes: finalScenes,
-          storyboard: storyboard || undefined,
-          status: "PROCESSING" as AdStatus,
-          videoScript: productDescription
-            ? { type: "TEXT", content: productDescription }
-            : undefined,
         } as any,
       });
     } else {
@@ -211,11 +204,6 @@ export class N8NCallbackService {
         where: { id: adId },
         data: {
           scenes: finalScenes,
-          storyboard: storyboard || undefined,
-          status: "PROCESSING",
-          videoScript: productDescription
-            ? { type: "TEXT", content: productDescription }
-            : undefined,
         } as any,
       });
     }
@@ -224,9 +212,6 @@ export class N8NCallbackService {
       status: "COMPLETED",
       scenes: finalScenes,
       taskType: taskType as any,
-      currentTask: { type: taskType, status: "COMPLETED" },
-      storyboard: storyboard || undefined,
-      productDescription: productDescription || undefined,
     });
 
     this.logger.info(
