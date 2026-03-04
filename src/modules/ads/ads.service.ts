@@ -1089,18 +1089,22 @@ export class AdsService implements IAdsService {
       status: "PENDING",
       mediaType: draft.mediaType as any,
       scenes,
-      baseImage: draft.baseImageUrl || "",
-      storyboard: draft.storyboard || "",
-      productDescription: draft.productDescription || "",
+      baseImage: data.baseImageUrl || draft.baseImageUrl || "",
+      storyboard: data.storyboard || draft.storyboard || "",
+      productDescription:
+        data.productDescription || draft.productDescription || "",
       categoryName: (draft as any).categoryName || "",
-      adType: (draft as any).adType || "",
+      adType: data.adType || (draft as any).adType || "",
       userPrompt:
         (draft as any).videoPrompt ||
         (draft as any).baseImagePrompt ||
+        data.productDescription ||
         (draft as any).productDescription ||
         "",
       duration: data.duration ?? (draft as any).duration ?? 10,
+      variants: data.variants ?? (draft as any).variants ?? 1,
       aspectRatio: data.aspectRatio ?? (draft as any).aspectRatio ?? "9:16",
+      videoScript: data.videoScript || (draft as any).videoScript || undefined,
     };
 
     await finalVideoQueue.add("generate-final-video", jobPayload);

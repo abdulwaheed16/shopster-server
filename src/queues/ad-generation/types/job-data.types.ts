@@ -91,8 +91,10 @@ export interface FinalVideoJobData extends BaseJobData {
   categoryName?: string;
   adType?: string;
   duration?: number;
+  variants?: number;
   aspectRatio?: string;
   userPrompt?: string;
+  videoScript?: string;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -104,7 +106,7 @@ export interface AdTemplateJobData extends BaseJobData {
   promptTemplate: string;
   referenceAdImage?: string;
   productImage?: string;
-  variables?: any;
+  variables?: string;
 }
 
 export type AdGenerationJobData =
