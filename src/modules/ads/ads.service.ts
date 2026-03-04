@@ -760,11 +760,11 @@ export class AdsService implements IAdsService {
           userId,
           mediaType: "VIDEO",
           expiresAt,
+          scenePrompt: data?.userPrompt || "",
           baseImageUrl: data.baseImage || null,
           storyboard: data.storyboard,
           productDescription: data.productDescription,
           templateId: data.templateId,
-          duration: data.duration,
           categoryId: data.categoryId,
           categoryName: data.categoryName,
           adType: data.adType,
@@ -804,7 +804,7 @@ export class AdsService implements IAdsService {
       categoryName: data.categoryName || draft.categoryName || "",
       adType: data.adType || draft.adType || "",
       templateId: data.templateId || draft.templateId || "",
-      userPrompt: (data as any).userPrompt || draft.baseImagePrompt || "",
+      userPrompt: data?.userPrompt || "",
       productImages: (Array.isArray(draft.products) ? draft.products : [])
         .map((p: any) => p.imageUrl)
         .filter(Boolean),

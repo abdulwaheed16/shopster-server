@@ -31,7 +31,7 @@ export class N8NImageProvider
       categoryName: options.categoryName || (options as any).category,
       adType: options.adType,
       aspectRatio: options.aspectRatio,
-      variants: options.variants ?? 1,
+      variants: options?.variants || 1,
       style: options.style,
       color: options.color,
       mediaType: options.mediaType || "IMAGE",

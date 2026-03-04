@@ -41,20 +41,14 @@ export class StoryboardProcessor implements IAdProcessor<StoryboardJobData> {
         .map((p: any) => p.imageUrl)
         .filter(Boolean);
 
-    const userPrompt =
-      data.userPrompt ||
-      (draft as any).scenePrompt ||
-      (draft as any).baseImagePrompt ||
-      (draft as any).productDescription ||
-      "";
+    const userPrompt = data.userPrompt || draft?.scenePrompt;
     // Construct an explicit, type-safe payload for the AI service
     const payload = {
       adId,
       isDraft,
       taskType: taskType as any,
       mediaType: "IMAGE" as const,
-      userPrompt, // Standardized name
-      prompt: userPrompt, // Legacy fallback
+      userPrompt: userPrompt as string,
       productDescription:
         (data as any).productDescription ||
         (draft as any).productDescription ||

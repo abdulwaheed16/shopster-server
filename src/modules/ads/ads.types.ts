@@ -23,6 +23,7 @@ export interface GenerateVideoBaseImageDto {
 
 export interface GenerateVideoScenesDto {
   adId: string;
+  userPrompt?: string;
   baseImage: string;
   storyboard: string;
   productDescription: string;
