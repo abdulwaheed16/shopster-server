@@ -123,31 +123,10 @@ export class N8NCallbackService {
     isDraft: boolean,
     payload: N8NCallbackPayload,
   ): Promise<void> {
-    const {
-      taskType,
-      result,
-      imageUrls,
-      url,
-      videoUrls,
-      storyBoard,
-      productDescription: topProductDescription,
-    } = payload as any;
-    const imageUrl =
-      url ||
-      imageUrls?.[0] ||
-      videoUrls?.[0] ||
-      result?.url ||
-      result?.imageUrl ||
-      result?.imageUrls?.[0] ||
-      result?.videoUrls?.[0];
-    const storyboard =
-      storyBoard ||
-      payload.storyboard ||
-      result?.storyBoard ||
-      result?.storyboard ||
-      result?.description;
-    const productDescription =
-      topProductDescription || result?.productDescription;
+    const { taskType, result, imageUrls } = payload;
+    const imageUrl = imageUrls?.[0];
+    const storyboard = result?.storyBoard;
+    const productDescription = result?.productDescription;
 
     // log the payload
     this.logger.info(
@@ -164,9 +143,7 @@ export class N8NCallbackService {
             ? {
                 baseImageUrl: imageUrl,
                 storyboard: storyboard || undefined,
-                productDescription: productDescription
-                  ? { type: "TEXT", content: productDescription }
-                  : undefined,
+                productDescription: productDescription || undefined,
               }
             : { modelImageUrl: imageUrl }),
         } as any,
@@ -207,22 +184,10 @@ export class N8NCallbackService {
     isDraft: boolean,
     payload: N8NCallbackPayload,
   ): Promise<void> {
-    const {
-      scenes,
-      result,
-      taskType,
-      storyBoard,
-      productDescription: topProductDescription,
-    } = payload as any;
+    const { scenes, result, taskType } = payload;
     const finalScenes = scenes || result?.scenes || [];
-    const storyboard =
-      storyBoard ||
-      payload.storyboard ||
-      result?.storyBoard ||
-      result?.storyboard ||
-      result?.description;
-    const productDescription =
-      topProductDescription || result?.productDescription;
+    const storyboard = result?.storyBoard;
+    const productDescription = result?.productDescription;
 
     // log the payload
     this.logger.info(
@@ -331,7 +296,6 @@ export class N8NCallbackService {
       sceneId: targetSceneId,
       url: sceneUrl,
       taskType: "SINGLE_SCENE",
-      currentTask: { type: "SINGLE_SCENE", status: "COMPLETED" },
     });
 
     this.logger.info(
