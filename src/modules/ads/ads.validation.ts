@@ -137,6 +137,7 @@ export const generateFinalVideoSchema = z.object({
   body: z.object({
     adId: z.string(),
     adType: z.string().optional(),
+    categoryId: z.string().optional().nullable(),
     scenes: z.array(
       z.object({
         id: z.number().optional(),

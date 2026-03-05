@@ -191,7 +191,7 @@ export class AdsService implements IAdsService {
       );
     }
 
-    // 3. Cancel or delete
+    // 3. Cancel — mark CANCELLED but keep records so the user can retry
     if (resourceType === "AD") {
       await prisma.ad.update({
         where: { id: adId },
@@ -199,15 +199,20 @@ export class AdsService implements IAdsService {
       });
       Logger.info(`[AdsService] Ad ${adId} marked CANCELLED`);
     } else {
-      // Drafts are deleted on cancel — no orphaned incomplete records
+      // Keep the draft intact so the user can retry — just mark it CANCELLED
       await prisma.adDraft
-        .delete({ where: { id: adId } })
+        .update({
+          where: { id: adId },
+          data: { status: "CANCELLED" },
+        })
         .catch((err) =>
           Logger.warn(
-            `[AdsService] Failed to delete draft ${adId}: ${err.message}`,
+            `[AdsService] Failed to update draft ${adId} status: ${err.message}`,
           ),
         );
-      Logger.info(`[AdsService] Draft ${adId} deleted on cancel`);
+      Logger.info(
+        `[AdsService] Draft ${adId} marked CANCELLED (kept for retry)`,
+      );
     }
 
     this.emitAdUpdate(adId, { status: "CANCELLED" });
