@@ -140,7 +140,7 @@ export const generateFinalVideoSchema = z.object({
     categoryId: z.string().optional().nullable(),
     scenes: z.array(
       z.object({
-        id: z.number().optional(),
+        id: z.union([z.string(), z.number()]).optional(),
         imageUrl: z.string().optional(),
         description: z.string().optional(),
       }),
