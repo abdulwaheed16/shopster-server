@@ -90,8 +90,25 @@ export class AdsService implements IAdsService {
     });
 
     if (!draft) {
+      // Check if it was already promoted
+      const existingAd = await prisma.ad.findUnique({ where: { id: draftId } });
+      if (existingAd) {
+        Logger.info(
+          `[AdsService] Ad ${draftId} already exists, assuming already promoted.`,
+        );
+        return existingAd;
+      }
       Logger.warn(`[AdsService] Draft ${draftId} not found for promotion`);
       return null;
+    }
+
+    // Check for existing ad with same ID to avoid P2002 if retried
+    const existingAd = await prisma.ad.findUnique({ where: { id: draftId } });
+    if (existingAd) {
+      Logger.info(
+        `[AdsService] Ad ${draftId} already exists, skipping creation.`,
+      );
+      return existingAd;
     }
 
     // Create the final Ad record.
@@ -329,10 +346,18 @@ export class AdsService implements IAdsService {
   // ============================================================
 
   async getAdById(id: string, userId: string) {
-    const ad = await prisma.ad.findFirst({
+    let ad: any = await prisma.ad.findFirst({
       where: { id, userId },
       include: { template: true },
     });
+
+    if (!ad) {
+      // Fallback to drafts (useful during generation or promotion transition)
+      ad = await prisma.adDraft.findFirst({
+        where: { id, userId },
+        include: { template: true },
+      });
+    }
 
     if (!ad) throw ApiError.notFound("Ad not found or you don't have access");
 

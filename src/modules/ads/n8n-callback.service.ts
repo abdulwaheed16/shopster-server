@@ -367,6 +367,7 @@ export class N8NCallbackService {
       url: finalUrl,
       taskType: payload.taskType,
       adId: targetAdId,
+      newId: targetAdId,
       ...updateData,
     };
 
