@@ -319,28 +319,20 @@ export class N8NCallbackService {
       result?.videoUrls?.[0] ||
       result?.imageUrls?.[0];
 
-    // log the payload
     this.logger.info(
       `[N8NCallback] Payload (FINAL_VIDEO): ${JSON.stringify(payload)}`,
     );
 
+    Logger.info(
+      `[N8NCallback] isDraft=${isDraft} | incomingAdId=${adId} | finalUrl=${finalUrl}`,
+    );
+
     let targetAdId = adId;
 
-    Logger.info(
-      `[N8NCallback] isDraft: ${isDraft} | targetAdId: ${targetAdId}`,
-    );
-    Logger.info(`[N8NCallback] finalUrl: ${finalUrl}`);
-    Logger.info(`[N8NCallback] mediaType: ${mediaType}`);
-    Logger.info(`[N8NCallback] videoUrls: ${JSON.stringify(videoUrls)}`);
-    Logger.info(`[N8NCallback] imageUrls: ${JSON.stringify(imageUrls)}`);
-    Logger.info(`[N8NCallback] result: ${JSON.stringify(result)}`);
-
     if (isDraft) {
-      // Promote draft → final Ad (creates Ad record, deletes AdDraft)
+      // Draft still exists — promote it now
       const ad = await adsService.promoteDraftToAd(adId);
-      Logger.info(
-        `[N8NCallback] promoteDraftToAd result: ${JSON.stringify(ad?.id)}`,
-      );
+      Logger.info(`[N8NCallback] promoteDraftToAd result: id=${ad?.id}`);
       if (!ad) {
         this.logger.error(
           `[N8NCallback] promoteDraftToAd returned null for draftId=${adId}`,
@@ -348,23 +340,11 @@ export class N8NCallbackService {
         return;
       }
       targetAdId = ad.id;
-
-      Logger.info(`[N8NCallback] Draft ${adId} promoted → Ad ${targetAdId}`);
-
-      //
-      // adsService.emitAdUpdate(adId, {
-      //   status: "REDIRECT" as any,
-      //   newId: targetAdId,
-      //   adId: targetAdId,
-      //   taskType: payload.taskType,
-      // });
-
       Logger.info(
-        `[N8NCallback] REDIRECT emitted on old draftId=${adId} → newId=${targetAdId}`,
+        `[N8NCallback] Draft ${adId} promoted → new Ad ${targetAdId}`,
       );
     }
 
-    // Determine update data based on media type
     const isVideo =
       mediaType === "VIDEO" ||
       (!mediaType &&
@@ -375,30 +355,43 @@ export class N8NCallbackService {
       videoUrl: finalUrl,
     };
 
-    const updatedAd = await prisma.ad.update({
+    await prisma.ad.update({
       where: { id: targetAdId },
       data: updateData,
     });
-
     Logger.info(
-      `[N8NCallback] Ad ${targetAdId} updated with status=COMPLETED url=${finalUrl}`,
+      `[N8NCallback] Ad ${targetAdId} updated — status=COMPLETED url=${finalUrl}`,
     );
 
     const completedPayload = {
       status: "COMPLETED" as const,
       url: finalUrl,
       taskType: payload.taskType,
-      adId: updatedAd?.id as string,
+      adId: targetAdId,
       ...updateData,
     };
 
-    // Emit COMPLETED on the new Ad ID channel (primary)
+    // Emit REDIRECT on the old (draft) channel so frontend SSE hook
+    // switches its subscription to the new Ad ID before COMPLETED fires.
+    if (targetAdId !== adId) {
+      adsService.emitAdUpdate(adId, {
+        status: "REDIRECT" as any,
+        newId: targetAdId,
+        adId: targetAdId,
+        taskType: payload.taskType,
+      });
+      Logger.info(
+        `[N8NCallback] REDIRECT emitted on old id=${adId} → newId=${targetAdId}`,
+      );
+    }
+
+    // Emit COMPLETED on the new Ad ID (primary)
     adsService.emitAdUpdate(targetAdId, completedPayload);
     Logger.info(`[N8NCallback] COMPLETED emitted on targetAdId=${targetAdId}`);
 
-    // Also emit on the old draftId channel — the frontend may still be connected
-    // to it while the SSE reconnection to targetAdId is in flight.
-    if (isDraft && targetAdId !== adId) {
+    // Also emit COMPLETED on the old draft channel — frontend may still be
+    // connected to it while SSE reconnection to targetAdId is in flight.
+    if (targetAdId !== adId) {
       adsService.emitAdUpdate(adId, completedPayload);
       Logger.info(
         `[N8NCallback] COMPLETED also emitted on old draftId=${adId}`,
