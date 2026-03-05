@@ -326,9 +326,21 @@ export class N8NCallbackService {
 
     let targetAdId = adId;
 
+    Logger.info(
+      `[N8NCallback] isDraft: ${isDraft} | targetAdId: ${targetAdId}`,
+    );
+    Logger.info(`[N8NCallback] finalUrl: ${finalUrl}`);
+    Logger.info(`[N8NCallback] mediaType: ${mediaType}`);
+    Logger.info(`[N8NCallback] videoUrls: ${JSON.stringify(videoUrls)}`);
+    Logger.info(`[N8NCallback] imageUrls: ${JSON.stringify(imageUrls)}`);
+    Logger.info(`[N8NCallback] result: ${JSON.stringify(result)}`);
+
     if (isDraft) {
       // Promote draft → final Ad (creates Ad record, deletes AdDraft)
       const ad = await adsService.promoteDraftToAd(adId);
+      Logger.info(
+        `[N8NCallback] promoteDraftToAd result: ${JSON.stringify(ad?.id)}`,
+      );
       if (!ad) {
         this.logger.error(
           `[N8NCallback] promoteDraftToAd returned null for draftId=${adId}`,
@@ -336,8 +348,19 @@ export class N8NCallbackService {
         return;
       }
       targetAdId = ad.id;
-      this.logger.info(
-        `[N8NCallback] Draft ${adId} promoted → Ad ${targetAdId}`,
+
+      Logger.info(`[N8NCallback] Draft ${adId} promoted → Ad ${targetAdId}`);
+
+      //
+      // adsService.emitAdUpdate(adId, {
+      //   status: "REDIRECT" as any,
+      //   newId: targetAdId,
+      //   adId: targetAdId,
+      //   taskType: payload.taskType,
+      // });
+
+      Logger.info(
+        `[N8NCallback] REDIRECT emitted on old draftId=${adId} → newId=${targetAdId}`,
       );
     }
 
@@ -353,29 +376,43 @@ export class N8NCallbackService {
     };
 
     await prisma.ad.update({ where: { id: targetAdId }, data: updateData });
+    Logger.info(
+      `[N8NCallback] Ad ${targetAdId} updated with status=COMPLETED url=${finalUrl}`,
+    );
 
-    // Emit REDIRECT on old draftId so frontend SSE reconnects to new Ad ID
-    if (isDraft && targetAdId !== adId) {
-      adsService.emitAdUpdate(adId, {
-        status: "REDIRECT" as any,
-        newId: targetAdId,
-        adId: targetAdId,
-        taskType: payload.taskType,
-      });
-    }
-
-    // Emit COMPLETED on new Ad ID
-    adsService.emitAdUpdate(targetAdId, {
-      status: "COMPLETED",
+    const completedPayload = {
+      status: "COMPLETED" as const,
       url: finalUrl,
       taskType: payload.taskType,
       adId: targetAdId,
       ...updateData,
-    });
+    };
+
+    // Emit COMPLETED on the new Ad ID channel (primary)
+    adsService.emitAdUpdate(targetAdId, completedPayload);
+    Logger.info(`[N8NCallback] COMPLETED emitted on targetAdId=${targetAdId}`);
+
+    // Also emit on the old draftId channel — the frontend may still be connected
+    // to it while the SSE reconnection to targetAdId is in flight.
+    if (isDraft && targetAdId !== adId) {
+      adsService.emitAdUpdate(adId, completedPayload);
+      Logger.info(
+        `[N8NCallback] COMPLETED also emitted on old draftId=${adId}`,
+      );
+    }
 
     // Deduct credits (non-blocking)
     const creditMediaType = isVideo ? "VIDEO" : "IMAGE";
     await this.deductCredits(targetAdId, creditMediaType);
+
+    // Clean up the draft
+    await prisma.adDraft
+      .delete({ where: { id: payload?.adId } })
+      .catch((err) =>
+        Logger.warn(
+          `[AdsService] Failed to delete draft ${payload?.adId}: ${err.message}`,
+        ),
+      );
 
     this.logger.info(
       `[N8NCallback] FINAL_VIDEO done — adId=${targetAdId} url=${finalUrl}`,

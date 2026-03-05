@@ -124,13 +124,6 @@ export class AdsService implements IAdsService {
 
     Logger.info(`[AdsService] Draft ${draftId} promoted — new Ad ID=${ad.id}`);
 
-    // Clean up the draft
-    await prisma.adDraft.delete({ where: { id: draftId } });
-
-    // Notify frontend: old draftId is gone, redirect to new adId
-    this.emitAdUpdate(draftId, { status: "COMPLETED", adId: ad.id });
-    this.emitAdUpdate(ad.id, { status: "COMPLETED", newId: ad.id });
-
     return ad;
   }
 
