@@ -349,7 +349,7 @@ export class N8NCallbackService {
 
     const updateData: any = {
       status: "COMPLETED" as AdStatus,
-      ...(isVideo ? { videoUrl: finalUrl } : { imageUrl: finalUrl }),
+      videoUrl: finalUrl,
     };
 
     await prisma.ad.update({ where: { id: targetAdId }, data: updateData });

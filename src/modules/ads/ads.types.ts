@@ -53,14 +53,12 @@ export interface RegenerateSceneDto {
 export interface GenerateFinalVideoDto {
   adId: string;
   adType?: string;
-  scenes?: Array<{
-    id?: string;
-    imageUrl?: string;
+  scenes: Array<{
+    id: string;
+    imageUrl: string;
     description?: string;
   }>;
   duration: number;
-  variants: number;
-  aspectRatio: string;
   storyboard: string;
   productDescription: string;
   videoScript: string;

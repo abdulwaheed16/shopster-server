@@ -58,41 +58,19 @@ export class FinalVideoProcessor implements IAdProcessor<FinalVideoJobData> {
         "",
       baseImage: (data as any).baseImage || (draft as any).baseImageUrl || "",
       storyboard: (data as any).storyboard || (draft as any).storyboard || "",
-      userPrompt:
-        (data as any).userPrompt ||
-        (draft as any).baseImagePrompt ||
-        (draft as any).videoPrompt ||
-        "",
       duration: (data as any).duration || 10,
-      aspectRatio: (data as any).aspectRatio || "9:16",
     };
 
-    const generationResults =
-      mediaType === MediaType.VIDEO
-        ? [
-            await aiService
-              .generateVideo(payload as any, AI_PROVIDERS.N8N)
-              .then((res) => ({
-                url: res?.videoUrl,
-                metadata: res?.metadata,
-                pending: (res?.metadata as any)?.pending,
-              })),
-          ]
-        : await aiService
-            .generateImage(
-              { ...data, taskType: "FINAL_VIDEO" } as any,
-              AI_PROVIDERS.N8N,
-            )
-            .then((results) =>
-              results.map((r) => ({
-                url: (r as any).imageUrl ?? (r as any).url ?? "",
-                metadata: (r as any).metadata,
-                pending: (r as any).metadata?.pending,
-              })),
-            );
+    const generationResults = await aiService
+      .generateVideo(payload as any, AI_PROVIDERS.N8N)
+      .then((res) => ({
+        url: res?.videoUrl,
+        metadata: res?.metadata,
+        pending: (res?.metadata as any)?.pending,
+      }));
 
     // Async path — await n8n callback
-    if (generationResults.some((r) => r.pending)) {
+    if (generationResults?.pending) {
       adsService.emitAdUpdate(adId, {
         status: "PROCESSING",
         taskType: "FINAL_VIDEO",
@@ -104,8 +82,8 @@ export class FinalVideoProcessor implements IAdProcessor<FinalVideoJobData> {
     }
 
     // Sync path
-    const primaryUrl = generationResults[0]?.url ?? "";
-    const allUrls = generationResults.map((r) => r.url ?? "");
+    const primaryUrl = generationResults?.url ?? "";
+    const allUrls = generationResults?.url ?? "";
     Logger.info(`[FinalVideoProcessor] Sync result — url=${primaryUrl}`);
 
     const urlFields: any =
@@ -128,8 +106,8 @@ export class FinalVideoProcessor implements IAdProcessor<FinalVideoJobData> {
       targetAdId = finalAd.id;
     }
 
-    await prisma.ad.update({
-      where: { id: targetAdId },
+    await prisma.adDraft.update({
+      where: { id: adId },
       data: { status: AdStatus.COMPLETED, ...urlFields },
     });
 
@@ -145,12 +123,12 @@ export class FinalVideoProcessor implements IAdProcessor<FinalVideoJobData> {
     await this.deductCredits(userId, targetAdId, mediaType);
 
     // Background storage upload (non-blocking)
-    this.uploadToStorageInBackground(targetAdId, allUrls, mediaType).catch(
-      (err) =>
-        Logger.warn(
-          `[FinalVideoProcessor] Background upload failed: ${err.message}`,
-        ),
-    );
+    // this.uploadToStorageInBackground(targetAdId, allUrls, mediaType).catch(
+    //   (err) =>
+    //     Logger.warn(
+    //       `[FinalVideoProcessor] Background upload failed: ${err.message}`,
+    //     ),
+    // );
 
     Logger.info(`[FinalVideoProcessor] Process completed — adId=${targetAdId}`);
     return { success: true, adId: targetAdId, url: primaryUrl };

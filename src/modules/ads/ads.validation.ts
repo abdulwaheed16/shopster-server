@@ -8,16 +8,19 @@ const baseAdSchema = z.object({
       z.object({
         productId: objectIdSchema,
         source: z.enum(["STORE", "UPLOADED"]),
+        imageUrl: z.string().optional(),
       }),
     )
-    .min(2, "At least 2 products are required.")
-    .max(3, "A maximum of 3 products can be selected."),
+    .min(1, "At least 1 product is required.")
+    .max(3, "A maximum of 3 products can be selected.")
+    .optional(),
   templateId: objectIdSchema.optional(),
   title: z.string().optional(),
   mediaType: z.enum(["IMAGE", "VIDEO"]).optional(),
   assembledPrompt: z.string().optional(),
   aspectRatio: z.enum(["1:1", "16:9", "9:16", "4:5"]).optional(),
   variantsCount: z.number().int().min(1).max(4).optional(),
+  variants: z.number().int().optional(),
   variableValues: z.record(z.string(), z.any()).optional(),
   color: z.string().optional(),
 });
@@ -49,6 +52,9 @@ const videoAdSchema = baseAdSchema.extend({
     .optional()
     .transform((val) => (val === "" ? undefined : val))
     .pipe(z.string().url().optional()),
+  storyboard: z.string().optional(),
+  productDescription: z.string().optional(),
+  baseImageUrl: z.string().optional(),
 });
 
 // Discriminated union schema
@@ -130,14 +136,18 @@ export const generateFinalVideoSchema = z.object({
   }),
   body: z.object({
     adId: z.string(),
+    adType: z.string().optional(),
     scenes: z.array(
       z.object({
-        order: z.number(),
-        image: z.string(),
-        description: z.string(),
+        id: z.number().optional(),
+        imageUrl: z.string().optional(),
+        description: z.string().optional(),
       }),
     ),
     duration: z.number().optional(),
-    aspectRatio: z.string().optional(),
+    storyboard: z.string().optional(),
+    productDescription: z.string().optional(),
+    videoScript: z.any().optional(),
+    baseImageUrl: z.string().optional(),
   }),
 });

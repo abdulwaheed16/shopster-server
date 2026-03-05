@@ -77,24 +77,22 @@ export interface SingleSceneJobData extends BaseJobData {
 }
 
 export interface FinalVideoScene {
-  order: number;
+  id: number;
   image: string;
-  description: string;
+  description?: string;
 }
 
 export interface FinalVideoJobData extends BaseJobData {
   taskType?: "FINAL_VIDEO";
-  baseImage: string;
+  adId: string;
+  adType?: string;
+  categoryName?: string;
+  baseImageUrl: string;
+  duration: number;
   storyboard: string;
   productDescription: string;
+  videoScript: string;
   scenes: FinalVideoScene[];
-  categoryName?: string;
-  adType?: string;
-  duration?: number;
-  variants?: number;
-  aspectRatio?: string;
-  userPrompt?: string;
-  videoScript?: string;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

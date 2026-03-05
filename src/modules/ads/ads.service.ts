@@ -451,15 +451,15 @@ export class AdsService implements IAdsService {
     }
 
     // ── 3. Resolve Products ───────────────────────────────────
-    const storeProductIds = data.products
-      .filter((p) => p.source === "STORE")
-      .map((p) => p.productId);
-    const uploadedProductIds = data.products
-      .filter((p) => p.source === "UPLOADED")
-      .map((p) => p.productId);
+    const storeProductIds = data?.products
+      ?.filter((p) => p.source === "STORE")
+      ?.map((p) => p.productId);
+    const uploadedProductIds = data?.products
+      ?.filter((p) => p.source === "UPLOADED")
+      ?.map((p) => p.productId);
 
     const [storeProducts, uploadedProducts] = await Promise.all([
-      storeProductIds.length > 0
+      (storeProductIds?.length ?? 0) > 0
         ? prisma.product.findMany({
             where: {
               id: { in: storeProductIds },
@@ -468,7 +468,7 @@ export class AdsService implements IAdsService {
             select: { id: true, title: true, images: true },
           })
         : [],
-      uploadedProductIds.length > 0
+      (uploadedProductIds?.length ?? 0) > 0
         ? prisma.product.findMany({
             where: {
               id: { in: uploadedProductIds },
@@ -570,8 +570,7 @@ export class AdsService implements IAdsService {
         image: s.imageUrl ?? "",
         description: s.description ?? "",
       })),
-      aspectRatio: ad.aspectRatio || "1:1",
-      duration: ad.duration ?? undefined,
+      duration: (ad.duration as number) ?? undefined,
       videoScript: ad.videoScript as any,
       // @ts-ignore
       storyboard: (ad as any).storyboard || "",
@@ -1063,7 +1062,7 @@ export class AdsService implements IAdsService {
     // ── Pull scene data from request or draft ─────────────────
     const scenes = (data.scenes || (draft.scenes as any[]) || []).map(
       (s: any) => ({
-        order: s.order ?? s.orderNumber ?? 0,
+        id: s.id,
         image: s.image ?? s.imageUrl ?? "",
         description: s.description ?? "",
       }),
@@ -1076,34 +1075,25 @@ export class AdsService implements IAdsService {
         status: "PENDING",
         scenes,
         duration: data.duration ?? (draft as any).duration,
-        aspectRatio: data.aspectRatio ?? (draft as any).aspectRatio,
       } as any,
     });
 
     // ── Enqueue job — promotion happens in n8n callback ───────
     const jobPayload: AdGenerationJobData = {
       adId,
+      adType: data.adType || (draft as any).adType || "",
       userId,
+      categoryName: (draft as any).categoryName || "",
       isDraft: true,
       taskType: "FINAL_VIDEO",
       status: "PENDING",
       mediaType: draft.mediaType as any,
-      scenes,
-      baseImage: data.baseImageUrl || draft.baseImageUrl || "",
+      baseImageUrl: data.baseImageUrl || draft.baseImageUrl || "",
       storyboard: data.storyboard || draft.storyboard || "",
       productDescription:
         data.productDescription || draft.productDescription || "",
-      categoryName: (draft as any).categoryName || "",
-      adType: data.adType || (draft as any).adType || "",
-      userPrompt:
-        (draft as any).videoPrompt ||
-        (draft as any).baseImagePrompt ||
-        data.productDescription ||
-        (draft as any).productDescription ||
-        "",
+      scenes,
       duration: data.duration ?? (draft as any).duration ?? 10,
-      variants: data.variants ?? (draft as any).variants ?? 1,
-      aspectRatio: data.aspectRatio ?? (draft as any).aspectRatio ?? "9:16",
       videoScript: data.videoScript || (draft as any).videoScript || undefined,
     };
 
