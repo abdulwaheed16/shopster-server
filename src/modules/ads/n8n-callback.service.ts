@@ -375,7 +375,10 @@ export class N8NCallbackService {
       videoUrl: finalUrl,
     };
 
-    await prisma.ad.update({ where: { id: targetAdId }, data: updateData });
+    const updatedAd = await prisma.ad.update({
+      where: { id: targetAdId },
+      data: updateData,
+    });
 
     Logger.info(
       `[N8NCallback] Ad ${targetAdId} updated with status=COMPLETED url=${finalUrl}`,
@@ -385,7 +388,7 @@ export class N8NCallbackService {
       status: "COMPLETED" as const,
       url: finalUrl,
       taskType: payload.taskType,
-      adId: targetAdId,
+      adId: updatedAd?.id as string,
       ...updateData,
     };
 

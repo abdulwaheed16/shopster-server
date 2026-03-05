@@ -100,7 +100,7 @@ export class AdsService implements IAdsService {
     const ad = await prisma.ad.create({
       data: {
         userId: draft.userId,
-        title: draft.videoPrompt || `Ad ${new Date().toLocaleDateString()}`,
+        title: `Ad ${new Date().toLocaleDateString()}`,
         mediaType: draft.mediaType as MediaType,
         status: "COMPLETED",
         products: draft.products || [],
