@@ -441,24 +441,24 @@ export class AdsService implements IAdsService {
       );
     }
 
-    await this.ensureNoActiveGeneration(userId);
+    // await this.ensureNoActiveGeneration(userId);
 
     // ── 1. Guest Plan Restrictions ────────────────────────────
-    const planName =
-      (user.subscription as any)?.plan?.name?.toLowerCase() ?? "";
-    if (planName === "guest" && data.mediaType === "VIDEO") {
-      const videoData = data as any;
-      if (videoData.duration && videoData.duration > 10) {
-        throw ApiError.forbidden(
-          "Guest accounts are limited to a maximum video duration of 10 seconds.",
-        );
-      }
-      if (videoData.scenes && videoData.scenes.length > 2) {
-        throw ApiError.forbidden(
-          "Guest accounts are limited to a maximum of 2 scenes per video ad.",
-        );
-      }
-    }
+    // const planName =
+    //   (user.subscription as any)?.plan?.name?.toLowerCase() ?? "";
+    // if (planName === "guest" && data.mediaType === "VIDEO") {
+    //   const videoData = data as any;
+    //   if (videoData.duration && videoData.duration > 10) {
+    //     throw ApiError.forbidden(
+    //       "Guest accounts are limited to a maximum video duration of 10 seconds.",
+    //     );
+    //   }
+    //   if (videoData.scenes && videoData.scenes.length > 2) {
+    //     throw ApiError.forbidden(
+    //       "Guest accounts are limited to a maximum of 2 scenes per video ad.",
+    //     );
+    //   }
+    // }
 
     // ── 2. Credit Check ───────────────────────────────────────
     const userBalance = await creditsService.getBalance(userId);
@@ -478,6 +478,7 @@ export class AdsService implements IAdsService {
     const storeProductIds = data?.products
       ?.filter((p) => p.source === "STORE")
       ?.map((p) => p.productId);
+
     const uploadedProductIds = data?.products
       ?.filter((p) => p.source === "UPLOADED")
       ?.map((p) => p.productId);
@@ -586,14 +587,8 @@ export class AdsService implements IAdsService {
       adId: ad.id,
       userId,
       isDraft: false,
-      taskType: "FINAL_VIDEO",
+      taskType: "IMAGE_AD",
       mediaType: ad.mediaType,
-      scenes: (Array.isArray(ad.scenes) ? ad.scenes : []).map((s: any) => ({
-        id: s.id ?? s._id ?? String(s.orderNumber ?? 0),
-        order: s.orderNumber,
-        image: s.imageUrl ?? "",
-        description: s.description ?? "",
-      })),
       duration: (ad.duration as number) ?? undefined,
       videoScript: ad.videoScript as any,
       // @ts-ignore

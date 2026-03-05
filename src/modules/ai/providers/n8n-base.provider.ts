@@ -57,8 +57,11 @@ export abstract class N8NBaseProvider {
       taskType === "SINGLE_SCENE"
     ) {
       url = config.webhook.n8nVideoScenesUrl;
-    } else if (taskType === "FINAL_VIDEO") {
-      url = config.webhook.n8nVideoAdUrl;
+    } else if (taskType === "FINAL_VIDEO" || taskType === "IMAGE_AD") {
+      url =
+        taskType === "IMAGE_AD"
+          ? config.webhook.n8nImageAdUrl
+          : config.webhook.n8nVideoAdUrl;
     } else if (taskType === "BASE_IMAGE") {
       // Differentiate between standalone image ad and video-flow base image
       url =

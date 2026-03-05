@@ -110,6 +110,10 @@ export class N8NCallbackService {
         await this.handleFinalVideoCallback(adId, isDraft, payload);
         break;
 
+      case "IMAGE_AD":
+        await this.handleImageAdCallback(adId, isDraft, payload);
+        break;
+
       default:
         this.logger.warn(`[N8NCallback] No handler for taskType: ${taskType}`);
     }
@@ -188,7 +192,7 @@ export class N8NCallbackService {
     isDraft: boolean,
     payload: N8NCallbackPayload,
   ): Promise<void> {
-    const { imageUrls, result, taskType } = payload as any;
+    const { imageUrls, result, taskType, scenes: dataScenes } = payload as any;
     const finalImageUrls = imageUrls || result?.imageUrls || [];
 
     // log the payload
@@ -199,7 +203,7 @@ export class N8NCallbackService {
     const scenes = finalImageUrls.map((url: string, index: number) => ({
       id: String(index + 1),
       imageUrl: url,
-      description: `Scene ${index + 1}`,
+      description: dataScenes[index] || "Scene " + (index + 1),
     }));
 
     if (isDraft) {
@@ -295,6 +299,66 @@ export class N8NCallbackService {
 
     this.logger.info(
       `[N8NCallback] SINGLE_SCENE done — adId=${adId} sceneId=${targetSceneId}`,
+    );
+  }
+
+  // ── IMAGE_AD ──────────────────────────────────────────────────────────────
+  // Handles callback for direct image ad generation (non-draft flow).
+
+  private async handleImageAdCallback(
+    adId: string,
+    isDraft: boolean,
+    payload: N8NCallbackPayload,
+  ): Promise<void> {
+    const { url, result, imageUrls } = payload;
+    const finalUrl =
+      url ||
+      result?.url ||
+      result?.imageUrl ||
+      imageUrls?.[0] ||
+      result?.imageUrls?.[0];
+
+    const allImageUrls =
+      imageUrls || result?.imageUrls || (finalUrl ? [finalUrl] : []);
+
+    this.logger.info(
+      `[N8NCallback] IMAGE_AD callback received — adId=${adId} isDraft=${isDraft} url=${finalUrl}`,
+    );
+
+    // Update the Ad record
+    const updateData: any = {
+      status: "COMPLETED" as AdStatus,
+      imageUrl: finalUrl,
+      imageUrls: allImageUrls,
+    };
+
+    const ad = await prisma.ad.update({
+      where: { id: adId },
+      data: updateData,
+    });
+
+    this.logger.info(
+      `[N8NCallback] Ad ${adId} updated (IMAGE_AD) — status=COMPLETED`,
+    );
+
+    const completedPayload = {
+      status: "COMPLETED" as const,
+      url: finalUrl,
+      imageUrls: allImageUrls,
+      taskType: payload.taskType,
+      adId: adId,
+      newId: adId,
+      ...updateData,
+    };
+
+    // Emit COMPLETED update
+    adsService.emitAdUpdate(adId, completedPayload);
+
+    // Deduct credits (non-blocking)
+    await this.deductCredits(adId, "IMAGE");
+
+    this.logger.info(
+      `[N8NCallback] IMAGE_AD done — adId=${adId} url=${finalUrl}`,
     );
   }
 
@@ -460,7 +524,10 @@ export class N8NCallbackService {
 
   // ── Credit Deduction ───────────────────────────────────────────────────────
 
-  private async deductCredits(adId: string, mediaType: string): Promise<void> {
+  private async deductCredits(
+    adId: string,
+    mediaType: MediaType,
+  ): Promise<void> {
     try {
       const ad = await prisma.ad.findUnique({
         where: { id: adId },
