@@ -376,10 +376,7 @@ export class N8NCallbackService {
     };
 
     await prisma.ad.update({ where: { id: targetAdId }, data: updateData });
-    await prisma.adDraft.update({
-      where: { id: adId },
-      data: { status: "COMPLETED" as AdStatus, videoUrl: finalUrl } as any,
-    });
+
     Logger.info(
       `[N8NCallback] Ad ${targetAdId} updated with status=COMPLETED url=${finalUrl}`,
     );
@@ -410,13 +407,13 @@ export class N8NCallbackService {
     await this.deductCredits(targetAdId, creditMediaType);
 
     // Clean up the draft
-    // await prisma.adDraft
-    //   .delete({ where: { id: payload?.adId } })
-    //   .catch((err) =>
-    //     Logger.warn(
-    //       `[AdsService] Failed to delete draft ${payload?.adId}: ${err.message}`,
-    //     ),
-    //   );
+    await prisma.adDraft
+      .delete({ where: { id: payload?.adId } })
+      .catch((err) =>
+        Logger.warn(
+          `[AdsService] Failed to delete draft ${payload?.adId}: ${err.message}`,
+        ),
+      );
 
     this.logger.info(
       `[N8NCallback] FINAL_VIDEO done — adId=${targetAdId} url=${finalUrl}`,
