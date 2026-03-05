@@ -371,7 +371,6 @@ export class N8NCallbackService {
     };
 
     // Emit REDIRECT on the old (draft) channel so frontend SSE hook
-    // switches its subscription to the new Ad ID before COMPLETED fires.
     if (targetAdId !== adId) {
       adsService.emitAdUpdate(adId, {
         status: "COMPLETED" as any,
