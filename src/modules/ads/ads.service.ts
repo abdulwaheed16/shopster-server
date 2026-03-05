@@ -99,6 +99,7 @@ export class AdsService implements IAdsService {
     // to preserve all nested fields (productId, source, imageUrl, etc.) correctly.
     const ad = await prisma.ad.create({
       data: {
+        id: draft.id, // Preserve the same ID to avoid frontend hydration issues
         userId: draft.userId,
         title: `Ad ${new Date().toLocaleDateString()}`,
         mediaType: draft.mediaType as MediaType,
