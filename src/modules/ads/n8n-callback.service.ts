@@ -3,6 +3,7 @@ import Logger from "../../common/logging/logger";
 import { prisma } from "../../config/database.config";
 import { creditsService } from "../billing/credits.service";
 import { adsService } from "./ads.service";
+import { AD_COSTS } from "./constants/ad-costs";
 
 export interface N8NCallbackPayload {
   adId: string;
@@ -115,8 +116,6 @@ export class N8NCallbackService {
   }
 
   // ── BASE_IMAGE / MODEL_IMAGE ───────────────────────────────────────────────
-  // Updates AdDraft with the returned image URL and marks task COMPLETED.
-  // Does NOT create an Ad — that only happens when FINAL_VIDEO succeeds.
 
   private async handleImageCallback(
     adId: string,
@@ -375,13 +374,13 @@ export class N8NCallbackService {
     // switches its subscription to the new Ad ID before COMPLETED fires.
     if (targetAdId !== adId) {
       adsService.emitAdUpdate(adId, {
-        status: "REDIRECT" as any,
+        status: "COMPLETED" as any,
         newId: targetAdId,
         adId: targetAdId,
         taskType: payload.taskType,
       });
       Logger.info(
-        `[N8NCallback] REDIRECT emitted on old id=${adId} → newId=${targetAdId}`,
+        `[N8NCallback] COMPLETED emitted on old id=${adId} → newId=${targetAdId}`,
       );
     }
 
@@ -469,7 +468,7 @@ export class N8NCallbackService {
       });
       if (!ad) return;
 
-      const creditCost = mediaType === "VIDEO" ? 10 : 1;
+      const creditCost = AD_COSTS[mediaType as MediaType];
       await creditsService.deductCredits(
         ad.userId,
         creditCost,
